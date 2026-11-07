@@ -2,10 +2,6 @@ name: Block A student skeleton static and expected RED
 on:
   push:
     branches: [feat/block-a-d01-d03-todo-20261106]
-  pull_request:
-    paths:
-      - 'block_A/**'
-      - '.github/workflows/block-a-student-skeleton.yml'
 permissions:
   contents: read
 jobs:
