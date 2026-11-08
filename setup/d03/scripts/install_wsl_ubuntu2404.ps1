@@ -40,4 +40,4 @@ if ($known -match 'Ubuntu-24\.04') {
 Write-Host '[STEP 4] Verify version and initialize Linux user:' -ForegroundColor Cyan
 & wsl.exe --list --verbose
 Write-Host 'If prompted: RESTART Windows; launch Ubuntu-24.04 and create your Linux username/password.' -ForegroundColor Yellow
-Write-Host 'Then run scripts/install_ubuntu2404_jazzy_harmonic.sh INSIDE Ubuntu (not PowerShell).'
+Write-Host 'Then run setup/d03/scripts/install_ubuntu2404_jazzy_harmonic.sh INSIDE Ubuntu (not PowerShell).'

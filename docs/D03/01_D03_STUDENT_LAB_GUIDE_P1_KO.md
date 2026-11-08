@@ -3,7 +3,7 @@
 - 과정: D03 (19:00–23:00), **실습 21:00–23:00 / 120분**
 - 기준: ROS 2 Jazzy + Ubuntu 24.04 + Gazebo Harmonic의 교육용 P1. 필수 과제는 Python 3.12/pytest만 사용하며 **Gazebo 실행은 필수 아님**.
 - 학생 저장소: <https://github.com/silverbjin/axia-robot-safety-student>
-- 배포용 **기능 브랜치**: `feat/d03-p1-diagnostics-adapter-tdd` / 검토 당시 SHA `88b8fb97274150c9e2dfbc1b4e5fcf7eb9b91b94`.
+- 배포용 **기능 브랜치**: `D03` / 검토 당시 SHA `afbdfdc3df205d373dbae695683b42dacf0632e9`.
 - 학생 `main`에는 아직 실습 파일이 없으므로 `main`을 Clone하지 않는다. 강사가 별도 릴리스를 확정하면 SHA/태그를 그 값으로 교체한다.
 - 핵심 안전 문장: **ROS Diagnostics의 OK=이동 승인 아님. SW Stop≠인증된 하드웨어 E-Stop.**
 
@@ -22,12 +22,12 @@ Windows는 WSL2 Ubuntu 24.04, Linux는 Ubuntu 24.04, macOS는 **검증된 교육
 python3 --version
 # 권장: Python 3.12.x. Python 3.13에서도 순수 Python 시험 가능하나 강사 검증판과 구분
 
-git clone --branch feat/d03-p1-diagnostics-adapter-tdd --single-branch \
+git clone --branch D03 --single-branch \
   https://github.com/silverbjin/axia-robot-safety-student.git
 cd axia-robot-safety-student
 
 git rev-parse HEAD
-# 기준 파일 검증 시: 88b8fb97274150c9e2dfbc1b4e5fcf7eb9b91b94
+# 기준 파일 검증 시: afbdfdc3df205d373dbae695683b42dacf0632e9
 
 git switch -c work/d03-myname
 python3 -m venv .venv

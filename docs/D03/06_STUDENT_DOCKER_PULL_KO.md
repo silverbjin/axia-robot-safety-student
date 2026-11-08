@@ -11,7 +11,7 @@
 docker pull --platform linux/amd64 silverbjin/axia-d03-lab:jazzy-harmonic-v1
 mkdir -p axia-d03-workspace
 cd axia-d03-workspace
-git clone --branch feat/d03-p1-diagnostics-adapter-tdd --single-branch \
+git clone --branch D03 --single-branch \
   https://github.com/silverbjin/axia-robot-safety-student.git
 
 docker run --rm -it --platform linux/amd64 \
