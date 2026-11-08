@@ -1,0 +1,26 @@
+{
+  "source": "SYNTHETIC_COURSE_FIXTURE",
+  "schema_version": 1,
+  "unit": "m",
+  "aligned_to_rgb": true,
+  "samples": [
+    {
+      "frame_id": "f001",
+      "frame_stamp_s": 1.0,
+      "depth_stamp_s": 1.02,
+      "depth_m": [[2, 2, 2, 2], [2, 1.0, 1.2, 2], [2, 1.4, 1.6, 2], [2, 2, 2, 2]]
+    },
+    {
+      "frame_id": "f002",
+      "frame_stamp_s": 2.0,
+      "depth_stamp_s": 2.20,
+      "depth_m": [[2, 2, 2, 2], [2, 1.0, 1.2, 2], [2, 1.4, 1.6, 2], [2, 2, 2, 2]]
+    },
+    {
+      "frame_id": "f003",
+      "frame_stamp_s": 3.0,
+      "depth_stamp_s": 3.01,
+      "depth_m": [[0, "NaN", 2, 2], ["Infinity", 0.9, 2, 2], [2, 2, 2, 2], [2, 2, 2, 2]]
+    }
+  ]
+}

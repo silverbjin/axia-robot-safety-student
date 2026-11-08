@@ -1,0 +1,65 @@
+name: Block B D04 D05 lightweight Python (no ROS)
+on:
+  push:
+    branches:
+      - 'feature/block-b-*'
+      - 'work/block-b-*'
+  pull_request:
+    paths:
+      - 'block_B/**'
+      - '.github/workflows/block-b-python.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scaffold-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install minimal pytest (no ROS or Gazebo)
+        run: python -m pip install pytest==8.3.5
+      - name: Detect forbidden instructor/private files
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          forbidden = ('solution', 'hidden', 'private', 'credential', 'instructor', '.pt', '.onnx')
+          leaked = [str(p) for p in Path('block_B').rglob('*') if p.is_file() and any(k in p.name.lower() for k in forbidden)]
+          assert not leaked, leaked
+          PY
+      - name: Validate fixture integrity and syntax
+        run: |
+          python -m compileall -q block_B
+          mkdir -p results
+          python -m pytest -q block_B/tests/test_fixture_io.py --junitxml=results/block-b-scaffold.xml
+      - name: Upload scaffold JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: block-b-scaffold-junit
+          path: results/block-b-scaffold.xml
+          if-no-files-found: ignore
+  student-green:
+    if: startsWith(github.ref, 'refs/heads/work/block-b-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest==8.3.5
+      - name: Student-completed TODO public tests (expected RED before completion)
+        run: |
+          mkdir -p results
+          python -m pytest -q block_B/tests --junitxml=results/block-b-public.xml
+      - name: Upload public JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: block-b-public-junit
+          path: results/block-b-public.xml
+          if-no-files-found: ignore
