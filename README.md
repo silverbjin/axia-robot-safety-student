@@ -1,35 +1,70 @@
-# AXIA D03 — P1 MVP 기반 ROS Diagnostics · Safe Mode 통합 실습
+# AXIA D03 v3 — P1 공유형 ROS Diagnostics · Safe Mode 3시간 실습
 
-**Student 공개 패키지 / 배포 브랜치 `D03` / 2시간 실습 / Python 3.12 기준**
+**학생 공개 저장소 / 브랜치 D03_v3 / 180분 / ROS 2 Jazzy + Gazebo Harmonic + TurtleBot3 Waffle**
 
-목표: (1) P1의 상태 JSON을 ROS Diagnostics 상태 데이터로 변환하는 과정을 이해한다. (2) 이상 상태에서 단계적인 Safe Mode와 수동 복구 원칙을 구현한다.
+이번 버전에서는 **P1 학생용 소프트웨어 런타임을 함께 제공**한다. 학생이 Gazebo에서 P1 상태·LiDAR 장애·안전정지를 관측하고 두 가지 순수 Python 함수를 구현한다.
 
-> 이 패키지는 **합성 데이터로만 실습**한다. ROS 2·Gazebo 및 실물 로봇이 없어도 필수 실습이 실행된다. `NORMAL_CANDIDATE`와 `DiagnosticStatus.OK`는 주행 승인 아님. 소프트웨어 정지는 인증된 HW E-Stop이 아니다.
+- **실습 ① P1 기준선:** 공식 Nav2와 Waffle, P1 Safety Supervisor / Fault Injector / Scenario Verifier를 재사용
+- **실습 ② Diagnostics:** P1 JSON 상태 → diagnostic_msgs/DiagnosticStatus(level 0/1/2/3)
+- **실습 ③ Safe Mode:** 상태 후보 판단, 보호정지·수동 복구 래치
+- **실습 ④ Gazebo:** 사람형 교육용 proxy 8단계 이동, 기존 P1 scan_drop, 실제 P1 상태/odom 관측
+- **실습 ⑤ 사건 분석:** 원인 선후관계 증거·HOLD/END 보고서
 
-## 빠른 시작
+학생이 수정할 파일은 **block_A/day03/p1_adapter_todo.py** 와 **block_A/day03/todo_safety.py** 두 개뿐이다.
+P1 FSM, Command Gate, 공식 Collision Monitor, Fault Injector 코드를 수정하거나 안전 임계값을 완화하지 않는다.
+
+## 학생용 3시간 가이드
+
+- [전체 180분 실습 가이드](block_A/day03/v3/README_D03_V3_LAB_KO.md)
+- [P1 학생 공유 설계/인수 기준](block_A/day03/v3/DESIGN_D03_V3_KO.md)
+- [학생 제출용 현장 대응 보고서](block_A/day03/v3/REPORT_D03_V3_KO.md)
+- [P1 소스 출처·45개 blob SHA](block_A/day03/v3/P1_RUNTIME_SOURCE_MANIFEST.json)
+- [단일 실행 진입점](block_A/day03/v3/scripts/classroom.sh)
+- [공개 CI (ROS-free 배포 검증)](.github/workflows/d03-v3-public-ci.yml)
+
+## 최초 준비 (환경 설치는 수업 전)
 
 ~~~bash
-git clone --branch D03 --single-branch https://github.com/silverbjin/axia-robot-safety-student.git
-cd axia-robot-safety-student
+git clone --branch D03_v3 --single-branch \
+  https://github.com/silverbjin/axia-robot-safety-student.git \
+  "$HOME/axia_d03_v3_student"
+cd "$HOME/axia_d03_v3_student"
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install pytest==8.3.5
-bash block_A/day03/scripts/run_lab.sh preflight
-bash block_A/day03/scripts/run_lab.sh inspect
-bash block_A/day03/scripts/run_lab.sh red    # TODO 초기 22 failed / 8 passed가 정상
+python3 -m pip install pytest==8.3.5
+deactivate
+bash block_A/day03/v3/scripts/classroom.sh session
+bash block_A/day03/v3/scripts/classroom.sh prepare
 ~~~
 
-수정할 파일: `block_A/day03/p1_adapter_todo.py`(핵심 함수 1개), `block_A/day03/todo_safety.py`(핵심 함수 1개). 이외 러너·ROS 브리지·fixture·테스트는 수정하지 않는다.
+위 명령은 **Python/Jazzy/Harmonic/공식 Nav2/TB3와 colcon이 사전 설치**되었다는 전제다. 스크립트는 자식 Bash로 실행하므로 오류 시 상위 터미널은 종료하지 않는다. P1 실제 Goal/Fault는 자동 실행하지 않는다.
 
 ~~~bash
+# 학생 TODO 시작 (Python 실습)
+source .venv/bin/activate
+bash block_A/day03/scripts/run_lab.sh inspect
+bash block_A/day03/scripts/run_lab.sh red
+# 함수 2개 완성 후:
 bash block_A/day03/scripts/run_lab.sh green
 bash block_A/day03/scripts/run_lab.sh run
+deactivate
 ~~~
 
-* 실습 안내: [`block_A/day03/README_D03_KO.md`](block_A/day03/README_D03_KO.md)
-* 응용 문제 2개: [`block_A/day03/CHALLENGES_KO.md`](block_A/day03/CHALLENGES_KO.md)
-* 결과 보고서: [`block_A/day03/REPORT_TEMPLATE_KO.md`](block_A/day03/REPORT_TEMPLATE_KO.md)
-* ROS 선택 실습: `block_A/day03/ros_diagnostics_bridge.py`, `block_A/day03/scripts/d03_synthetic_ros_publisher.py` (격리 도메인, 강사 사전 확인)
-* 공개 GREEN CI: `.github/workflows/d03-green-grading.yml` (개인 Fork 또는 D03 대상 PR)
+기존 TODO 초기 RED는 의도된 단계다. 최종 기준은 공개 필수 테스트 30개 GREEN, 합성 9개 사례 실패 0개다.
+ROS Bridge와 Gazebo는 별도 **실제** 실행 확인이 필요하다.
 
-**실행 구분**: ROS runtime, Gazebo, P1 실제 Goal·Fault 인수는 별도이며 학생 테스트 PASS로 대체할 수 없다. 학생에게 강사 정답/Hidden Tests를 배포하지 않는다.
+~~~bash
+# 도움말: 세션/World 경로/Preview/Live/증거 판정
+bash block_A/day03/v3/scripts/classroom.sh --help
+~~~
+
+## 배포 및 안전 경계
+
+- 공유 런타임 출처: Instructor 저장소 **0be687ee033233fcd53be1190e0b2f9e86730fc9** 중 공개 가능한 P1+D3 실행 소스 **45개**, Git blob SHA 검증.
+- ROS 2 설치 파일은 Git에 복제하지 않고 공식 Jazzy/Nav2/TurtleBot3를 사용한다.
+- 강사용 Reference 정답·비공개 채점·인수 증거·자격증명은 배포하지 않는다.
+- 교육용 Diagnostics가 OK라고 주행 승인인 것은 아니다.
+- **Software Stop과 Collision Monitor는 인증된 하드웨어 E-Stop이 아니다.**
+- Gazebo 동적 시연 성공은 실제 GUI·TF/Nav2·P1 Goal·Fault→진단→odom 정지 증거가 갖춰졌을 때만 보고한다.
+- 공개 CI는 Python/정적 배포 검증이며 ROS 2 Gazebo 실주행 PASS를 의미하지 않는다.
+- main 브랜치 병합은 운영자 별도 승인 전까지 수행하지 않는다.
