@@ -1,0 +1,18 @@
+{
+  "schema": "axia.d06.distance_fixture.v1",
+  "source": "educational synthetic ranges; NOT real Nav2 or Gazebo",
+  "units": "m",
+  "stop_radius_m": 0.40,
+  "slowdown_radius_m": 0.75,
+  "slowdown_ratio": 0.30,
+  "max_age_s": 0.50,
+  "samples": [
+    {"id": "d06_clear", "distance_m": 1.20, "age_s": 0.0, "valid": true, "expected": "CLEAR"},
+    {"id": "d06_slow", "distance_m": 0.65, "age_s": 0.0, "valid": true, "expected": "SLOWDOWN"},
+    {"id": "d06_stop", "distance_m": 0.30, "age_s": 0.0, "valid": true, "expected": "STOP"},
+    {"id": "d06_boundary_stop", "distance_m": 0.40, "age_s": 0.0, "valid": true, "expected": "STOP"},
+    {"id": "d06_boundary_slow", "distance_m": 0.75, "age_s": 0.0, "valid": true, "expected": "SLOWDOWN"},
+    {"id": "d06_stale", "distance_m": 0.65, "age_s": 0.51, "valid": true, "expected": "UNKNOWN"},
+    {"id": "d06_lost", "distance_m": null, "age_s": 0.0, "valid": false, "expected": "UNKNOWN"}
+  ]
+}
