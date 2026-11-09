@@ -1,0 +1,31 @@
+name: D07 student fixture scaffold (TODO expected RED)
+on:
+  push:
+    branches: ['feature/d07-human-aware-todo-20261110']
+    paths:
+      - 'block_B/day07/**'
+      - '.github/workflows/d07-student-fixture.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check public synthetic fixture only
+        run: |
+          set -euo pipefail
+          python -m pip install -q pytest==8.3.5
+          python -m compileall -q block_B/day07
+          python -m pytest -q block_B/day07/tests/test_d07_public.py::test_fixture_schema
+          grep -Fq TODO_D07_ROUTE_OBSTACLE block_B/day07/route_todo.py
+          grep -Fq TODO_D07_REPLAN_EVIDENCE block_B/day07/route_todo.py
+          test ! -e block_B/day07/d07_route_reference.py
+          echo "D07_STUDENT_FIXTURE_PASS; STUDENT_TODO_EXPECTED_RED"
