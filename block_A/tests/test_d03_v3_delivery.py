@@ -190,6 +190,43 @@ class D03V3DeliveryTests(unittest.TestCase):
             text=(ROOT/"block_A/day03"/name).read_text()
             self.assertIn("TODO_NOT_IMPLEMENTED",text)
 
+    def test_p1_student_setup_shell_is_safe_and_help_is_ros_free(self):
+        setup = ROOT / "scripts/p1_d03_v3_student_setup.sh"
+        self.assertTrue(setup.is_file(), str(setup))
+        subprocess.run(["bash", "-n", str(setup)], check=True)
+        p = subprocess.run(["bash", str(setup), "--help"],
+                           text=True, capture_output=True, timeout=12)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        for required in ("--install-deps", "--prepare", "--check"):
+            self.assertIn(required, p.stdout)
+        source = setup.read_text(encoding="utf-8")
+        for package in ("ros-jazzy-nav2-bringup",
+                        "ros-jazzy-nav2-minimal-tb3-sim",
+                        "ros-jazzy-ros-gz",
+                        "python3-colcon-common-extensions"):
+            self.assertIn(package, source)
+        for forbidden in ("reset --hard", "git clean -fd", "rm -rf",
+                          "ros2 action send_goal", "ros2 topic pub /cmd_vel",
+                          "/axia/fault/scan_drop", "/axia/safety/rearm"):
+            self.assertNotIn(forbidden, source)
+
+    def test_p1_install_and_basic_run_guide_matches_real_shared_runtime(self):
+        guide = ROOT / "docs/P1/P1_STUDENT_INSTALL_BASIC_RUN_JAZZY_HARMONIC_KO.md"
+        self.assertTrue(guide.is_file(), str(guide))
+        content = guide.read_text(encoding="utf-8")
+        for name in REQUIRED_PKG:
+            self.assertIn(name, content)
+        for token in ("Ubuntu 24.04", "ROS 2 Jazzy", "Gazebo Harmonic",
+                      "bash scripts/p1_d03_v3_student_setup.sh --install-deps",
+                      "bash scripts/p1_d03_v3_student_setup.sh --prepare",
+                      "bash block_A/day03/v3/scripts/classroom.sh launch",
+                      "source \"$HOME/axia_d3_v3_classroom/session.env\"",
+                      "ros2 topic echo /axia/safety/state",
+                      "NO GOAL", "NOT_RUN", "E-Stop"):
+            self.assertIn(token, content)
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("docs/P1/P1_STUDENT_INSTALL_BASIC_RUN_JAZZY_HARMONIC_KO.md", readme)
+
     def test_guides_and_ci_present(self):
         for path in ("README.md", "block_A/day03/v3/README_D03_V3_LAB_KO.md",
                      "block_A/day03/v3/DESIGN_D03_V3_KO.md",
