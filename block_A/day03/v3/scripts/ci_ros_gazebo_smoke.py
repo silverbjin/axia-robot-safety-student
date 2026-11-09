@@ -48,7 +48,7 @@ def wait_topic(name, expected_type, env, seconds):
         # sensor streams must match best_effort Gazebo publisher QoS.
         args = ["ros2", "topic", "echo", name, "--once", "--field", "header"]
         if name in ("/clock", "/axia/safety/state", "/axia/fault/status"):
-            args = ["ros2", "topic", "echo", name, "--once"]
+            args = ["ros2", "topic", "echo", name, "--once", "--full-length"]
         if name == "/scan":
             args += ["--qos-reliability", "best_effort"]
         try:
