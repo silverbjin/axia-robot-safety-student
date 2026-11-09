@@ -1,0 +1,32 @@
+name: D06 student TODO fixture scaffold (not student GREEN)
+on:
+  push:
+    branches: ['feature/d06-safety-bubble-todo-20261110']
+    paths:
+      - 'block_B/day06/**'
+      - '.github/workflows/d06-student-todo-scaffold.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scaffold:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate public fixed data and TODO separation only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -q pytest==8.3.5
+          python -m compileall -q block_B/day06
+          python -m pytest -q block_B/day06/tests/test_d06_public.py::test_fixture_shape
+          grep -Fq 'TODO_D06_CLASSIFY_RANGE' block_B/day06/safety_bubble_todo.py
+          grep -Fq 'TODO_D06_BUBBLE_POLICY' block_B/day06/safety_bubble_todo.py
+          test ! -e block_B/day06/d06_bubble_reference.py
+          echo "D06_STUDENT_SCAFFOLD_PASS; GREEN_TODO_EXPECTED_RED"
