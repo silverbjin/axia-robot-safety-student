@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Student documented --install-deps: official Jazzy, Harmonic, Nav2, Waffle
+      - name: Run documented student install-deps for Jazzy Harmonic Nav2 Waffle
         shell: bash
         run: |
           set -eo pipefail
@@ -44,7 +44,7 @@ jobs:
           ros2 pkg prefix ros_gz_sim
           gz sim --versions || gz sim --help | head -20
           python3 -m py_compile block_A/day03/v3/scripts/ci_ros_gazebo_smoke.py
-      - name: Student documented --prepare / --check: real five-package colcon build
+      - name: Run documented student prepare and check with real colcon
         shell: bash
         run: |
           set -eo pipefail
