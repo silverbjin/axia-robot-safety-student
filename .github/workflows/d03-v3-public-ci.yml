@@ -1,0 +1,35 @@
+name: D03 v3 P1 student package delivery (fast, no ROS)
+on:
+  push:
+    branches: [D03_v3]
+  pull_request:
+    branches: [D03_v3]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: axia-d03-v3-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  classroom-package-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Python version and shell
+        run: |
+          python3 --version
+          bash --version | head -n 1
+      - name: Delivery integrity and fail-closed regression (student TODO remains RED)
+        run: |
+          python3 -m unittest discover -v -s block_A/tests -p test_d03_v3_delivery.py
+      - name: Python syntax and ROS-free source parsing
+        run: |
+          python3 -m compileall -q ros2_ws/src block_A/day03
+          bash -n block_A/day03/v3/scripts/classroom.sh
+      - name: Existing D03 fixture inspection
+        run: |
+          PYTHONPATH=block_A/day03 python3 block_A/day03/lab_runtime.py inspect
+          echo D03_V3_PUBLIC_DISTRIBUTION_CI_PASS_NOT_ROS_GAZEBO
