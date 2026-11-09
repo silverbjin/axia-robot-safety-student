@@ -147,6 +147,12 @@ class D03V3DeliveryTests(unittest.TestCase):
             self.assertNotEqual(p.returncode,0)
             self.assertIn("[BLOCKED]",p.stderr+p.stdout)
 
+    def test_student_green_uses_venv_without_shadowing_ros_python(self):
+        runner = (LAB / "scripts/classroom.py").read_text(encoding="utf-8")
+        self.assertIn('venv_bin = ROOT / ".venv/bin"', runner)
+        self.assertIn('tests_env["PATH"]', runner)
+        self.assertIn('"/usr/bin/python3"', runner)
+
     def test_student_bridge_is_readonly(self):
         bridge=(ROOT/"block_A/day03/ros_diagnostics_bridge.py").read_text()
         self.assertIn('"/diagnostics"',bridge)
