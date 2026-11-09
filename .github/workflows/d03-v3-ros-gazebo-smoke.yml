@@ -48,7 +48,7 @@ jobs:
           ros2 pkg prefix ros_gz_sim
           gz sim --versions || gz sim --help | head -20
           python3 -m py_compile block_A/day03/v3/scripts/ci_ros_gazebo_smoke.py
-      - name: Actual colcon build of four shared P1 and D3 packages
+      - name: Actual colcon build of five shared P1 and D3 packages
         shell: bash
         run: |
           set -eo pipefail
@@ -57,14 +57,14 @@ jobs:
           set -u
           mkdir -p results/d03-v3-ros-gazebo
           colcon build --base-paths ros2_ws/src --symlink-install \
-            --packages-select axia_safety_supervisor axia_fault_injector \
+            --packages-select axia_safety_bringup axia_safety_supervisor axia_fault_injector \
               axia_scenario_verifier axia_d3_demo \
             --event-handlers console_direct+ \
             2>&1 | tee results/d03-v3-ros-gazebo/colcon.log
           set +u
           source install/setup.bash
           set -u
-          for pkg in axia_safety_supervisor axia_fault_injector axia_scenario_verifier axia_d3_demo; do
+          for pkg in axia_safety_bringup axia_safety_supervisor axia_fault_injector axia_scenario_verifier axia_d3_demo; do
             ros2 pkg prefix "$pkg"
           done
           ros2 pkg executables axia_d3_demo

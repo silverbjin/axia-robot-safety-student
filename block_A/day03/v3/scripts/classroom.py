@@ -31,7 +31,7 @@ ROUTE = WORK / "route.env"
 P1_LAUNCH = SRC / "axia_safety_bringup/launch/axia_tb3_p1.launch.py"
 ROS = Path("/opt/ros/jazzy/setup.bash")
 INSTALL = ROOT / "install/setup.bash"
-PACKAGES = ("axia_safety_supervisor", "axia_fault_injector",
+PACKAGES = ("axia_safety_bringup", "axia_safety_supervisor", "axia_fault_injector",
             "axia_scenario_verifier", "axia_d3_demo")
 MARKER = "AXIA_D3_V3_SIM_ONLY"
 RUN_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,39}$")
@@ -310,7 +310,7 @@ def launch(env):
         refuse("Gazebo WSLg GUI display not configured")
     approve("YES-D3-SIM", "Run isolated Waffle simulator (no Goal automatically)?")
     env.pop("QT_QPA_PLATFORM", None) if env.get("QT_QPA_PLATFORM") == "offscreen" else None
-    cmd = ["ros2", "launch", str(P1_LAUNCH), "headless:=False",
+    cmd = ["ros2", "launch", "axia_safety_bringup", "axia_tb3_p1.launch.py", "headless:=False",
            "use_rviz:=False", "autostart:=false", "use_composition:=False",
            "allow_fault_injection:=true"]
     must_run(ros_call(cmd, env=env, cwd=ROOT), "P1 Gazebo launch")

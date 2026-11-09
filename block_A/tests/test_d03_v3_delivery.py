@@ -20,7 +20,7 @@ SCRIPT = ROOT / "block_A/day03/v3/scripts/classroom.sh"
 LAB = ROOT / "block_A/day03/v3"
 PKG = ROOT / "ros2_ws/src"
 MANIFEST = LAB / "P1_RUNTIME_SOURCE_MANIFEST.json"
-REQUIRED_PKG = ("axia_safety_supervisor", "axia_fault_injector",
+REQUIRED_PKG = ("axia_safety_bringup", "axia_safety_supervisor", "axia_fault_injector",
                 "axia_scenario_verifier", "axia_d3_demo")
 
 
@@ -152,6 +152,21 @@ class D03V3DeliveryTests(unittest.TestCase):
         self.assertIn('venv_bin = ROOT / ".venv/bin"', runner)
         self.assertIn('tests_env["PATH"]', runner)
         self.assertIn('"/usr/bin/python3"', runner)
+
+    def test_ros_launch_is_packaged_not_passed_as_path(self):
+        from pathlib import Path
+        pkg = PKG / "axia_safety_bringup"
+        self.assertTrue((pkg / "package.xml").is_file())
+        self.assertTrue((pkg / "setup.py").is_file())
+        self.assertTrue((pkg / "resource/axia_safety_bringup").is_file())
+        setup = (pkg / "setup.py").read_text()
+        self.assertIn("glob('launch/*.py')", setup)
+        for name in ("ci_ros_gazebo_smoke.py", "classroom.py"):
+            src = (LAB / "scripts" / name).read_text()
+            self.assertIn('"ros2", "launch", "axia_safety_bringup", "axia_tb3_p1.launch.py"', src)
+            self.assertNotIn('"ros2", "launch", str(', src)
+        ci = (LAB / "scripts/ci_ros_gazebo_smoke.py").read_text()
+        self.assertIn("parents[4]", ci)
 
     def test_student_bridge_is_readonly(self):
         bridge=(ROOT/"block_A/day03/ros_diagnostics_bridge.py").read_text()

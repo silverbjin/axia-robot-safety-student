@@ -18,7 +18,7 @@ import subprocess
 import sys
 import time
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 SOURCE = ROOT / "ros2_ws/src"
 LAUNCH = SOURCE / "axia_safety_bringup/launch/axia_tb3_p1.launch.py"
 MODEL = SOURCE / "axia_d3_demo/models/pedestrian_proxy.sdf"
@@ -164,7 +164,7 @@ def execute(output, timeout_sec):
         "certified_estop": False, "gui_verified": False,
         "result": "BLOCKED", "checks": {},
     }
-    command = ["ros2", "launch", str(LAUNCH), "headless:=True",
+    command = ["ros2", "launch", "axia_safety_bringup", "axia_tb3_p1.launch.py", "headless:=True",
                "use_rviz:=False", "autostart:=false",
                "use_composition:=False", "use_respawn:=False",
                "allow_fault_injection:=true"]
