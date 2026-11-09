@@ -57,7 +57,9 @@ def wait_topic(name, expected_type, env, seconds):
                 typ = subprocess_run(["ros2", "topic", "type", name], env=env, timeout=8)
                 if typ.returncode == 0 and typ.stdout.strip() == expected_type:
                     return {"status": "MESSAGE_OBSERVED", "type": typ.stdout.strip(),
-                            "attempts": attempts, "excerpt": r.stdout[:900]}
+                            "attempts": attempts, "excerpt": r.stdout[:1600],
+                            "uncertified": ("stop_is_certified_estop" in r.stdout
+                                            and "stop_is_certified_estop\": false" in r.stdout)}
                 error = "UNEXPECTED_TOPIC_TYPE:" + typ.stdout.strip() + typ.stderr[-150:]
             else:
                 error = (r.stderr or r.stdout)[-350:] or "NO_TOPIC_DATA"
@@ -185,7 +187,7 @@ def execute(output, timeout_sec):
                 result["checks"][topic] = entry
                 if entry["status"] != "MESSAGE_OBSERVED":
                     raise RuntimeError("P1_TOPIC_MISSING:" + topic + ":" + entry.get("error", ""))
-            if "stop_is_certified_estop" not in result["checks"]["/axia/safety/state"]["excerpt"]:
+            if not result["checks"]["/axia/safety/state"]["uncertified"]:
                 raise RuntimeError("P1_STATE_CERTIFICATION_FLAG_MISSING")
             if deadline - time.monotonic() < 15:
                 raise RuntimeError("GAZEBO_DEADLINE_BEFORE_MODEL")
