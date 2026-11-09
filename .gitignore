@@ -4,3 +4,11 @@ __pycache__/
 *.py[cod]
 results/
 .DS_Store
+# D03 v3 ROS 2 colcon generated artifacts (never publish local ROS build)
+/build/
+/install/
+/log/
+/ros2_ws/build/
+/ros2_ws/install/
+/ros2_ws/log/
+/axia_d3_v3_classroom/
