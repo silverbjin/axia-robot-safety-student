@@ -168,6 +168,17 @@ class D03V3DeliveryTests(unittest.TestCase):
         ci = (LAB / "scripts/ci_ros_gazebo_smoke.py").read_text()
         self.assertIn("parents[4]", ci)
 
+    def test_actual_ros_smoke_checks_sw_stop_without_goal_or_fault(self):
+        code = (LAB / "scripts/ci_ros_gazebo_smoke.py").read_text()
+        self.assertIn("def verify_software_stop_without_goal(", code)
+        self.assertIn('"/axia/safety/request_sw_stop"', code)
+        self.assertIn('"/cmd_vel_supervised"', code)
+        self.assertIn('"SW_STOP_LATCHED"', code)
+        self.assertIn('"stop_is_certified_estop"', code)
+        self.assertIn("physical_stop_from_motion_verified", code)
+        self.assertIn('"nav2_goal_sent": False', code)
+        self.assertIn('"fault_injection_sent": False', code)
+
     def test_student_bridge_is_readonly(self):
         bridge=(ROOT/"block_A/day03/ros_diagnostics_bridge.py").read_text()
         self.assertIn('"/diagnostics"',bridge)

@@ -121,6 +121,68 @@ def preview_proxy(world, env, output):
             "poses": poses, "gui_render_verified": False, "moving_human_verified": False}
 
 
+
+def verify_software_stop_without_goal(env, output):
+    """Real P1 SW_STOP latch through ROS, from BOOT_SAFE with no Goal issued.
+
+    This is NOT a test of stopping a moving robot, scanning faults,
+    P1 terminal Cancel, physical E-Stop, or Gazebo contact protection.
+    """
+    import yaml
+    call = subprocess_run([
+        "ros2", "service", "call", "/axia/safety/request_sw_stop",
+        "std_srvs/srv/Trigger", "{}"
+    ], env=env, timeout=24)
+    (output / "sw_stop_service.log").write_text(call.stdout + "\n" + call.stderr)
+    if call.returncode or not re.search(
+        r"\bsuccess\s*(?:=|:)\s*true\b", call.stdout, re.IGNORECASE
+    ):
+        raise RuntimeError("P1_SW_STOP_SERVICE_NOT_ACCEPTED:" +
+                           (call.stdout + call.stderr)[-350:])
+
+    state_call = subprocess_run([
+        "ros2", "topic", "echo", "/axia/safety/state", "--once", "--full-length"
+    ], env=env, timeout=22)
+    (output / "sw_stop_state.log").write_text(state_call.stdout + "\n" + state_call.stderr)
+    if state_call.returncode:
+        raise RuntimeError("P1_SW_STOP_STATE_NOT_OBSERVED")
+    states = [x for x in yaml.safe_load_all(state_call.stdout) if isinstance(x, dict)]
+    if not states or not isinstance(states[0].get("data"), str):
+        raise RuntimeError("P1_SW_STOP_STATE_INVALID_ROS_MESSAGE")
+    payload = json.loads(states[0]["data"])
+    if payload.get("state") != "SW_STOP_LATCHED" or payload.get(
+        "stop_is_certified_estop") is not False:
+        raise RuntimeError("P1_SW_STOP_NOT_LATCHED_OR_BAD_ESTOP_FLAG")
+
+    out = subprocess_run([
+        "ros2", "topic", "echo", "/cmd_vel_supervised", "--once", "--full-length"
+    ], env=env, timeout=22)
+    (output / "sw_stop_cmd_vel.log").write_text(out.stdout + "\n" + out.stderr)
+    if out.returncode:
+        raise RuntimeError("P1_SUPERVISED_ZERO_TWIST_NOT_OBSERVED")
+    twists = [x for x in yaml.safe_load_all(out.stdout) if isinstance(x, dict)]
+    try:
+        values = [
+            float(twists[0][component][axis])
+            for component in ("linear", "angular")
+            for axis in ("x", "y", "z")
+        ]
+    except (IndexError, TypeError, KeyError, ValueError) as e:
+        raise RuntimeError("P1_SUPERVISED_TWIST_INVALID") from e
+    if not all(abs(v) <= 1e-9 for v in values):
+        raise RuntimeError("P1_SUPERVISED_TWIST_NONZERO_AFTER_STOP")
+
+    return {
+        "status": "REAL_P1_SW_STOP_LATCHED_AND_ZERO_TWIST",
+        "p1_state": payload["state"],
+        "stop_is_certified_estop": False,
+        "supervised_twist": values,
+        "motion_was_requested": False,
+        "physical_stop_from_motion_verified": False,
+        "fault_injection": False,
+    }
+
+
 def sha256_file(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -156,7 +218,7 @@ def execute(output, timeout_sec):
         "LIBGL_ALWAYS_SOFTWARE": "1", "AXIA_P0_SIM_ONLY": "1",
     })
     result = {
-        "scope": "REAL_ROS2_GAZEBO_P1_D3_HEADLESS_NO_GOAL_NO_FAULT",
+        "scope": "REAL_ROS2_GAZEBO_P1_D3_HEADLESS_NO_GOAL_NO_FAULT_SW_STOP",
         "source_commit": env.get("GITHUB_SHA", "LOCAL_UNVERIFIED"),
         "target_model": "TurtleBot3 Waffle", "ros": "Jazzy", "gazebo": "Harmonic",
         "simulation_only": True, "nav2_goal_sent": False,
@@ -194,6 +256,8 @@ def execute(output, timeout_sec):
             world = wait_world(env, min(65, deadline - time.monotonic()))
             result["checks"]["world"] = world
             result["checks"]["proxy"] = preview_proxy(world, env, output)
+            result["checks"]["software_stop"] = verify_software_stop_without_goal(env, output)
+            result["software_stop_verified"] = True
             result["result"] = "REAL_ROS_GAZEBO_HEADLESS_SMOKE_PASS"
         except (OSError, RuntimeError, subprocess.TimeoutExpired, AssertionError) as e:
             result["error"] = type(e).__name__ + ":" + str(e)[:650]
