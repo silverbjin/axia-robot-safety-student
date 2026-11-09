@@ -1,0 +1,234 @@
+{
+  "schema": "axia-d03-v3-p1-source-manifest-1",
+  "source_repo": "silverbjin/axia-robot-safety-instructor",
+  "source_sha": "0be687ee033233fcd53be1190e0b2f9e86730fc9",
+  "scope": "P1_ROS2_RUNTIME_AND_D3_DEMO_NO_PRIVATE_TESTS",
+  "note": "45 pinned runtime blobs only; student TODO separately retained",
+  "source_blobs": [
+    {
+      "path": "ros2_ws/src/axia_d3_demo/axia_d3_demo/__init__.py",
+      "sha": "99087d55418c25a84402bbf383ed33bf046eb2bb",
+      "size": 59
+    },
+    {
+      "path": "ros2_ws/src/axia_d3_demo/axia_d3_demo/cli.py",
+      "sha": "2e40c33fbf7dadbbbaf930422432c45ce232d962",
+      "size": 6625
+    },
+    {
+      "path": "ros2_ws/src/axia_d3_demo/axia_d3_demo/contract.py",
+      "sha": "87cd8f4151ea61a3d34c4277f12df08a37056dac",
+      "size": 6398
+    },
+    {
+      "path": "ros2_ws/src/axia_d3_demo/axia_d3_demo/observer.py",
+      "sha": "5a0b440b664f5ed57f81132b764de492c082cc75",
+      "size": 4999
+    },
+    {
+      "path": "ros2_ws/src/axia_d3_demo/axia_d3_demo/scenario.py",
+      "sha": "7989573a2919a19b85085fa270889ba131331357",
+      "size": 13766
+    },
+    {
+      "path": "ros2_ws/src/axia_d3_demo/models/pedestrian_proxy.sdf",
+      "sha": "9c864cc660626563124ff7eda446ffcda9e63b8e",
+      "size": 3082
+    },
+    {
+      "path": "ros2_ws/src/axia_d3_demo/package.xml",
+      "sha": "d7ea606a1ab8ae2ddd624f338859f91994fdd498",
+      "size": 701
+    },
+    {
+      "path": "ros2_ws/src/axia_d3_demo/resource/axia_d3_demo",
+      "sha": "d47468770e16878af3a7430b4bf0e74ad3d04b50",
+      "size": 13
+    },
+    {
+      "path": "ros2_ws/src/axia_d3_demo/setup.cfg",
+      "sha": "7a29da8e26257a7cc072cd23295f14ce1bb9cf26",
+      "size": 93
+    },
+    {
+      "path": "ros2_ws/src/axia_d3_demo/setup.py",
+      "sha": "21337fd41323b3bb40b5fd26d5cba8c245deed4b",
+      "size": 872
+    },
+    {
+      "path": "ros2_ws/src/axia_fault_injector/axia_fault_injector/__init__.py",
+      "sha": "0f73ad52a0fefa4b41c0a7b2e0351fa8455c3a33",
+      "size": 33
+    },
+    {
+      "path": "ros2_ws/src/axia_fault_injector/axia_fault_injector/fault_injector_node.py",
+      "sha": "6b08c17d75230a9ca00d0d98a1f8399391d087e3",
+      "size": 4547
+    },
+    {
+      "path": "ros2_ws/src/axia_fault_injector/axia_fault_injector/fault_policy.py",
+      "sha": "eef3a7e3041e4e81fdfd2bd4258ebfd13ef41a83",
+      "size": 1570
+    },
+    {
+      "path": "ros2_ws/src/axia_fault_injector/package.xml",
+      "sha": "163b76237b2b75a668536a9bfbfa00284cd86d93",
+      "size": 643
+    },
+    {
+      "path": "ros2_ws/src/axia_fault_injector/resource/axia_fault_injector",
+      "sha": "0bdb3cedf1309bd4099ab5fe635ac4cf5c553143",
+      "size": 20
+    },
+    {
+      "path": "ros2_ws/src/axia_fault_injector/setup.cfg",
+      "sha": "6be660281f4f2f707ac5303b070775e1730d2f24",
+      "size": 107
+    },
+    {
+      "path": "ros2_ws/src/axia_fault_injector/setup.py",
+      "sha": "ef0440508800d870d0b3f3654e3128a1113345e3",
+      "size": 716
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_bringup/launch/axia_bringup_p0.launch.py",
+      "sha": "051e3fdce2291b3f98bba0b3930fdd51129be241",
+      "size": 634
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_bringup/launch/axia_bringup_p1.launch.py",
+      "sha": "3775eba29de2cb4ef631c077fb197a1db09ff801",
+      "size": 629
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_bringup/launch/axia_launch_tools.py",
+      "sha": "00464601819ba4f9454d5bd4cebcf4d8ddb0fdf8",
+      "size": 6147
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_bringup/launch/axia_navigation_p0.launch.py",
+      "sha": "7de3551331542a8add29089b18c1e37d74fb587e",
+      "size": 646
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_bringup/launch/axia_navigation_p1.launch.py",
+      "sha": "fe450485fc8b97ee2541c6b953d3114d58859986",
+      "size": 1691
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_bringup/launch/axia_p1_launch_policy.py",
+      "sha": "210b27e11e7fe8f0132478a20c78f177317b62b7",
+      "size": 3214
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_bringup/launch/axia_tb3_p0.launch.py",
+      "sha": "5f879289aa219c1b5d8c5f5054caee901a9da6f4",
+      "size": 640
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_bringup/launch/axia_tb3_p1.launch.py",
+      "sha": "caff1d1976f37a8be30ea2cbc4ea77261d3310d4",
+      "size": 2415
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/__init__.py",
+      "sha": "96c18a0e89cc14ec5d38882aa5679bb208ac8aa7",
+      "size": 76
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/action_diagnostics.py",
+      "sha": "fcc9344db84f52c2d861270ea6f66c633a7118d6",
+      "size": 1581
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/command_gate.py",
+      "sha": "01134b594ead601244a38a08215e4092242b39e9",
+      "size": 3466
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/fixture_runner.py",
+      "sha": "7b132add36eca2b208bfab1fcf2dd1db240ed026",
+      "size": 2595
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/fsm.py",
+      "sha": "b61257c600b83db6c506f37e83958c34ff551015",
+      "size": 9338
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/nav2_cancel_client.py",
+      "sha": "d00fbe53a41406859105746e6d9215f3d70f2849",
+      "size": 4733
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/ros_nav2_client.py",
+      "sha": "d0e0ff5b6712e97f1e11631d4ac0bb1824a0f02c",
+      "size": 6899
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/supervisor_node.py",
+      "sha": "8c51db29dc968eb464a01b60afbbbc70c0ccdc28",
+      "size": 22011
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/watchdog.py",
+      "sha": "b7af2937d5afcc61009ffe9921eee7e34490f2e3",
+      "size": 8844
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/package.xml",
+      "sha": "f75201c3376faaefd76d7b17e121eacc37fc66b5",
+      "size": 823
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/resource/axia_safety_supervisor",
+      "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "size": 0
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/setup.cfg",
+      "sha": "6ee6bf7748bd0275871dcce481edab9318db5a31",
+      "size": 113
+    },
+    {
+      "path": "ros2_ws/src/axia_safety_supervisor/setup.py",
+      "sha": "d9ff3b2f2d8eca792fda6c9b83899766aedcf25b",
+      "size": 765
+    },
+    {
+      "path": "ros2_ws/src/axia_scenario_verifier/axia_scenario_verifier/__init__.py",
+      "sha": "0938844ddaf67d912bb73a8b44a9e0f73bfb6e3f",
+      "size": 60
+    },
+    {
+      "path": "ros2_ws/src/axia_scenario_verifier/axia_scenario_verifier/ros_isolation.py",
+      "sha": "bfd555a1930ede611ecdf022480fb297959695ca",
+      "size": 7699
+    },
+    {
+      "path": "ros2_ws/src/axia_scenario_verifier/axia_scenario_verifier/runner.py",
+      "sha": "ead7300cf92889c5b799d3a8cdcb10f6f0001aac",
+      "size": 20517
+    },
+    {
+      "path": "ros2_ws/src/axia_scenario_verifier/package.xml",
+      "sha": "78d3513cad94f1386378f442f1ddb147b3352f32",
+      "size": 481
+    },
+    {
+      "path": "ros2_ws/src/axia_scenario_verifier/resource/axia_scenario_verifier",
+      "sha": "6dc63681b69484b90937858792e9569ae34745fa",
+      "size": 23
+    },
+    {
+      "path": "ros2_ws/src/axia_scenario_verifier/setup.cfg",
+      "sha": "50850763051fca4775bd94e681c1141f9d969678",
+      "size": 113
+    },
+    {
+      "path": "ros2_ws/src/axia_scenario_verifier/setup.py",
+      "sha": "7de1b1b08900d1a7a3c4b76021a94b1bd2a0495f",
+      "size": 647
+    }
+  ]
+}
