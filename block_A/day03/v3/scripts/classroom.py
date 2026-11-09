@@ -293,8 +293,14 @@ def scene_args(env):
 
 def student_green():
     # Both public TODOs must be completed before ROS fault-related lab.
+    # ROS process terminals need the system interpreter, while student pytest lives
+    # in the repository venv. Select the venv only for this one test subprocess.
+    tests_env = os.environ.copy()
+    venv_bin = ROOT / ".venv/bin"
+    if (venv_bin / "python3").is_file():
+        tests_env["PATH"] = str(venv_bin) + os.pathsep + tests_env.get("PATH", "")
     p = subprocess.run(["bash", str(LAB / "scripts/run_lab.sh"), "green"],
-                       cwd=ROOT, text=True, check=False)
+                       cwd=ROOT, env=tests_env, text=True, check=False)
     must_run(p, "student D03 TODO tests not GREEN")
 
 
@@ -332,7 +338,7 @@ def remove_proxy(env):
 def bridge(env):
     preflight()
     student_green()
-    cmd = ["python3", str(LAB / "ros_diagnostics_bridge.py")]
+    cmd = ["/usr/bin/python3", str(LAB / "ros_diagnostics_bridge.py")]
     env["PYTHONPATH"] = str(LAB) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     must_run(ros_call(cmd, env=env, cwd=ROOT), "student Diagnostics bridge")
 
