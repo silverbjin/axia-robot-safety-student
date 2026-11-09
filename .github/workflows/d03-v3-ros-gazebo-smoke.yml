@@ -7,6 +7,7 @@ on:
       - 'ros2_ws/src/**'
       - 'block_A/day03/v3/scripts/ci_ros_gazebo_smoke.py'
       - 'block_A/day03/v3/scripts/classroom.py'
+      - 'scripts/p1_d03_v3_student_setup.sh'
   workflow_dispatch:
 permissions:
   contents: read
@@ -29,17 +30,12 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Install official Jazzy, Harmonic, Nav2 and Waffle (ONCE)
+      - name: Student documented --install-deps: official Jazzy, Harmonic, Nav2, Waffle
         shell: bash
         run: |
           set -eo pipefail
-          apt-get update -qq
-          apt-get install -y --no-install-recommends \
-            procps python3 python3-pytest python3-yaml \
-            python3-colcon-common-extensions \
-            ros-jazzy-nav2-bringup ros-jazzy-nav2-minimal-tb3-sim \
-            ros-jazzy-ros-gz ros-jazzy-ros2cli \
-            ros-jazzy-nav2-msgs ros-jazzy-diagnostic-msgs
+          # Use exactly the student-facing install command, not duplicated apt rules.
+          bash scripts/p1_d03_v3_student_setup.sh --install-deps
           set +u
           source /opt/ros/jazzy/setup.bash
           set -u
@@ -48,7 +44,7 @@ jobs:
           ros2 pkg prefix ros_gz_sim
           gz sim --versions || gz sim --help | head -20
           python3 -m py_compile block_A/day03/v3/scripts/ci_ros_gazebo_smoke.py
-      - name: Actual colcon build of five shared P1 and D3 packages
+      - name: Student documented --prepare / --check: real five-package colcon build
         shell: bash
         run: |
           set -eo pipefail
@@ -56,11 +52,10 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           set -u
           mkdir -p results/d03-v3-ros-gazebo
-          colcon build --base-paths ros2_ws/src --symlink-install \
-            --packages-select axia_safety_bringup axia_safety_supervisor axia_fault_injector \
-              axia_scenario_verifier axia_d3_demo \
-            --event-handlers console_direct+ \
+          # Exercise the exact documented student command: session + colcon + preflight.
+          bash scripts/p1_d03_v3_student_setup.sh --prepare \
             2>&1 | tee results/d03-v3-ros-gazebo/colcon.log
+          bash scripts/p1_d03_v3_student_setup.sh --check
           set +u
           source install/setup.bash
           set -u
