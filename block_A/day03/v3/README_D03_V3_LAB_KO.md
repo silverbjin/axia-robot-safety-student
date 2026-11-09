@@ -8,7 +8,9 @@
 
 **안전 경계:** 이 패키지는 격리된 시뮬레이터 전용. SW 보호정지는 인증된 HW E-Stop이 아니다. Diagnostics가 OK라고 실제 주행 허가가 생기지 않는다. 실제 로봇 연결·안전 임계값 완화·무단 Goal/Reset/Rearm을 금지한다.
 
-**검증 구분:** CI는 코드·패키지 배포의 ROS-free 검증. 강사 WSL2 ROS 실제 빌드, Gazebo GUI, P1 정상 Goal, Scan Drop과 정지 실측은 각각 별도의 검증이다.
+**검증 구분:** 공개 CI에는 ROS-free 배포 검증과 **실제 Jazzy/Gazebo Headless 5개 패키지 빌드·무주행 스모크 검증**이 있다. 별도 강사 WSL2 GUI, P1 정상 Goal, Scan Drop과 주행 중 정지 실측은 여전히 미검증 항목이다.
+
+> **P1 설치가 처음인 학생:** [P1 5개 패키지 설치·빌드·기본 실행 안내](../../../docs/P1/P1_STUDENT_INSTALL_BASIC_RUN_JAZZY_HARMONIC_KO.md)를 먼저 수행한다. 공식 ROS apt 구성과 ROS/Gazebo 실제 실행 확인은 수업 시간에 포함하지 않는다.
 
 ## A. 수업 전 준비 — 180분에 포함하지 않음
 
@@ -35,7 +37,7 @@ bash block_A/day03/v3/scripts/classroom.sh session
 bash block_A/day03/v3/scripts/classroom.sh prepare
 ~~~
 
-**예상:** D03_v3, D03_V3_ENTRYPOINT_FOUND, SESSION_CREATED(이후 SESSION_REUSED), P1 패키지 4개 colcon 완료, READY P1_D03_V3_SOURCE_BUILD_PREFLIGHT. 이 단계는 Gazebo/Goal/Stop 실제 성공이 아니다.
+**예상:** D03_v3, D03_V3_ENTRYPOINT_FOUND, SESSION_CREATED(이후 SESSION_REUSED), P1/D3 패키지 5개 colcon 완료, READY P1_D03_V3_SOURCE_BUILD_PREFLIGHT. 이 단계는 Gazebo/Goal/Stop 실제 성공이 아니다.
 
 **반복 오류 방지:** 이미 Clone한 경우 다시 Clone하지 않는다. 현재 저장소의 브랜치와 필수 파일을 먼저 확인한다. 다른 브랜치이거나 기존 수정 파일이 있다면 덮어쓰지 말고 별도의 D03_v3 폴더를 Clone한다. 대화형 터미널에서 set -euo pipefail을 직접 실행하지 말고 자식 Bash 스크립트로 실행한다.
 
