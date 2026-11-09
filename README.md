@@ -13,6 +13,22 @@
 학생이 수정할 파일은 **block_A/day03/p1_adapter_todo.py** 와 **block_A/day03/todo_safety.py** 두 개뿐이다.
 P1 FSM, Command Gate, 공식 Collision Monitor, Fault Injector 코드를 수정하거나 안전 임계값을 완화하지 않는다.
 
+## P1 공유 패키지 설치 및 기본 실행 (먼저 읽기)
+
+**[P1 설치·빌드·Gazebo Waffle 기본 실행 가이드](docs/P1/P1_STUDENT_INSTALL_BASIC_RUN_JAZZY_HARMONIC_KO.md)**
+
+학생에게 공개한 P1/D3 런타임은 `ros2_ws/src/`의 **5개 패키지(49개 파일)**이다. 고정 커밋의 Instructor 원본 45개 파일은 매니페스트로 Git blob SHA를 검증한다. 강사 정답과 Hidden Tests는 포함하지 않는다.
+
+~~~bash
+# D03_v3 브랜치 Clone과 ROS Jazzy 공식 apt 저장소 준비 후
+cd "$HOME/axia_d03_v3_student"
+bash scripts/p1_d03_v3_student_setup.sh --install-deps  # 최초 1회·선택
+bash scripts/p1_d03_v3_student_setup.sh --prepare
+bash block_A/day03/v3/scripts/classroom.sh launch   # T2, YES-D3-SIM 승인
+~~~
+
+이 준비·실행은 **Goal/Fault를 자동 실행하지 않는다**. WSL2 GUI/주행 중 장애 시연은 별도 확인한다.
+
 ## 학생용 3시간 가이드
 
 - [전체 180분 실습 가이드](block_A/day03/v3/README_D03_V3_LAB_KO.md)
@@ -66,5 +82,5 @@ bash block_A/day03/v3/scripts/classroom.sh --help
 - 교육용 Diagnostics가 OK라고 주행 승인인 것은 아니다.
 - **Software Stop과 Collision Monitor는 인증된 하드웨어 E-Stop이 아니다.**
 - Gazebo 동적 시연 성공은 실제 GUI·TF/Nav2·P1 Goal·Fault→진단→odom 정지 증거가 갖춰졌을 때만 보고한다.
-- 공개 CI는 Python/정적 배포 검증이며 ROS 2 Gazebo 실주행 PASS를 의미하지 않는다.
+- 공개 CI는 **배포 검증(ROS-free)**과 **실제 Jazzy/Gazebo Headless 무주행 스모크** 두 가지가 있다. Headless 성공은 WSL2 GUI·Goal 이동·주행 중 장애 정지 PASS를 의미하지 않는다.
 - main 브랜치 병합은 운영자 별도 승인 전까지 수행하지 않는다.
