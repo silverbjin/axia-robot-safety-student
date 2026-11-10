@@ -24,7 +24,7 @@ python3 -m pip install 'pytest==8.3.5'
 python3 -m pytest -q block_B/day08/tests/test_d08_public.py::test_d08_synthetic_fixture_contract \
   block_B/day08/tests/test_d08_submission_zip.py
 ```
-**예상:** fixture/ZIP 테스트 **7 passed**. 이 단계는 student TODO GREEN이 아니다.
+**예상:** fixture/ZIP 테스트 **8 passed**. 이 단계는 student TODO GREEN이 아니다.
 
 ## 1. RED → 단일 TODO 구현
 ```bash
