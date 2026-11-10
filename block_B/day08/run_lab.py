@@ -6,6 +6,7 @@ import csv
 import hashlib
 import json
 import sys
+import shutil
 from pathlib import Path
 from block_B.day08.integration_todo import integrate_case
 
@@ -54,6 +55,12 @@ def run(fixture:Path,out:Path):
         (out/"summary.json").write_text(
             json.dumps(report,indent=2,allow_nan=False,ensure_ascii=False)+"\n",
             encoding="utf-8")
+        # Snapshot the student's own D08 solution for ZIP grading; no teacher
+        # reference, existing D04-D07 sources, secrets or private tests.
+        solution=Path(__file__).parent/"integration_todo.py"
+        if solution.is_symlink() or not solution.is_file():
+            raise ValueError("D08_STUDENT_SOURCE_UNAVAILABLE")
+        shutil.copyfile(solution,out/"integration_todo.py")
         print(f"D08_PYTHON_FIXTURE_REPLAY_PASS cases={len(results)} out={out}")
         return 0
     except (ValueError,KeyError,TypeError,NotImplementedError,UnicodeError,OSError) as exc:
