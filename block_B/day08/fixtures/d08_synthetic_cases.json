@@ -1,0 +1,341 @@
+{
+  "schema": "axia.d08.offline_integration.v1",
+  "source": "SYNTHETIC_COURSE_FIXTURE",
+  "license": "CC0-1.0",
+  "description": "Six original synthetic 4x4 RGB-Depth/classroom corridor records; map person XY is assumed for teaching, not calibrated from a camera or real Gazebo",
+  "units": {
+    "distance": "m",
+    "timestamp": "s"
+  },
+  "position_source": "SYNTHETIC_MAP_PROXY_NOT_CAMERA_TF",
+  "real_person_observed": false,
+  "ros_actual": false,
+  "gazebo_actual": false,
+  "routes": {
+    "person_xy": [
+      0.8,
+      0
+    ],
+    "path_before": [
+      [
+        0,
+        0
+      ],
+      [
+        0.5,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        1.5,
+        0
+      ]
+    ],
+    "path_after": [
+      [
+        0,
+        0
+      ],
+      [
+        0.5,
+        0.55
+      ],
+      [
+        1,
+        0.55
+      ],
+      [
+        1.5,
+        0
+      ]
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "clear_replan",
+      "detections": [
+        {
+          "category": "person",
+          "confidence": "0.91",
+          "x1": "1",
+          "y1": "1",
+          "x2": "3",
+          "y2": "3",
+          "image_width": "4",
+          "image_height": "4"
+        }
+      ],
+      "depth_m": [
+        [
+          2,
+          2,
+          2,
+          2
+        ],
+        [
+          2,
+          1.3,
+          1.3,
+          2
+        ],
+        [
+          2,
+          1.3,
+          1.3,
+          2
+        ],
+        [
+          2,
+          2,
+          2,
+          2
+        ]
+      ],
+      "frame_stamp_s": 1,
+      "depth_stamp_s": 1.01,
+      "person_age_s": 0,
+      "expected": {
+        "range_status": "CLEAR",
+        "route_status": "REPLAN_EVIDENCED",
+        "advice": "REPLAN_REVIEW"
+      }
+    },
+    {
+      "case_id": "slow",
+      "detections": [
+        {
+          "category": "person",
+          "confidence": "0.91",
+          "x1": "1",
+          "y1": "1",
+          "x2": "3",
+          "y2": "3",
+          "image_width": "4",
+          "image_height": "4"
+        }
+      ],
+      "depth_m": [
+        [
+          2,
+          2,
+          2,
+          2
+        ],
+        [
+          2,
+          0.65,
+          0.65,
+          2
+        ],
+        [
+          2,
+          0.65,
+          0.65,
+          2
+        ],
+        [
+          2,
+          2,
+          2,
+          2
+        ]
+      ],
+      "frame_stamp_s": 2,
+      "depth_stamp_s": 2.01,
+      "person_age_s": 0,
+      "expected": {
+        "range_status": "SLOWDOWN",
+        "route_status": "REPLAN_EVIDENCED",
+        "advice": "SLOWDOWN_EXPECTED"
+      }
+    },
+    {
+      "case_id": "stop",
+      "detections": [
+        {
+          "category": "person",
+          "confidence": "0.91",
+          "x1": "1",
+          "y1": "1",
+          "x2": "3",
+          "y2": "3",
+          "image_width": "4",
+          "image_height": "4"
+        }
+      ],
+      "depth_m": [
+        [
+          2,
+          2,
+          2,
+          2
+        ],
+        [
+          2,
+          0.3,
+          0.3,
+          2
+        ],
+        [
+          2,
+          0.3,
+          0.3,
+          2
+        ],
+        [
+          2,
+          2,
+          2,
+          2
+        ]
+      ],
+      "frame_stamp_s": 3,
+      "depth_stamp_s": 3.01,
+      "person_age_s": 0,
+      "expected": {
+        "range_status": "STOP",
+        "route_status": "REPLAN_EVIDENCED",
+        "advice": "STOP_EXPECTED"
+      }
+    },
+    {
+      "case_id": "lost",
+      "detections": [],
+      "depth_m": [
+        [
+          2,
+          2,
+          2,
+          2
+        ],
+        [
+          2,
+          1.3,
+          1.3,
+          2
+        ],
+        [
+          2,
+          1.3,
+          1.3,
+          2
+        ],
+        [
+          2,
+          2,
+          2,
+          2
+        ]
+      ],
+      "frame_stamp_s": 4,
+      "depth_stamp_s": 4.01,
+      "person_age_s": 0,
+      "expected": {
+        "range_status": "UNKNOWN",
+        "route_status": "UNKNOWN",
+        "advice": "UNKNOWN_REVIEW"
+      }
+    },
+    {
+      "case_id": "stale_depth",
+      "detections": [
+        {
+          "category": "person",
+          "confidence": "0.91",
+          "x1": "1",
+          "y1": "1",
+          "x2": "3",
+          "y2": "3",
+          "image_width": "4",
+          "image_height": "4"
+        }
+      ],
+      "depth_m": [
+        [
+          2,
+          2,
+          2,
+          2
+        ],
+        [
+          2,
+          1.3,
+          1.3,
+          2
+        ],
+        [
+          2,
+          1.3,
+          1.3,
+          2
+        ],
+        [
+          2,
+          2,
+          2,
+          2
+        ]
+      ],
+      "frame_stamp_s": 5,
+      "depth_stamp_s": 5.2,
+      "person_age_s": 0,
+      "expected": {
+        "range_status": "UNKNOWN",
+        "route_status": "UNKNOWN",
+        "advice": "UNKNOWN_REVIEW"
+      }
+    },
+    {
+      "case_id": "stale_track",
+      "detections": [
+        {
+          "category": "person",
+          "confidence": "0.91",
+          "x1": "1",
+          "y1": "1",
+          "x2": "3",
+          "y2": "3",
+          "image_width": "4",
+          "image_height": "4"
+        }
+      ],
+      "depth_m": [
+        [
+          2,
+          2,
+          2,
+          2
+        ],
+        [
+          2,
+          0.3,
+          0.3,
+          2
+        ],
+        [
+          2,
+          0.3,
+          0.3,
+          2
+        ],
+        [
+          2,
+          2,
+          2,
+          2
+        ]
+      ],
+      "frame_stamp_s": 6,
+      "depth_stamp_s": 6.01,
+      "person_age_s": 0.8,
+      "expected": {
+        "range_status": "UNKNOWN",
+        "route_status": "UNKNOWN",
+        "advice": "UNKNOWN_REVIEW"
+      }
+    }
+  ]
+}
