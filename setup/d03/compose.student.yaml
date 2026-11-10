@@ -1,0 +1,21 @@
+name: axia-d03-student
+services:
+  lab:
+    image: ${AXIA_IMAGE:-silverbjin/axia-d03-lab:jazzy-harmonic-v1}
+    platform: linux/amd64
+    pull_policy: always
+    init: true
+    stdin_open: true
+    tty: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    environment:
+      ROS_DOMAIN_ID: "73"
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+    volumes:
+      - ../../:/workspace
+    working_dir: /workspace
+    command: bash
+# Image NOT PUBLISHED/VERIFIED as of packaging. Pull only after instructor announces immutable digest.
+# CLI Python D03 practice; no hardware mounts, privileged mode, Docker socket, or host network.
