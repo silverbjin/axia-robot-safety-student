@@ -29,6 +29,7 @@ def make_run(root):
         w=csv.writer(f);w.writerow(("case_id","advice"))
         w.writerows([(id,results[i]["advice"]) for i,id in enumerate(IDS)])
     (run/"pytest.txt").write_text("6 passed in 0.02s\n")
+    (run/"integration_todo.py").write_text("def integrate_case(case,routes):\n    return {}\n")
     return run
 
 def test_zip_exact_files_and_sha256_manifest(tmp_path):
@@ -36,7 +37,7 @@ def test_zip_exact_files_and_sha256_manifest(tmp_path):
     out=tmp_path/"d08_submission.zip"
     assert package_submission(run,out)==0
     with zipfile.ZipFile(out) as z:
-        assert sorted(z.namelist())==sorted(["trace.csv","summary.json","pytest.txt","SHA256SUMS"])
+        assert sorted(z.namelist())==sorted(["trace.csv","summary.json","pytest.txt","integration_todo.py","SHA256SUMS"])
         assert z.testzip() is None
         for line in z.read("SHA256SUMS").decode().splitlines():
             digest,filename=line.split("  ")
@@ -97,3 +98,16 @@ def test_partial_zip_write_failure_leaves_no_success_looking_file(tmp_path,monke
     monkeypatch.setattr(zipfile,"ZipFile",DiskFailureZip)
     assert package_submission(run,out)==2
     assert not out.exists()
+
+def test_d08_source_file_required_for_grading(tmp_path):
+    run=make_run(tmp_path)
+    (run/"integration_todo.py").unlink()
+    out=tmp_path/"no_source.zip"
+    assert package_submission(run,out)==2
+    assert not out.exists()
+
+def test_d08_source_symlink_rejected(tmp_path):
+    run=make_run(tmp_path)
+    (run/"integration_todo.py").unlink()
+    (run/"integration_todo.py").symlink_to(run/"pytest.txt")
+    assert package_submission(run,tmp_path/"symlink_source.zip")==2
