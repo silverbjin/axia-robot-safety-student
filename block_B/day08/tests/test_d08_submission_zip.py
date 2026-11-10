@@ -83,5 +83,5 @@ def test_student_source_never_implements_ros_safety_controller():
     for path in ("integration_todo.py","run_lab.py","submission_zip.py"):
         code=(root/path).read_text()
         for token in ("import rclpy","ActionClient(","NavigateToPose(", "create_publisher(",
-                      "gz service","/cmd_vel","os.system("):
+                      "gz service","publish(Twist","os.system("):
             assert token not in code
