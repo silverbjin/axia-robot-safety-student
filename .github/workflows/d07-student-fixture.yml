@@ -1,7 +1,7 @@
 name: D07 student fixture scaffold (TODO expected RED)
 on:
   push:
-    branches: ['feature/d07-human-aware-todo-20261110']
+    branches: ['main', 'feature/d07-human-aware-todo-20261110']
     paths:
       - 'block_B/day07/**'
       - '.github/workflows/d07-student-fixture.yml'
