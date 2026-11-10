@@ -24,7 +24,7 @@ python3 -m pip install 'pytest==8.3.5'
 python3 -m pytest -q block_B/day08/tests/test_d08_public.py::test_d08_synthetic_fixture_contract \
   block_B/day08/tests/test_d08_submission_zip.py
 ```
-**예상:** fixture/ZIP 테스트 **8 passed**. 이 단계는 student TODO GREEN이 아니다.
+**예상:** fixture/ZIP 테스트 **10 passed**. 이 단계는 student TODO GREEN이 아니다.
 
 ## 1. RED → 단일 TODO 구현
 ```bash
@@ -53,7 +53,7 @@ python3 -m block_B.day08.submission_zip \
 python3 - <<'PY'
 import hashlib,zipfile
 with zipfile.ZipFile('results/d08_submission.zip') as z:
-    assert sorted(z.namelist())==sorted(['trace.csv','summary.json','pytest.txt','SHA256SUMS'])
+    assert sorted(z.namelist())==sorted(['trace.csv','summary.json','pytest.txt','integration_todo.py','SHA256SUMS'])
     assert z.testzip() is None
     for row in z.read('SHA256SUMS').decode().splitlines():
         digest,name=row.split('  ')
@@ -61,8 +61,8 @@ with zipfile.ZipFile('results/d08_submission.zip') as z:
 print('D08_ZIP_HASH_VERIFY_PASS')
 PY
 ```
-**예상:** `D08_SUBMISSION_ZIP_PASS`와 `D08_ZIP_HASH_VERIFY_PASS`. `results/d08_submission.zip`만 제출한다.
+**예상:** `D08_SUBMISSION_ZIP_PASS`와 `D08_ZIP_HASH_VERIFY_PASS`. 제출 ZIP에는 학생이 실제 작성한 `integration_todo.py`도 자동 포함되므로 강사가 함수를 검토할 수 있습니다. `results/d08_submission.zip`만 제출한다.
 
-**안전·범위:** 여섯 사례는 새로 작성한 *합성* 4×4 깊이/검출/지도상 가상 사람 위치 자료다. 실제 YOLO 카메라→Nav2 map 좌표 TF 정렬이 아니며 ROS/Gazebo/실제 주행/충돌 0회 검증이 아니다. 출력은 설명/분석용이고 산업용 안전 명령이 아니다. SW_STOP과 인증 하드웨어 E-Stop은 다르다.
+**ZIP에 포함된 코드:** `run_lab.py`가 실행에 성공할 때 D08 `integration_todo.py`의 **학생 본인 버전**을 결과 디렉터리에 복사합니다. 강사 정답, 이전 D04~D07 전체 패키지나 개인정보를 ZIP에 추가하지 마십시오.\n\n**안전·범위:** 여섯 사례는 새로 작성한 *합성* 4×4 깊이/검출/지도상 가상 사람 위치 자료다. 실제 YOLO 카메라→Nav2 map 좌표 TF 정렬이 아니며 ROS/Gazebo/실제 주행/충돌 0회 검증이 아니다. 출력은 설명/분석용이고 산업용 안전 명령이 아니다. SW_STOP과 인증 하드웨어 E-Stop은 다르다.
 
 **오류 복구:** 결과 경로/ZIP 존재 시 덮어쓰지 않는다. `results/d08_run2`와 `results/d08_submission2.zip`처럼 새 이름을 사용한다. 누락 pytest, 실패 로그, 부정확한 보고, 심볼릭 링크, 큰 파일, 잘못된 해시는 BLOCKED되어야 한다. ZIP 제출 후 venv 종료.
