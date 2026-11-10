@@ -1,0 +1,73 @@
+{
+  "schema": "axia.d07.avoidance_fixture.v1",
+  "source": "synthetic classroom path samples, not Gazebo",
+  "units": "m",
+  "person_xy": [
+    0.8,
+    0
+  ],
+  "buffer_radius_m": 0.35,
+  "path_before": [
+    [
+      0,
+      0
+    ],
+    [
+      0.25,
+      0
+    ],
+    [
+      0.5,
+      0
+    ],
+    [
+      0.75,
+      0
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      1.25,
+      0
+    ],
+    [
+      1.5,
+      0
+    ]
+  ],
+  "path_detour": [
+    [
+      0,
+      0
+    ],
+    [
+      0.25,
+      0.25
+    ],
+    [
+      0.5,
+      0.5
+    ],
+    [
+      0.75,
+      0.55
+    ],
+    [
+      1,
+      0.5
+    ],
+    [
+      1.25,
+      0.3
+    ],
+    [
+      1.5,
+      0
+    ]
+  ],
+  "expected_original": "BLOCKED",
+  "expected_detour": "CLEAR",
+  "expected_replan": "REPLAN_EVIDENCED"
+}
