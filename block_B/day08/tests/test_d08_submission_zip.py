@@ -85,3 +85,15 @@ def test_student_source_never_implements_ros_safety_controller():
         for token in ("import rclpy","ActionClient(","NavigateToPose(", "create_publisher(",
                       "gz service","publish(Twist","os.system("):
             assert token not in code
+
+def test_partial_zip_write_failure_leaves_no_success_looking_file(tmp_path,monkeypatch):
+    import zipfile
+    run=make_run(tmp_path)
+    out=tmp_path/"partial.zip"
+    real_zipfile=zipfile.ZipFile
+    class DiskFailureZip(real_zipfile):
+        def writestr(self,*args,**kwargs):
+            raise OSError("simulated disk full during first ZIP entry")
+    monkeypatch.setattr(zipfile,"ZipFile",DiskFailureZip)
+    assert package_submission(run,out)==2
+    assert not out.exists()
