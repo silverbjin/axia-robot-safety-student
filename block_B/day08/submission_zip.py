@@ -14,7 +14,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-REQUIRED=("summary.json","trace.csv","pytest.txt")
+REQUIRED=("summary.json","trace.csv","pytest.txt","integration_todo.py")
 SAFETY_FLAGS=("ros_verified","gazebo_verified","robot_moved",
               "collision_free_verified","control_published","safety_certified")
 MAX_FILE_BYTES=1_048_576
@@ -90,7 +90,7 @@ def package_submission(run_dir:Path,out:Path):
             if (set(z.namelist())!=set((*REQUIRED,"SHA256SUMS"))
                     or z.testzip() is not None):
                 raise ValueError("D08_ZIP_INTEGRITY_FAILED")
-        print(f"D08_SUBMISSION_ZIP_PASS output={out} files=4 PYTHON_ONLY")
+        print(f"D08_SUBMISSION_ZIP_PASS output={out} files=5 PYTHON_ONLY")
         return 0
     except (ValueError,TypeError,KeyError,OSError,UnicodeError,zipfile.BadZipFile) as exc:
         # The caller must never receive a partial successful-looking ZIP.
