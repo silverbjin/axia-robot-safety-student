@@ -59,6 +59,7 @@ def _validate_summary(raw,trace,pytest_text):
     return summary
 
 def package_submission(run_dir:Path,out:Path):
+    created_by_this_call=False
     try:
         if (not run_dir.is_dir() or run_dir.is_symlink()
                 or out.exists() or out.is_symlink()
@@ -77,6 +78,7 @@ def package_submission(run_dir:Path,out:Path):
         checksums="".join(hashlib.sha256(data[n]).hexdigest()+"  "+n+"\n"
                           for n in REQUIRED).encode("ascii")
         with out.open("xb") as fp:
+            created_by_this_call=True
             with zipfile.ZipFile(fp,"w",compression=zipfile.ZIP_DEFLATED,allowZip64=False) as z:
                 for name in (*REQUIRED,"SHA256SUMS"):
                     payload=data.get(name,checksums)
@@ -92,11 +94,11 @@ def package_submission(run_dir:Path,out:Path):
         return 0
     except (ValueError,TypeError,KeyError,OSError,UnicodeError,zipfile.BadZipFile) as exc:
         # The caller must never receive a partial successful-looking ZIP.
-        try:
-            if out.is_file() and out.stat().st_size==0:
-                out.unlink()
-        except OSError:
-            pass
+        if created_by_this_call:
+            try:
+                out.unlink(missing_ok=True)
+            except OSError:
+                pass
         print(f"D08_ZIP_BLOCKED:{type(exc).__name__}:{exc}",file=sys.stderr)
         return 2
 
