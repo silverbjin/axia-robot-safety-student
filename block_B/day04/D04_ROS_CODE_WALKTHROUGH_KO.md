@@ -94,6 +94,8 @@ Gazebo Waffle Pi RGB
 
 **전체 launch를 학생 개인 PC에서 그대로 실행할 수 없는 이유:** 강사 P1 launch와 안전 계층은 비공개이며 이 발췌는 패키지 전체가 아니다. 다만 YOLO 이미지 1장 추론은 **강사와 동일한 Python 소스**가 학생 공개 저장소에 있어 강사 P1 없이 재현할 수 있다. 원본 학습 목표에 맞춰 범위를 의도적으로 분리했다.
 
+**학생 개인 Gazebo 실시간 시연은 이제 공개된 [D04 Gazebo GUI 실습](D04_GAZEBO_YOLO_GUI_STUDENT_GUIDE_KO.md)과 `run_student_gazebo_yolo_once.sh`로 독립 재현할 수 있다.** 공식 Nav2·Waffle Pi·yolo_ros 데이터 경로를 재사용하지만 비공개 P1 안전 노드와 Goal은 포함하지 않는다.
+
 ## 21장. YOLO 파이썬 실추론 소스
 
 직접 실행 가능한 전체 원본 코드(강사와 파일 바이트 일치):
