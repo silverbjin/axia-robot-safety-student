@@ -7,6 +7,12 @@
 - TODO: `block_b_todo.py`의 `select_person`, `measure_person_range` 두 함수만 작성
 - 정상 센서 유효성 판단: bbox/image bounds, confidence, 단위 m, 0/NaN/Inf 필터, 최소 ROI 유효 비율 50%, 영상/Depth stamp 차이 0.05s 이하(교육용 예시값)
 
+## D04 Gazebo GUI 실시간 YOLO 시연 — 사진 1장 실습과 별개
+
+[Gazebo 학생 시연 가이드](day04/D04_GAZEBO_YOLO_GUI_STUDENT_GUIDE_KO.md)를 먼저 확인한다. 이전 `run_teacher_yolo_demo_once.sh`는 실제 YOLO26n 모델로 사진 한 장만 추론하므로 Gazebo가 열리지 않는다. **학생이 강사의 시연과 같이 로봇과 움직이는 사람 및 실시간 Bounding Box를 관찰하려면** WSL2 Ubuntu 24.04 + ROS 2 Jazzy + Gazebo Harmonic에서 새 학생 GUI 실행기 `block_B/day04/run_student_gazebo_yolo_once.sh --run`을 사용한다. 학생 GUI용 공개 브랜치에서 제공되며 **비공개 강사 저장소·정답은 필요 없다**.
+
+Gazebo 및 YOLO 프리뷰 화면이 실제 표시됐는지 학생 PC에서 관찰하고, `D04_STUDENT_GAZEBO_YOLO_LIVE_PASS`의 실제 메시지 수신 여부와 구분한다. 시각용 사람은 충돌 장애물이 아니고, Goal/안전 정지/인증 E-Stop은 검증하지 않는다.
+
 ## 시작 명령 (저장소 최상위에서, 터미널 하나)
 
 **ROS 2 Jazzy를 이미 source한 WSL2**에서는 pytest가 `launch_testing`을 자동 검색하여 `No module named 'yaml'`로 시작 단계에서 실패할 수 있습니다. D04 학생 실습에는 ROS 2용 pytest 플러그인이 필요하지 않으므로 **학생용 실행기**를 사용합니다.
