@@ -1,9 +1,9 @@
 # AXIA D04 — 학생용 실습 가이드: YOLO 사람 검출 결과를 검증하는 개발자
 
 > **대상:** 2026-11-12 D04 (19:00–22:00, 이론 60분 + 실습 120분)  
-> **실습 범위:** 필수 = Python 3.12+, pytest 8.3.5, **합성 CSV**. 선택 = 강사와 동일한 Python YOLO 코드로 **실제 이미지 1장 CPU 추론**(Ultralytics·공식 모델·공식 샘플 사진은 학생 PC에서 준비). ROS 2/Gazebo 불필요.  
+> **실습 범위:** 필수 CSV/TDD = Python 3.12+, pytest 8.3.5 (ROS 불필요). **시각 시연 = Gazebo Harmonic + ROS 2 Jazzy + 실시간 yolo_ros GUI**. 기존 Ultralytics 사진 1장 추론은 선택형 보충 실습.  
 > **관련 교안:** D04 v5 32장, 특히 11–16장(데이터 경계), 22–31장(실습·코드·검증).
-> **주의:** 필수 `select_person()`은 합성 데이터 실습이다. 선택형 이미지 YOLO 실행은 **동일한 강사용 Python 코드**를 별도로 실행하는 것이며, 실제 Gazebo/ROS Detection과 자동 연결되지 않는다.
+> **주의:** 필수 `select_person()`은 합성 데이터 실습이다. Gazebo 실시간 YOLO는 별도 공개 학생 실행기에서 제공한다. 선택형 Ultralytics 이미지 1장 실습은 실시간 Gazebo/ROS Detection과 자동 연결되지 않는다.
 
 ## 0. 실습 시작 전: 강사 YOLO 환경 오류와 학생 과제는 별개 (2026-11-12 보완)
 
@@ -73,13 +73,23 @@
 
 > 강사 **실제 Gazebo/ROS2 동적 Bounding Box**는 비공개 P1과 공식 Nav2를 포함하는 별도 통합 시연이다. 아래 Python **정지 이미지 1장 추론**은 그 전체 ROS 실행기를 복제하는 것이 아니다. 학생에게도 영상→YOLO→검출 데이터의 핵심만 재현하도록 범위를 좁혔다.
 
+## 0-B-0. **학생의 최우선 시연: Gazebo GUI + 실시간 YOLO Bounding Box**
+
+**이 항목이 강사의 Gazebo 시연과 대응하는 학생 실습입니다.** 기존 `run_teacher_yolo_demo_once.sh`는 로컬 사진 한 장만 추론하여 `LOCAL_YOLO_CPU_ONLY`를 출력하므로 Gazebo GUI가 열리지 않습니다. 이는 오류가 아니라 **실습 종류가 달랐던 문제**입니다.
+
+[**D04 Gazebo 실시간 YOLO 학생 원샷 가이드**](D04_GAZEBO_YOLO_GUI_STUDENT_GUIDE_KO.md)를 우선 실행하십시오. 학생 개인 WSL2 Ubuntu 24.04에서 독립 공개 브랜치 `feature/d04-student-gazebo-yolo-20261112`의 `block_B/day04/run_student_gazebo_yolo_once.sh --run`을 사용하면 공식 Nav2 Waffle 시뮬레이터에 카메라와 시각용 사람 Actor, C++ `yolo_ros`를 연결해 **Gazebo GUI + YOLO 이미지 미리보기 GUI**를 띄우도록 구성했습니다. 원본 강사용 비공개 P1 정답 패키지 접근은 필요 없습니다. 로봇 모델·LaserScan·TF를 원하면 RViz2 저장 구성도 있습니다.
+
+**주의:** 새 Gazebo 시연은 **별도 공개 CI 및 사용자 WSL2 GUI 최종 검증을 통과하기 전까지 현장 PASS가 아닙니다**. 로봇 명령·Safety Supervisor·SW 정지·인증 E-Stop 실습은 제외합니다. 이 아래의 기존 사진 한 장 YOLO는 추가·선택 실습으로 유지합니다.
+
+---
+
 ## 0-B. 강사와 동일한 Python YOLO 시연 재현 — 선택 과제
 
 **성취 목표:** 학생 PC에서도 사진을 YOLO로 실제 추론한 뒤 `class`·`confidence`·`bbox`를 추출하여 `detections.csv`와 `run_manifest.json`을 만든다. 이를 통해 1번 학습 목표(구조 이해)를 직접 관찰한다.
 
 **권장 환경:** WSL2 Ubuntu 24.04 / Python 3.12 / 인터넷 연결 / CPU 추론 가능. 설치와 첫 모델 다운로드는 환경에 따라 오래 걸릴 수 있으므로 수업 전 준비 또는 수업 후 선택 과제로 수행한다. **필수 CSV TDD 수업을 멈춰가며 설치하지 않는다.**
 
-### 기존 학생 저장소의 활용
+### Python 단일 이미지 보충 실습에 이미 사용한 학생 저장소
 
 **필수 CSV 실습은 0절의 `~/axia-robot-safety-student-d04`를 재사용**한다. 별도의 `~/axia_d04_student_yolo`를 이미 다운로드하여 실제 YOLO 추론에 성공했다면 **그 성과물·가상환경을 유지하고 재설치하지 않는다.** 두 저장소를 반복 clone할 필요는 없다. 저장소가 없다면 0절 명령 한 번으로 준비한다.
 
