@@ -6,13 +6,13 @@
 3. **모델 추론 증거**와 **합성 기록 데이터 재생**을 구분한다.
 
 ## 준비 / 터미널
-기존 `block_B/README_KO.md`의 Python 환경; **새 터미널 1개**로 시작, 종료 시 `deactivate`.
+기존 [학생용 상세 실습 가이드](D04_STUDENT_LAB_GUIDE_KO.md)와 [공통 Block B 가이드](../README_KO.md)를 따른다. **터미널 1개**에서 시작하고 `.venv`를 직접 사용한다. 이미 clone한 학생 저장소와 기존 YOLO 성공 결과를 재사용한다. ROS/Jazzy가 source되어 있어도 외부 `launch_testing` pytest 플러그인은 차단해야 한다.
 
 ## 실습 120분 (이론 60분 별도)
 1. (20분) `detections.csv` 4행 확인: `f001` person+chair, `f002` 저신뢰, `f003` 정상 검출.
-2. (20분) 공개 테스트 `test_block_b_public.py` 실행, TODO 미구현으로 RED 확인.
+2. (20분) `bash block_B/day04/run_student_fixture_once.sh --fixture`로 `4 passed` 확인 후, `--red`로 `TODO_D04_SELECT_PERSON` 예상 RED 확인. 이때 래퍼의 exit 0은 예상 RED를 정확히 분류했다는 의미이며 학생 구현 GREEN이 아니다.
 3. (50분) `block_B/block_b_todo.py::select_person` 구현: `[x1,y1,x2,y2)`, 이미지 크기, confidence 0~1과 min_confidence 포함 경계, 최고 score 선택.
-4. (20분) `python -m pytest -q block_B/tests/test_block_b_public.py -k 'select_person or confidence or bbox'`로 표적 회귀.
+4. (20분) `bash block_B/day04/run_student_fixture_once.sh --green`으로 D04 표적 회귀. 미구현이면 실패가 맞고, 직접 구현했을 때만 `D04_STUDENT_GREEN_PUBLIC_TESTS_PASS`를 확인한다.
 5. (10분) 모델 출력 원본과 강사 합성 CSV의 출처·라이선스 차이 기록.
 
 ## 예상 출력 / 장애 대응
@@ -20,6 +20,8 @@
 - `Fixture hash mismatch`: 데이터를 수정했거나 체크섬이 달라진 것. 원본을 다시 받으세요. 체크섬 재생성으로 오류를 숨기지 마세요.
 - Bounding Box가 이미지 밖이면 함수는 `ValueError`를 내야 합니다. 결과를 조용히 clipping하지 않습니다.
 - 모델/영상 설치 불가: CSV 재생으로 실습을 완성합니다(실제 YOLO 검증 아님).
+- `No module named 'yaml'` / `launch_testing`: D04 코드 실패가 아니라 ROS의 pytest 플러그인 자동 검색 문제다. 학생 실행기는 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`을 해당 테스트에만 적용한다.
+- `LOCAL_YOLO_CPU_ONLY: N persons`, `D04_STUDENT_REAL_IMAGE_LOCAL_CSV_ROWS=N`, `D04_STUDENT_ROS_GAZEBO_NAV2_SAFETY=NOT_RUN`: **이미지 YOLO 추론과 CSV 결과 검사는 성공**, ROS/Gazebo/안전 기능은 이번 실습에서 실행하지 않았다는 뜻이다. `NOT_RUN`은 오류가 아니다.
 
 ## 제출
 TODO D04 코드, 한 개의 누락/오류 사례 분석, `pytest` 출력 캡처. 정답·Hidden Test는 제공하지 않습니다.
