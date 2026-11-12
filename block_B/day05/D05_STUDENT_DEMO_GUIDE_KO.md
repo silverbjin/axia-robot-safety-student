@@ -102,11 +102,12 @@ git clone --single-branch --branch feature/block-b-d05-class-20261112 \
   "$HOME/axia_d05_student_course"
 ~~~
 
-기존 D04 과제를 해결한 학생은 자신의 **기존 checkout**을 그대로 사용한다. 복제본과 원본 사이에 TODO를 자동으로 복사/덮어쓰기 하지 않는다.
+기존 D04 과제를 해결한 학생은 자신의 **기존 checkout**을 그대로 사용한다. 이 경우 터미널에서 먼저 AXIA_D05_STUDENT_REPO 환경변수에 기존 실제 저장소 경로를 지정한다. 복제본과 원본 사이에 TODO를 자동 복사/덮어쓰기 하지 않는다.
 
 ~~~bash
 # 본인이 실제로 실습할 저장소로 이동한다.
-cd "$HOME/axia_d05_student_course"
+REPO="${AXIA_D05_STUDENT_REPO:-$HOME/axia_d05_student_course}"
+cd "$REPO"
 bash block_B/day04/run_student_fixture_once.sh --fixture
 ~~~
 
