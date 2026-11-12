@@ -1,7 +1,7 @@
 """D05 documentation-only contract: no student solution or ROS required."""
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 GUIDE = ROOT / "day05" / "D05_STUDENT_LAB_GUIDE_KO.md"
 
 def test_d05_guide_exists_and_teacher_answers_remain_separate():
