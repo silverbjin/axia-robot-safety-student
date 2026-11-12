@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - 'feature/block-b-*'
+      - 'feature/d04-student-gazebo-*'
       - 'work/block-b-*'
   pull_request:
     paths:
