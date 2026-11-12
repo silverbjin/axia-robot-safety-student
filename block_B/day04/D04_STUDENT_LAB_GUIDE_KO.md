@@ -14,19 +14,33 @@
 ~~~bash
 (
   set -Eeuo pipefail
-  git clone --single-branch --branch feature/block-b-d04-shared-yolo-demo-20261112 \
-    https://github.com/silverbjin/axia-robot-safety-student.git \
-    "$HOME/axia-robot-safety-student-d04"
-  cd "$HOME/axia-robot-safety-student-d04"
-  python3 -m venv .venv
-  source .venv/bin/activate
-  python -m pip install pytest==8.3.5
-  pwd
-  python -m pytest -q block_B/tests/test_fixture_io.py
+  DIR="$HOME/axia-robot-safety-student-d04"
+  BRANCH="feature/block-b-d04-shared-yolo-demo-20261112"
+
+  if [[ -d "$DIR/.git" ]]; then
+    # 기존 실습·.venv·개인 작업물을 삭제하거나 reset하지 않는다.
+    [[ "$(git -C "$DIR" branch --show-current)" == "$BRANCH" ]] || {
+      echo "D04_STUDENT_BRANCH_CHECK_REQUIRED"; exit 2; }
+    [[ -z "$(git -C "$DIR" status --porcelain --untracked-files=no)" ]] || {
+      echo "D04_STUDENT_LOCAL_CHANGES_PRESERVED: 직접 확인 후 병합"; exit 2; }
+    git -C "$DIR" fetch origin "$BRANCH"
+    git -C "$DIR" merge --ff-only FETCH_HEAD
+  elif [[ ! -e "$DIR" ]]; then
+    git clone --single-branch --branch "$BRANCH" \
+      https://github.com/silverbjin/axia-robot-safety-student.git "$DIR"
+  else
+    echo "D04_STUDENT_DIRECTORY_EXISTS_NOT_GIT=$DIR"; exit 2
+  fi
+
+  bash "$DIR/block_B/day04/run_student_fixture_once.sh" --fixture
 )
 ~~~
 
-**첫 설치의 예상 결과:** `pwd`가 학생 저장소 루트, fixture 테스트 `4 passed`. 동일 디렉터리가 이미 있으면 위 clone을 다시 실행하지 말고 기존 저장소의 Git 브랜치/수정사항을 확인한 뒤 이어서 진행한다. 이 검사 PASS는 **fixture 무결성만** 의미한다.
+**기대 출력:** `4 passed`와 `D04_FIXTURE_ISOLATED_PASS PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`. 기존 `~/axia-robot-safety-student-d04`가 있다면 재-clone하지 않고 공개 브랜치를 **fast-forward만** 수행한다. 개인의 수정이 감지되면 자동 병합을 중지하며 삭제·reset하지 않는다. 이 검사 PASS는 **합성 fixture 무결성만** 의미한다.
+
+**이번 WSL2 오류의 최초 원인:** ROS 2 Jazzy를 source한 터미널의 `launch_testing` pytest11 플러그인이 자동 검색됐고, 학생용 `.venv`에는 그 플러그인에 필요한 `PyYAML`이 없어 `ModuleNotFoundError: No module named 'yaml'`이 났다. **fixture 코드가 실행되기 전의 테스트 환경 오류**다. `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`은 이 학생용 pytest 호출에서만 외부 플러그인 자동 검색을 끄는 최소 수정이며, 전역 ROS 설치나 학생 가상환경에 불필요한 ROS 의존성을 추가하지 않는다.
+
+**이미 설치된 `.venv`에서 직접 확인할 때** (새 스크립트 없이도 가능): `cd ~/axia-robot-safety-student-d04 && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/bash block_B/day04/run_student_fixture_once.sh --fixture`.
 
 다음 D04 선택 테스트는 기본 TODO에서 `NotImplementedError: TODO_D04_SELECT_PERSON`으로 **예상 RED**이다. 함수를 직접 구현한 뒤에만 GREEN이다. D05 `measure_person_range()` 테스트가 남아 있어 전체 `block_B/tests`는 D04 완료 시점에도 실패할 수 있다.
 
@@ -56,18 +70,9 @@
 
 **권장 환경:** WSL2 Ubuntu 24.04 / Python 3.12 / 인터넷 연결 / CPU 추론 가능. 설치와 첫 모델 다운로드는 환경에 따라 오래 걸릴 수 있으므로 수업 전 준비 또는 수업 후 선택 과제로 수행한다. **필수 CSV TDD 수업을 멈춰가며 설치하지 않는다.**
 
-### 첫 다운로드(학생 저장소가 없는 경우)
+### 기존 학생 저장소의 활용
 
-~~~bash
-git clone --single-branch \
-  --branch feature/block-b-d04-shared-yolo-demo-20261112 \
-  https://github.com/silverbjin/axia-robot-safety-student.git \
-  "$HOME/axia-robot-safety-student-d04"
-cd "$HOME/axia-robot-safety-student-d04"
-git rev-parse HEAD
-~~~
-
-이미 저장소를 내려받았고 작업 중인 내용이 있다면 재복제·reset하지 않는다. 자신의 수정사항을 보존하고 새 자료 브랜치를 별도 디렉터리에 clone하거나, 안전하게 `git fetch` 후 브랜치를 선택한다. **학생 실습은 강사 비공개 저장소 접근이 필요하지 않다.**
+**필수 CSV 실습은 0절의 `~/axia-robot-safety-student-d04`를 재사용**한다. 별도의 `~/axia_d04_student_yolo`를 이미 다운로드하여 실제 YOLO 추론에 성공했다면 **그 성과물·가상환경을 유지하고 재설치하지 않는다.** 두 저장소를 반복 clone할 필요는 없다. 저장소가 없다면 0절 명령 한 번으로 준비한다.
 
 ### 실제 이미지 YOLO CPU 데모 — 한 번에 실행
 
@@ -79,7 +84,7 @@ bash block_B/day04/run_teacher_yolo_demo_once.sh --run
 ~~~
 
 - `--self-check`: 소스 존재·구문 경계만 확인하며 모델이나 ROS를 실행하지 않는다.
-- `--run`: 학생 전용 venv `~/.venvs/axia-d04-student-yolo`를 준비하고, Ultralytics `8.4.211`을 확인·필요 시 설치한다. 이어 공식 YOLO26n `yolo26n.pt`와 Ultralytics 제공 `bus.jpg`를 **학생의 로컬 캐시**에 준비한 뒤, 강사 코드와 똑같은 Python 스크립트로 한 장을 CPU 추론한다.
+- `--run`: 학생 전용 venv `~/.venvs/axia-d04-student-yolo`를 준비하고, **새 설치에서는 공식 CPU 전용 PyTorch/Torchvision을 먼저 설치한 다음** Ultralytics `8.4.211`을 확인·필요 시 설치한다. 이어 공식 YOLO26n `yolo26n.pt`와 Ultralytics 제공 `bus.jpg`를 **학생의 로컬 캐시**에 준비한 뒤, 강사 코드와 똑같은 Python 스크립트로 한 장을 CPU 추론한다.
 - 재실행은 설치·다운로드 캐시를 재사용한다. 모델·사진·개인 결과는 **학생 Git 저장소가 아닌 `~/.cache/axia/d04_student_yolo`와 `~/axia_d04_student_results`**에 보관한다. 모델/원본 사진을 Git에 추가하거나 배포하지 않는다.
 - 이미 Ultralytics가 설치된 다른 Python을 사용하려면 `AXIA_D04_STUDENT_PYTHON="/절대경로/bin/python" bash block_B/day04/run_teacher_yolo_demo_once.sh --run`을 사용한다.
 
@@ -93,6 +98,8 @@ D04_STUDENT_REAL_IMAGE_LOCAL_CSV_ROWS=N
 D04_STUDENT_INFERENCE_SCOPE=LOCAL_YOLO_CPU_ONLY
 D04_STUDENT_ROS_GAZEBO_NAV2_SAFETY=NOT_RUN
 ~~~
+
+**현장 실측:** 제공된 로그에서는 `LOCAL_YOLO_CPU_ONLY: 4 persons`와 `D04_STUDENT_REAL_IMAGE_LOCAL_CSV_ROWS=4`를 확인했다. 이는 이미 성공한 실행이며, 테스트 환경 수정 때문에 다시 YOLO를 실행할 필요가 없다. 이전 설치에서 대용량 CUDA 패키지가 내려받아졌더라도 자동 제거하거나 venv를 삭제하지 않는다. 새 환경에서만 CPU 전용 PyTorch 설치 순서를 적용한다.
 
 `N`은 실측할 값이다. 특정 인원 수·confidence를 고정된 정답처럼 주장하지 않는다. **이 과정은 실제 Python YOLO 추론이고, 기존 4×4 합성 CSV의 `f001/f002/f003`과는 출처·이미지 크기·검출 결과가 전혀 다르다.**
 
@@ -160,26 +167,16 @@ fixtures/detections.csv → load_fixtures() → select_person() → person/None
 
 ## 2. 준비: 터미널 A 하나만 열기 (약 10분)
 
-**처음 다운로드하는 경우:** Ubuntu 24.04 / WSL2 또는 일반 Linux 터미널에서 아래를 순서대로 실행한다. 폴더가 이미 있다면 중복 clone하지 말고 해당 저장소로 이동하여 현재 브랜치를 확인한다.
+**0절 명령을 먼저 실행한다.** 학생 코드 저장소가 이미 있고 `.venv`에 `pytest==8.3.5`가 설치되어 있으면 재설치하지 않는다. 새 실행기가 학생 저장소의 `.venv/bin/python`을 선택하고 필요할 때만 pytest를 설치한다. **ROS 2·Gazebo·YOLO 설치 불필요**.
 
 ~~~bash
-git clone --single-branch --branch feature/block-b-d04-shared-yolo-demo-20261112 \
-  https://github.com/silverbjin/axia-robot-safety-student.git \
-  axia-robot-safety-student-d04
-cd axia-robot-safety-student-d04
+cd "$HOME/axia-robot-safety-student-d04"
 git rev-parse HEAD
 git status --short
-python3 --version
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install pytest==8.3.5
+bash block_B/day04/run_student_fixture_once.sh --fixture
 ~~~
 
-**예상 확인:** `git rev-parse HEAD`에 40자리 SHA 출력, `git status --short`는 깨끗한 상태에서 아무 줄도 없음, `python --version`은 3.12 이상, `pytest` 설치 정상 종료. 이 단계는 모델 추론이나 ROS 실기 검증이 아니다.
-
-- `No module named venv` 또는 `ensurepip` 오류: Ubuntu 패키지 `python3-venv` 설치가 필요한지 확인한다.
-- 기존 작업 디렉터리를 덮어쓰지 않는다. 강사는 배포 브랜치/커밋 SHA를 수업 시작 전에 공지한다.
-- 학생 개인 구현은 `git switch -c work/block-b-d04-person-내학번`처럼 **개인 작업 브랜치**에서 한다. 교사 공유 브랜치에 push하지 않는다.
+**기대 확인:** 커밋 SHA, 수정사항 여부, `4 passed`, `D04_FIXTURE_ISOLATED_PASS`. `git status`에 개인 수정사항이 있으면 삭제하지 않고 보존한다. `python3 -m venv`에서 `ensurepip`가 없다면 Ubuntu의 `python3-venv` 설치 여부를 확인한다. 개인 구현은 `work/block-b-d04-person-내학번` 브랜치에서 수행하며, 강사/공개 강의 자료 브랜치에 정답을 직접 push하지 않는다.
 
 ## 3. 데이터 파악과 무결성 검사 (약 20분)
 
@@ -205,11 +202,10 @@ f003,3.00,person,0.80,0,0,2,2,4,4
 ## 4. RED — 실패를 먼저 확인한다 (약 15분)
 
 ~~~bash
-python -m pytest -q block_B/tests/test_block_b_public.py \
-  -k 'select_person or confidence or bbox'
+bash block_B/day04/run_student_fixture_once.sh --red
 ~~~
 
-**미구현 TODO의 예상 오류:** `NotImplementedError: TODO_D04_SELECT_PERSON` 및 비정상 종료(exit code 1). D04 대상 일부 테스트는 의도적으로 RED이며 정상 교육 단계다. **정확한 실패 개수는 실제 pytest 출력으로 기록**한다. 설치·import·fixture 해시 오류는 의도한 RED가 아니다.
+**미구현 TODO의 예상 오류:** 내부 pytest는 `NotImplementedError: TODO_D04_SELECT_PERSON`으로 RED(exit code 1). 공개 실행기는 이 메시지와 실패를 확인하고 `D04_STUDENT_TODO_EXPECTED_RED rc=1`로 보고한다. D04 대상 일부 테스트는 의도적으로 RED이며 정상 교육 단계다. **정확한 실패 개수는 실제 pytest 출력으로 기록**한다. 설치·import·fixture 해시 오류는 의도한 RED가 아니다.
 
 - 구현 파일: `block_B/block_b_todo.py`
 - 구현 대상: `select_person(detections, min_confidence=0.5)` **한 함수만**
@@ -246,19 +242,18 @@ python -m pytest -q block_B/tests/test_block_b_public.py \
 ## 7. REFACTOR → REVIEW — D04 대상만 회귀검사 (약 15분)
 
 ~~~bash
-python -m pytest -q block_B/tests/test_block_b_public.py \
-  -k 'select_person or confidence or bbox'
+bash block_B/day04/run_student_fixture_once.sh --green
 git diff -- block_B/block_b_todo.py
 ~~~
 
 **성공 기준:** 선택된 D04 대상 테스트가 모두 PASS하고, 수정 파일이 `block_B/block_b_todo.py`의 D04 함수 범위로 제한됨. `pytest`가 실패하면 마지막 `FAILED` 메시지가 아니라 **가장 먼저 발생한 Assertion/ValueError/NotImplementedError**를 분석한다.
 
-**중요:** `python -m pytest -q block_B/tests`는 D05의 미완성 TODO까지 포함하므로 **D04만 끝난 날 전체 PASS를 요구하지 않는다.** D04 단위 테스트 결과와 D05 미검증을 분리한다.
+**중요:** `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest -q block_B/tests`는 D05의 미완성 TODO까지 포함하므로 **D04만 끝난 날 전체 PASS를 요구하지 않는다.** D04 단위 테스트 결과와 D05 미검증을 분리한다.
 
 ## 8. 결과 재생 — 실제 출력과 예상값 비교 (약 10분)
 
 ~~~bash
-python - <<'PY'
+.venv/bin/python - <<'PY'
 from pathlib import Path
 from block_B.fixture_io import load_fixtures
 from block_B.block_b_todo import select_person
@@ -286,7 +281,8 @@ f003: person 0.80
 
 | 첫 관측 오류 | 확인 지점 | 해결 범위 |
 |---|---|---|
-| `ModuleNotFoundError` | venv 활성화 / 현재 저장소 루트 | 환경 |
+| `No module named 'yaml'` / `launch_testing` | ROS의 pytest11 자동 플러그인이 학생 venv로 유입됨 | `run_student_fixture_once.sh --fixture` 또는 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` 적용 |
+| `ModuleNotFoundError` (기타) | `.venv/bin/python` 및 저장소 루트·필수 pytest 확인 | 환경 |
 | `Fixture hash mismatch` | `SHA256SUMS`와 원본 fixture | 입력 |
 | `TODO_D04_SELECT_PERSON` | 구현 파일/대상 함수 | 구현 |
 | 예상 `None` 대신 사람 선택 | 클래스 및 임계값 비교 | 후보 선택 |
@@ -298,7 +294,7 @@ f003: person 0.80
 - 본인이 수정한 `select_person()`, D04 표적 pytest의 **실제 stdout/exit code**, f001~f003 **실제 출력**.
 - 가장 먼저 재현된 오류 한 건의 `증상 → 원인 → 수정 → 회귀 테스트` 설명.
 - `git rev-parse HEAD`와 개인 변경사항(`git diff`) 기록, 실행 환경·미검증 항목 명시.
-- 마지막 터미널에서 `deactivate`. 새로운 ROS/Gazebo 터미널은 이 실습에 필요 없다.
+- 본 가이드는 `.venv/bin/python`을 직접 실행하므로 `deactivate`가 불필요하다. 이전에 직접 `source .venv/bin/activate`를 실행했다면 마지막에 `deactivate`한다. 새로운 ROS/Gazebo 터미널은 이 실습에 필요 없다.
 
 **검증 수준:** 필수 TODO TDD PASS는 `PYTHON_SYNTHETIC_D04_ONLY`. 선택형 이미지 데모를 실제 실행하고 CSV·manifest를 확인한 학생만 `LOCAL_YOLO_CPU_ONLY`를 별도로 보고한다. **ROS 2 실시간 구독·Gazebo 동작·Nav2 Goal·사람 안전 정지·인증 E-Stop은 검증하지 않았다**. `None`을 CLEAR 또는 자동 재주행 허가로 해석하지 않는다.
 
