@@ -117,28 +117,20 @@ def test_local_relative_markdown_links_are_valid():
 
 
 def test_documented_clone_and_existing_checkout_keep_environment(tmp_path):
-    """Execute the guide's FIRST block twice against a local public repo mirror.
+    """Run guide's FIRST fenced block as written against PUBLIC GitHub twice.
 
-    A file:// fixture substitutes the origin transport for deterministic CI;
-    git clone/fetch/fast-forward, paths, shell and student fixture are unchanged.
+    Validates real clone/branch fetch and no deletion of existing .venv or
+    user artifacts. No instructor repo, private token, ROS or Gazebo.
     """
     home = tmp_path / "home"
     home.mkdir()
-    mirror = tmp_path / "public-student-mirror.git"
-    assert run("git", "init", "--bare", "-q", str(mirror), cwd=tmp_path).returncode == 0
-    branch = "feature/block-b-d04-shared-yolo-demo-20261112"
-    fetch = run("git", "--git-dir=" + str(mirror), "fetch", "-q",
-                str(ROOT), "HEAD:refs/heads/" + branch, cwd=tmp_path)
-    assert fetch.returncode == 0, fetch.stderr
-    raw = flattened_bash(GUIDE.read_text(encoding="utf-8"))[0]
-    source_url = "https://github.com/silverbjin/axia-robot-safety-student.git"
-    assert source_url in raw
-    script = raw.replace(source_url, mirror.as_uri())
+    script = flattened_bash(GUIDE.read_text(encoding="utf-8"))[0]
+    assert "https://github.com/silverbjin/axia-robot-safety-student.git" in script
     env = os.environ.copy()
     env["HOME"] = str(home)
     env.pop("AXIA_D04_FIXTURE_PYTHON", None)
     for attempt in (1, 2):
-        result = run("bash", "-c", script, cwd=tmp_path, env=env, seconds=90)
+        result = run("bash", "-c", script, cwd=tmp_path, env=env, seconds=100)
         assert result.returncode == 0, (attempt, result.stdout, result.stderr)
         assert "4 passed" in result.stdout
         assert "D04_FIXTURE_ISOLATED_PASS" in result.stdout
@@ -149,6 +141,5 @@ def test_documented_clone_and_existing_checkout_keep_environment(tmp_path):
             (clone / ".venv" / "keep_my_lab.txt").write_text("preserve my evidence")
         else:
             assert (clone / ".venv" / "keep_my_lab.txt").read_text() == "preserve my evidence"
-    checked = run("git", "-C", str(clone), "rev-parse", "HEAD", cwd=tmp_path)
-    origin = run("git", "-C", str(ROOT), "rev-parse", "HEAD", cwd=tmp_path)
-    assert checked.stdout.strip() == origin.stdout.strip()
+    checked = run("git", "-C", str(clone), "branch", "--show-current", cwd=tmp_path)
+    assert checked.stdout.strip() == "feature/block-b-d04-shared-yolo-demo-20261112"
