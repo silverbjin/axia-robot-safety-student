@@ -1,5 +1,7 @@
 # D05 · 11/13 19:00~22:00 — RGB bbox와 정렬 Depth ROI
 
+> **D05 상세 학생 실습 가이드:** [D05_STUDENT_LAB_GUIDE_KO.md](D05_STUDENT_LAB_GUIDE_KO.md) — 3시간 운영, 터미널 1개, 기존 TODO RED→GREEN, expected CSV, 실제 공개 CI 범위 및 종료 절차. 현재 문서의 기존 계약/fixture를 변경하지 않는다.
+
 ## 목표
 1. RGB bbox에서 동일 좌표계의 정렬 Depth ROI를 선택한다.
 2. 0/NaN/Inf/누락·범위 외 거리값과 타임스탬프 불일치를 처리한다.
