@@ -162,7 +162,7 @@ sed -n '1,120p' block_B/day04/yolo_single_image_demo.py
 - **Camera:** `/camera/image_raw`(실제 RGB)와 `/yolo/cam0/debug_image`(bbox) 비교
 - **Odometry:** `/odom`; 강사 D04는 Goal 없이 정지된 로봇 시연
 
-**중요한 실행 범위:** 앞의 `run_teacher_yolo_demo_once.sh`는 **사진 한 장을 Python으로 추론**하므로 ROS 2/Gazebo·로봇 모델·LaserScan·TF를 실행하지 않는다. 따라서 **학생 개인 PC에서 단일 이미지 데모만 실행한 경우 RViz에 로봇은 나타나지 않는다.** 이 RViz 실습은 강사가 라이브 D04 ROS 시연을 띄운 환경을 함께 관찰하거나, 학생이 합법적으로 사용 가능한 별도 TurtleBot3 ROS 시뮬레이션을 실행하는 경우에만 한다.
+**중요한 실행 범위:** 앞의 `run_teacher_yolo_demo_once.sh`는 **사진 한 장을 Python으로 추론**하므로 ROS 2/Gazebo·로봇 모델·LaserScan·TF를 실행하지 않는다. 따라서 **학생 개인 PC에서 단일 이미지 데모만 실행한 경우 RViz에 로봇은 나타나지 않는다.** 이 RViz 실습은 강사의 라이브 D04 시연 또는 **학생 전용 공개 `run_student_gazebo_yolo_once.sh`로 Gazebo·YOLO를 시작한 환경**에서 진행한다. 단일 이미지 Python 데모만 실행한 경우에는 로봇·TF·LaserScan이 나타나지 않는다.
 
 강사 D04 원샷은 기존 비공개 P1을 참조하므로 학생의 독립 저장소만으로 전체 D04 ROS launch를 재현하도록 요구하지 않는다. RViz 관찰 체크리스트는 별도 5분 미션이며 학생 TODO `select_person()`의 합격 판정과도 별개다. 안전 TTL/인증 E-Stop은 RViz 화면만으로 검증되지 않는다.
 
