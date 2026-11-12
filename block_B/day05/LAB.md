@@ -2,6 +2,13 @@
 
 > **D05 상세 학생 실습 가이드:** [D05_STUDENT_LAB_GUIDE_KO.md](D05_STUDENT_LAB_GUIDE_KO.md) — 3시간 운영, 터미널 1개, 기존 TODO RED→GREEN, expected CSV, 실제 공개 CI 범위 및 종료 절차. 현재 문서의 기존 계약/fixture를 변경하지 않는다.
 
+## 2026-11-13 수업 시작 링크
+
+1. [D05 학생 데모 가이드](D05_STUDENT_DEMO_GUIDE_KO.md) — 1분 1.30m, 접근 변화율 −0.50m/s, invalid→UNKNOWN을 먼저 관찰
+2. [D05 학생 실습 가이드](D05_STUDENT_LAB_GUIDE_KO.md) — 터미널/환경, RED→GREEN, 실습 코드 계약, 예상 CSV/JSON 및 종료
+
+**강사 정답은 비공개**, 신규 ROS/Gazebo/Goal 실행은 학생 D05 Python 필수 과제에 포함되지 않는다. 아래 기존 120분 실습 개요는 보존한다.
+
 ## 목표
 1. RGB bbox에서 동일 좌표계의 정렬 Depth ROI를 선택한다.
 2. 0/NaN/Inf/누락·범위 외 거리값과 타임스탬프 불일치를 처리한다.
