@@ -102,3 +102,9 @@ PY
 **안전·범위:** 여섯 사례는 새로 작성한 *합성* 4×4 깊이/검출/지도상 가상 사람 위치 자료다. 실제 YOLO 카메라→Nav2 map 좌표 TF 정렬이 아니며 ROS/Gazebo/실제 주행/충돌 0회 검증이 아니다. 출력은 설명/분석용이고 산업용 안전 명령이 아니다. SW_STOP과 인증 하드웨어 E-Stop은 다르다.
 
 **오류 복구:** 결과 경로/ZIP 존재 시 덮어쓰지 않는다. `results/d08_run2`와 `results/d08_submission2.zip`처럼 새 이름을 사용한다. 누락 pytest, 실패 로그, 부정확한 보고, 심볼릭 링크, 큰 파일, 잘못된 해시는 BLOCKED되어야 한다. ZIP 제출 후 venv 종료.
+
+## 검증 범위 / 실습 배포 상태
+
+- 공개 학생 GitHub Actions의 D08 스캐폴드·ZIP L0: [최신 가이드 포함 검증 기록](https://github.com/silverbjin/axia-robot-safety-student/actions/workflows/d08-online-integration-student.yml). 이 검사는 합성 fixture 및 ZIP 계약 **10개 PASS**와 미구현 `integrate_case`의 **의도된 RED**를 확인한다.
+- 선행 D04~D07과 D08을 모두 학생 본인이 구현해 통과하는 `FULL_STUDENT_GREEN`은 학생별 결과에 따라 별도 판정한다. 강사 정답/hidden tests는 이 공개 저장소에 없다.
+- [실제 Gazebo NO-GOAL L2](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43117842587)와 [실제 YOLO ROS 영상 재생 L1](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43118537433)은 **강사 설명용 근거**다. 학생 D08 Python 실습이 로봇 주행·안전 제어를 검증했다고 해석하면 안 된다.
