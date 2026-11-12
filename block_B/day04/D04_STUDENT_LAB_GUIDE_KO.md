@@ -1,20 +1,20 @@
 # AXIA D04 — 학생용 실습 가이드: YOLO 사람 검출 결과를 검증하는 개발자
 
 > **대상:** 2026-11-12 D04 (19:00–22:00, 이론 60분 + 실습 120분)  
-> **실습 범위:** Python 3.12+, pytest 8.3.5, **합성 CSV 데이터**. ROS 2/Gazebo/카메라/모델 설치 불필요.  
-> **관련 교안:** D04 v4 32장, 특히 11–16장(데이터 경계), 22–31장(실습·코드·검증).
-> **주의:** 여기서는 실제 YOLO를 실행하지 않는다. D04의 학습용 `select_person`은 ROS 실시간 노드와 자동 연결되지 않는다.
+> **실습 범위:** 필수 = Python 3.12+, pytest 8.3.5, **합성 CSV**. 선택 = 강사와 동일한 Python YOLO 코드로 **실제 이미지 1장 CPU 추론**(Ultralytics·공식 모델·공식 샘플 사진은 학생 PC에서 준비). ROS 2/Gazebo 불필요.  
+> **관련 교안:** D04 v5 32장, 특히 11–16장(데이터 경계), 22–31장(실습·코드·검증).
+> **주의:** 필수 `select_person()`은 합성 데이터 실습이다. 선택형 이미지 YOLO 실행은 **동일한 강사용 Python 코드**를 별도로 실행하는 것이며, 실제 Gazebo/ROS Detection과 자동 연결되지 않는다.
 
 ## 0. 실습 시작 전: 강사 YOLO 환경 오류와 학생 과제는 별개 (2026-11-12 보완)
 
-강사 선택형 이미지 데모에서 `No module named 'ultralytics'` 또는 `can't open file '/home/.../training/block_B/instructor/yolo_single_image_demo.py'`가 나오더라도 **이 학생 실습은 진행할 수 있다**. 해당 스크립트는 비공개 강사 저장소의 Python/`.pt` 이미지 추론 데모로, 학생용 `block_B` 코드가 아니다. **학생 PC에 ultralytics, PyTorch, Gazebo, ROS, 모델 가중치를 설치하지 않는다.**
+강사 선택형 이미지 데모에서 `No module named 'ultralytics'` 또는 `can't open file '/home/.../training/block_B/instructor/yolo_single_image_demo.py'`가 나오더라도 **이 학생 실습은 진행할 수 있다**. 해당 스크립트는 비공개 강사 저장소의 Python/`.pt` 이미지 추론 데모로, 기존 학생 TODO 코드와는 별도였다. 이제 **같은 추론 스크립트를 `block_B/day04/yolo_single_image_demo.py`에 공개**했다. 필수 CSV 실습에는 Ultralytics·PyTorch·Gazebo·ROS·모델 가중치가 필요 없고, **선택형 실제 이미지 추론**을 할 때만 학생용 가상환경에 Ultralytics와 공식 모델·샘플 사진을 준비한다.
 
 반드시 **GitHub에서 독립 학생 저장소를 clone한 뒤 저장소 루트에서** 명령을 실행한다. `~/`에서 바로 `python3 training/...`을 실행하지 않는다. 아래는 새 터미널 하나에서 수행할 최소 진단이다.
 
 ~~~bash
 (
   set -Eeuo pipefail
-  git clone --single-branch --branch feature/block-b-d04-guides-20261112 \
+  git clone --single-branch --branch feature/block-b-d04-shared-yolo-demo-20261112 \
     https://github.com/silverbjin/axia-robot-safety-student.git \
     "$HOME/axia-robot-safety-student-d04"
   cd "$HOME/axia-robot-safety-student-d04"
@@ -31,6 +31,95 @@
 다음 D04 선택 테스트는 기본 TODO에서 `NotImplementedError: TODO_D04_SELECT_PERSON`으로 **예상 RED**이다. 함수를 직접 구현한 뒤에만 GREEN이다. D05 `measure_person_range()` 테스트가 남아 있어 전체 `block_B/tests`는 D04 완료 시점에도 실패할 수 있다.
 
 **공개 CI 재현:** [D04 현장 오류 RED](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43138902285) → [공개 CI GREEN](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43139616709). GREEN이 검증한 것은 **강사 선택형 이미지 사전진단의 경로·누락 의존성 계약과 학생 fixture/의도된 RED**이며, 실제 YOLO 추론이나 학생 TODO 전체 GREEN이 아니다.
+
+---
+
+## 0-A. 강의 슬라이드별 소스 코드 지도 — 학생이 열어볼 파일
+
+| 슬라이드 | 주제 / 코드 | 학생에게 공개된 위치 | 실행 범위 |
+|---|---|---|---|
+| 8장 | 공식 Waffle Pi RGB를 임시 모델에 결합 | [D04 ROS 코드 해설](D04_ROS_CODE_WALKTHROUGH_KO.md) `overlay.py` 발췌 | 개념 학습, 강사용 P1 전체는 비공개 |
+| 9장 | YOLO DetectionPlugin 설정 | [D04 ROS 코드 해설](D04_ROS_CODE_WALKTHROUGH_KO.md) `config.py` 발췌 | 설명용 YAML, 모델을 새로 개발하지 않음 |
+| 10장 | ROS 이미지 브리지와 upstream YOLO launch | [D04 ROS 코드 해설](D04_ROS_CODE_WALKTHROUGH_KO.md) `d04_p1_yolo.launch.py` 발췌 | 강사 P1 원본을 포함하므로 학생 단독 ROS launch는 아님 |
+| 21장 | **강사와 동일한 YOLO Python 이미지 추론** | [`block_B/day04/yolo_single_image_demo.py`](yolo_single_image_demo.py) | **학생 개인 PC에서 실제 CPU 추론 가능** |
+| 23장 | 합성 CSV·SHA256 판독 | [`block_B/fixture_io.py`](../fixture_io.py) | 필수 |
+| 25장 | 기대 결과·예외 단위 테스트 | [`block_B/tests/test_block_b_public.py`](../tests/test_block_b_public.py) | 필수 |
+| 27장 | 사람 후보 선택 TODO 구현 | [`block_B/block_b_todo.py`](../block_b_todo.py) | **학생이 직접 완성** |
+
+강사 Python 데모의 **동일한 파일 바이트를 학생용으로 복제**했다(Git blob SHA: `9eb5fb41ea3836da5bade7fcdb3bce99969fc212`). 따라서 강사가 화면에서 해설한 `YOLO(...)`, `model.predict(...)`, `boxes.cls/conf/xyxy`, `detections.csv` 저장 코드를 그대로 따라가며 실행할 수 있다. 이 코드는 **강사 솔루션 `block_b_reference.py`나 hidden tests를 포함하지 않는다.**
+
+> 강사 **실제 Gazebo/ROS2 동적 Bounding Box**는 비공개 P1과 공식 Nav2를 포함하는 별도 통합 시연이다. 아래 Python **정지 이미지 1장 추론**은 그 전체 ROS 실행기를 복제하는 것이 아니다. 학생에게도 영상→YOLO→검출 데이터의 핵심만 재현하도록 범위를 좁혔다.
+
+## 0-B. 강사와 동일한 Python YOLO 시연 재현 — 선택 과제
+
+**성취 목표:** 학생 PC에서도 사진을 YOLO로 실제 추론한 뒤 `class`·`confidence`·`bbox`를 추출하여 `detections.csv`와 `run_manifest.json`을 만든다. 이를 통해 1번 학습 목표(구조 이해)를 직접 관찰한다.
+
+**권장 환경:** WSL2 Ubuntu 24.04 / Python 3.12 / 인터넷 연결 / CPU 추론 가능. 설치와 첫 모델 다운로드는 환경에 따라 오래 걸릴 수 있으므로 수업 전 준비 또는 수업 후 선택 과제로 수행한다. **필수 CSV TDD 수업을 멈춰가며 설치하지 않는다.**
+
+### 첫 다운로드(학생 저장소가 없는 경우)
+
+~~~bash
+git clone --single-branch \
+  --branch feature/block-b-d04-shared-yolo-demo-20261112 \
+  https://github.com/silverbjin/axia-robot-safety-student.git \
+  "$HOME/axia-robot-safety-student-d04"
+cd "$HOME/axia-robot-safety-student-d04"
+git rev-parse HEAD
+~~~
+
+이미 저장소를 내려받았고 작업 중인 내용이 있다면 재복제·reset하지 않는다. 자신의 수정사항을 보존하고 새 자료 브랜치를 별도 디렉터리에 clone하거나, 안전하게 `git fetch` 후 브랜치를 선택한다. **학생 실습은 강사 비공개 저장소 접근이 필요하지 않다.**
+
+### 실제 이미지 YOLO CPU 데모 — 한 번에 실행
+
+학생 저장소 루트에서:
+
+~~~bash
+bash block_B/day04/run_teacher_yolo_demo_once.sh --self-check
+bash block_B/day04/run_teacher_yolo_demo_once.sh --run
+~~~
+
+- `--self-check`: 소스 존재·구문 경계만 확인하며 모델이나 ROS를 실행하지 않는다.
+- `--run`: 학생 전용 venv `~/.venvs/axia-d04-student-yolo`를 준비하고, Ultralytics `8.4.211`을 확인·필요 시 설치한다. 이어 공식 YOLO26n `yolo26n.pt`와 Ultralytics 제공 `bus.jpg`를 **학생의 로컬 캐시**에 준비한 뒤, 강사 코드와 똑같은 Python 스크립트로 한 장을 CPU 추론한다.
+- 재실행은 설치·다운로드 캐시를 재사용한다. 모델·사진·개인 결과는 **학생 Git 저장소가 아닌 `~/.cache/axia/d04_student_yolo`와 `~/axia_d04_student_results`**에 보관한다. 모델/원본 사진을 Git에 추가하거나 배포하지 않는다.
+- 이미 Ultralytics가 설치된 다른 Python을 사용하려면 `AXIA_D04_STUDENT_PYTHON="/절대경로/bin/python" bash block_B/day04/run_teacher_yolo_demo_once.sh --run`을 사용한다.
+
+**실제 성공 시에만 예상하는 출력 패턴** (정확한 검출 수는 모델/이미지에 따라 달라짐):
+
+~~~text
+D04_STUDENT_ULTRALYTICS_IMPORT_OK
+D04_STUDENT_OFFICIAL_IMAGE_READY
+LOCAL_YOLO_CPU_ONLY: N persons; output=/home/.../axia_d04_student_results/...
+D04_STUDENT_REAL_IMAGE_LOCAL_CSV_ROWS=N
+D04_STUDENT_INFERENCE_SCOPE=LOCAL_YOLO_CPU_ONLY
+D04_STUDENT_ROS_GAZEBO_NAV2_SAFETY=NOT_RUN
+~~~
+
+`N`은 실측할 값이다. 특정 인원 수·confidence를 고정된 정답처럼 주장하지 않는다. **이 과정은 실제 Python YOLO 추론이고, 기존 4×4 합성 CSV의 `f001/f002/f003`과는 출처·이미지 크기·검출 결과가 전혀 다르다.**
+
+### 출력 직접 확인 및 코드 해설
+
+~~~bash
+ls -dt "$HOME"/axia_d04_student_results/teacher_same_code_* | head -n 1
+OUT="$(ls -dt "$HOME"/axia_d04_student_results/teacher_same_code_* | head -n 1)"
+head -n 5 "$OUT/detections.csv"
+cat "$OUT/run_manifest.json"
+sed -n '1,120p' block_B/day04/yolo_single_image_demo.py
+~~~
+
+강사가 질문한다면 다음 순서로 설명한다: **① `YOLO(model)` 모델 준비 → ② `predict(image,device="cpu")` → ③ 사람 아닌 클래스 제거 → ④ `boxes.cls/conf/xyxy` → ⑤ CSV 기록 → ⑥ 모델·사진 SHA256과 검증 범위 manifest 기록.** 다음 필수 과제에서 그 검출 결과와 **동일한 필드 구조를 갖춘 합성 CSV**를 사용해 `select_person()`을 스스로 구현한다.
+
+**구현 범위 구분:** 공개된 강사 데모 코드는 **복사·실행·분석용**이다. 학생 TODO 정답이 아니다. `block_B/block_b_todo.py::select_person`은 기존대로 직접 구현한다. D05 `measure_person_range`는 변경하지 않는다.
+
+**최초 오류별 진단:**
+- `No module named ultralytics` → `python3`를 직접 호출하지 말고 위 `--run` 실행기의 선택한 venv에서 import하도록 한다.
+- `yolo26n.pt` 또는 `bus.jpg` 다운로드 실패 → 인터넷 접근·공식 URL·로컬 캐시 상태 점검. 가짜 빈 파일로 통과시키지 않는다.
+- `Output directory must not exist` → 기존 결과를 보존하고 새 출력 폴더 사용(원샷은 자동 생성).
+- `0 persons` → 추론 성공일 수 있다. 이미지·모델·confidence 판단을 분리하고 person 검출을 보장하지 않는다.
+- `ROS topic /camera/image_raw`가 없음 → 이 데모는 **ROS와 무관**하다. 실제 ROS 실기는 별도 강사 프로그램이다.
+
+**자산·라이선스:** Ultralytics 제공 `yolo26n.pt`와 샘플 `bus.jpg`는 학생 PC에서 **직접 공식 배포처로부터 다운로드**하며 저장소에 포함하지 않는다. Ultralytics YOLO26 모델·코드는 **AGPL-3.0 또는 별도 Enterprise 라이선스** 대상이므로 이용 목적·재배포 조건을 검토한다. [공식 YOLO26 빠른 시작](https://docs.ultralytics.com/ko/models/yolo26), [Ultralytics Licensing](https://docs.ultralytics.com/), [Ultralytics 이미지 예제](https://ultralytics.com/images/bus.jpg). 실습용 Python 프로그램 자체를 공개했다고 해서 해당 모델의 라이선스가 변경되는 것은 아니다.
+
+**테스트 증거 구분:** 공개 CI의 모의 YOLO API 테스트가 `PASS`여도 실물 모델의 품질·학생 PC 실추론까지 보장하지 않는다. 실제 로컬 `LOCAL_YOLO_CPU_ONLY` 인수는 본인이 출력·manifest를 확인한 뒤 보고한다. Nav2 Goal·안전정지·인증 E-Stop 검증은 범위 밖이다.
 
 ---
 
@@ -58,7 +147,7 @@ fixtures/detections.csv → load_fixtures() → select_person() → person/None
 **처음 다운로드하는 경우:** Ubuntu 24.04 / WSL2 또는 일반 Linux 터미널에서 아래를 순서대로 실행한다. 폴더가 이미 있다면 중복 clone하지 말고 해당 저장소로 이동하여 현재 브랜치를 확인한다.
 
 ~~~bash
-git clone --single-branch --branch feature/block-b-d04-guides-20261112 \
+git clone --single-branch --branch feature/block-b-d04-shared-yolo-demo-20261112 \
   https://github.com/silverbjin/axia-robot-safety-student.git \
   axia-robot-safety-student-d04
 cd axia-robot-safety-student-d04
@@ -74,7 +163,7 @@ python -m pip install pytest==8.3.5
 
 - `No module named venv` 또는 `ensurepip` 오류: Ubuntu 패키지 `python3-venv` 설치가 필요한지 확인한다.
 - 기존 작업 디렉터리를 덮어쓰지 않는다. 강사는 배포 브랜치/커밋 SHA를 수업 시작 전에 공지한다.
-- 학생 개인 구현은 `git switch -c work/d04-person-내학번`처럼 **개인 작업 브랜치**에서 한다. 교사 공유 브랜치에 push하지 않는다.
+- 학생 개인 구현은 `git switch -c work/block-b-d04-person-내학번`처럼 **개인 작업 브랜치**에서 한다. 교사 공유 브랜치에 push하지 않는다.
 
 ## 3. 데이터 파악과 무결성 검사 (약 20분)
 
@@ -195,6 +284,6 @@ f003: person 0.80
 - `git rev-parse HEAD`와 개인 변경사항(`git diff`) 기록, 실행 환경·미검증 항목 명시.
 - 마지막 터미널에서 `deactivate`. 새로운 ROS/Gazebo 터미널은 이 실습에 필요 없다.
 
-**검증 수준:** 통과해도 `PYTHON_SYNTHETIC_D04_ONLY`. YOLO 실제 추론, ROS 2 실시간 구독, Gazebo 동작, Nav2 Goal, 사람 안전 정지, 인증 E-Stop은 **검증하지 않았다**. `None`을 CLEAR 또는 자동 재주행 허가로 해석하지 않는다.
+**검증 수준:** 필수 TODO TDD PASS는 `PYTHON_SYNTHETIC_D04_ONLY`. 선택형 이미지 데모를 실제 실행하고 CSV·manifest를 확인한 학생만 `LOCAL_YOLO_CPU_ONLY`를 별도로 보고한다. **ROS 2 실시간 구독·Gazebo 동작·Nav2 Goal·사람 안전 정지·인증 E-Stop은 검증하지 않았다**. `None`을 CLEAR 또는 자동 재주행 허가로 해석하지 않는다.
 
 **참고:** [기존 D04 LAB](LAB.md), [공통 Block B 가이드](../README_KO.md), [Ultralytics Predict](https://docs.ultralytics.com/modes/predict), [ROS 2 Jazzy Topic CLI](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics/Understanding-ROS2-Topics.html)
