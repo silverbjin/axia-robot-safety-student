@@ -101,7 +101,10 @@ D04_STUDENT_INFERENCE_SCOPE=LOCAL_YOLO_CPU_ONLY
 D04_STUDENT_ROS_GAZEBO_NAV2_SAFETY=NOT_RUN
 ~~~
 
-**현장 실측:** 제공된 로그에서는 `LOCAL_YOLO_CPU_ONLY: 4 persons`와 `D04_STUDENT_REAL_IMAGE_LOCAL_CSV_ROWS=4`를 확인했다. 이는 이미 성공한 실행이며, 테스트 환경 수정 때문에 다시 YOLO를 실행할 필요가 없다. 이전 설치에서 대용량 CUDA 패키지가 내려받아졌더라도 자동 제거하거나 venv를 삭제하지 않는다. 새 환경에서만 CPU 전용 PyTorch 설치 순서를 적용한다.
+**현장 실측:** 제공된 로그에서는 `LOCAL_YOLO_CPU_ONLY: 4 persons`와 `D04_STUDENT_REAL_IMAGE_LOCAL_CSV_ROWS=4`를 확인했다.
+
+**성공 판독:** `D04_STUDENT_STATIC_PASS`는 소스와 정적 구문 확인, `D04_STUDENT_DOCTOR_PASS=PREREQUISITES_ONLY`는 실행 전 준비 완료, `LOCAL_YOLO_CPU_ONLY: 4 persons`는 실제 이미지 1장에서 사람 4명 추론, `D04_STUDENT_REAL_IMAGE_LOCAL_CSV_ROWS=4`는 해당 결과의 CSV 기록 수 확인이다. `D04_STUDENT_ROS_GAZEBO_NAV2_SAFETY=NOT_RUN`은 **실패가 아니라** 이 Python 데모에서는 ROS 2·Gazebo·Nav2·안전 정지를 수행하지 않았다는 **검증 범위 표시**다. 이미 이 출력이 나왔다면 다시 모델을 실행하거나 내려받지 않는다.
+ 이는 이미 성공한 실행이며, 테스트 환경 수정 때문에 다시 YOLO를 실행할 필요가 없다. 이전 설치에서 대용량 CUDA 패키지가 내려받아졌더라도 자동 제거하거나 venv를 삭제하지 않는다. 새 환경에서만 CPU 전용 PyTorch 설치 순서를 적용한다.
 
 `N`은 실측할 값이다. 특정 인원 수·confidence를 고정된 정답처럼 주장하지 않는다. **이 과정은 실제 Python YOLO 추론이고, 기존 4×4 합성 CSV의 `f001/f002/f003`과는 출처·이미지 크기·검출 결과가 전혀 다르다.**
 
@@ -184,7 +187,7 @@ bash block_B/day04/run_student_fixture_once.sh --fixture
 
 ~~~bash
 head -n 5 block_B/fixtures/detections.csv
-python -m pytest -q block_B/tests/test_fixture_io.py
+bash block_B/day04/run_student_fixture_once.sh --fixture
 ~~~
 
 **예상 CSV (제공된 합성 데이터):**
@@ -197,7 +200,7 @@ f002,2.00,person,0.34,1,1,3,3,4,4
 f003,3.00,person,0.80,0,0,2,2,4,4
 ~~~
 
-**예상 pytest:** `4 passed` (실행 환경에 따라 시간 표시는 달라짐). `Fixture hash mismatch`는 파일 변경·손상을 뜻한다. 체크섬을 다시 만들어 통과시키지 말고 **원본을 복구**한다. 파일 해시는 무결성 검사이지 실제 카메라 출처 인증은 아니다.
+**예상 fixture pytest:** `4 passed`와 `D04_FIXTURE_ISOLATED_PASS` (실행 환경에 따라 시간 표시는 달라짐). `Fixture hash mismatch`는 파일 변경·손상을 뜻한다. 체크섬을 다시 만들어 통과시키지 말고 **원본을 복구**한다. 파일 해시는 무결성 검사이지 실제 카메라 출처 인증은 아니다.
 
 강사 발문: f001에서 가장 높은 score가 `chair`인데, 왜 사람 후보가 다르게 선택되는가? f002에는 `person 0.34`가 있는데 왜 출력은 `None`이어야 하는가?
 
