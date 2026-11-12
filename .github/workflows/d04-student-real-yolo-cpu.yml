@@ -1,0 +1,55 @@
+name: D04 student same-as-teacher real YOLO single-image CPU (PUBLIC)
+
+on:
+  push:
+    branches: ['feature/block-b-d04-shared-yolo-demo-20261112']
+    paths:
+      - 'block_B/day04/**'
+      - 'block_B/tests/test_d04_shared_yolo_demo.py'
+      - '.github/workflows/d04-student-real-yolo-cpu.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-single-image-inference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    env:
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+      AXIA_D04_STUDENT_CACHE: ${{ runner.temp }}/d04_student_cache
+      AXIA_D04_STUDENT_RESULTS: ${{ runner.temp }}/d04_student_results
+      YOLO_CONFIG_DIR: ${{ runner.temp }}/d04_yolo_settings
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU PyTorch and pinned Ultralytics (public upstream)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check \
+            --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          python -m pip install --disable-pip-version-check 'ultralytics==8.4.211'
+          python -c 'from ultralytics import YOLO; print("D04_REAL_ULTRALYTICS_IMPORT_PASS")'
+      - name: Execute shared teacher script with official public pretrained weights and image
+        shell: bash
+        run: |
+          set -euo pipefail
+          AXIA_D04_STUDENT_PYTHON="$(command -v python)" \
+            bash block_B/day04/run_teacher_yolo_demo_once.sh --run \
+              | tee "$RUNNER_TEMP/d04-real-cpu-run.log"
+          grep -q '^LOCAL_YOLO_CPU_ONLY:' "$RUNNER_TEMP/d04-real-cpu-run.log"
+          grep -q 'D04_STUDENT_INFERENCE_SCOPE=LOCAL_YOLO_CPU_ONLY' "$RUNNER_TEMP/d04-real-cpu-run.log"
+          grep -q 'D04_STUDENT_ROS_GAZEBO_NAV2_SAFETY=NOT_RUN' "$RUNNER_TEMP/d04-real-cpu-run.log"
+          echo "D04_PUBLIC_REAL_CPU_SINGLE_IMAGE_INFERENCE_PASS"
+      - name: Remove model/photo and avoid uploading third-party licensed assets
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$AXIA_D04_STUDENT_CACHE" "$AXIA_D04_STUDENT_RESULTS"
