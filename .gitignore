@@ -1,0 +1,12 @@
+# D04/D05 student Python labs: local environment and generated evidence only.
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+results/
+.coverage
+htmlcov/
+# Third-party model weights are retrieved into per-user cache, never versioned.
+*.pt
+*.pth
+*.onnx
