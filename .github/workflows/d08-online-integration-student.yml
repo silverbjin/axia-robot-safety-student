@@ -1,0 +1,47 @@
+name: AXIA D08 online integration student scaffold/ZIP L0
+on:
+  push:
+    branches: ['main','feature/d08-online-integration-todo-20261110']
+    paths:
+      - 'block_B/day08/**'
+      - '.github/workflows/d08-online-integration-student.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  student-scaffold-and-zip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: GREEN synthetic fixture + secure allowlisted SHA256 ZIP
+        run: |
+          set -euo pipefail
+          python -m pip install -q pytest==8.3.5
+          python -m compileall -q block_B/day08
+          python -m pytest -q \
+            block_B/day08/tests/test_d08_public.py::test_d08_synthetic_fixture_contract \
+            block_B/day08/tests/test_d08_submission_zip.py
+      - name: Student integration TODO intentionally RED, never hidden reference
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess,sys
+          command=[sys.executable,'-m','pytest','-q',
+            'block_B/day08/tests/test_d08_public.py::test_d08_integrated_six_scenarios_expected_red_until_todos_complete']
+          r=subprocess.run(command,capture_output=True,text=True,timeout=30)
+          output=r.stdout+r.stderr
+          if r.returncode==0 or 'TODO_D08_INTEGRATE_CASE' not in output:
+              print('D08_EXPECTED_RED_CONTRACT_BROKEN')
+              sys.exit(2)
+          print('D08_STUDENT_EXPECTED_RED_CONFIRMED; TODO_STILL_UNIMPLEMENTED')
+          PY
+          test ! -e block_B/day08/d08_integration_reference.py
+          test ! -e block_B/day08/hidden_tests
+          test ! -e block_B/day08/SOLUTION.py
+          echo 'D08_STUDENT_SCAFFOLD_ZIP_L0_PASS; STUDENT_FULL_GREEN_NOT_CLAIMED'

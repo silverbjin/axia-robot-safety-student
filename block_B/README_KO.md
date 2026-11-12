@@ -44,3 +44,15 @@ cat results/d04_d05_run1/person_range.csv
 - SW Stop은 인증된 HW E-Stop이 아닙니다.
 - 제출: 두 TODO 함수, 공개 pytest 결과, 실행 결과 CSV, Git SHA와 CI 링크, 미검증 항목.
 - 수업 종료: 가상환경 `deactivate`; 새 터미널 불필요.
+
+## D08 온라인 통합 실습 (2026-11-18, 19:00~23:00)
+
+D04~D07의 학생 TODO를 먼저 완성했다면, [**D08 4시간 실습 시작 가이드**](day08/D08_LAB_KO.md)에서 **최초 clone → RED → GREEN → 6사례 분석 → SHA256 ZIP 제출** 순서로 진행합니다.
+
+- **실무 진단 보충:** [실제 Gazebo·YOLO 분류 실패를 어떻게 진단할까?](day08/D08_FIELD_DIAGNOSTIC_CASE_KO.md) — 본 수업 첫 시간 15~20분 활동
+- **학생 구현 파일:** `day08/integration_todo.py`의 `integrate_case()` 한 함수
+- **검증 명령:** `python -m pytest -q block_B/day08/tests/test_d08_public.py` (미구현 상태는 의도적 RED)
+- **제출 파일:** `results/d08_submission.zip` 하나. 결과 CSV·JSON·실제 pytest 로그·본인 소스·SHA256SUMS 총 5파일
+- **검증 수준:** Python synthetic L0 교육 실습. ROS/Gazebo/실제 주행, AI 안전 인증 또는 하드웨어 E-Stop 결과가 아님
+
+D08 자료는 `feature/d08-online-integration-todo-20261110` 브랜치에 게시됩니다. `main`으로 병합되기 전에는 **가이드의 명시된 브랜치로 clone**하세요. 강사 정답은 이 저장소에 존재하지 않습니다.
