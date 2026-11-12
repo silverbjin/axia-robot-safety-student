@@ -46,7 +46,7 @@
 | 25장 | 기대 결과·예외 단위 테스트 | [`block_B/tests/test_block_b_public.py`](../tests/test_block_b_public.py) | 필수 |
 | 27장 | 사람 후보 선택 TODO 구현 | [`block_B/block_b_todo.py`](../block_b_todo.py) | **학생이 직접 완성** |
 
-강사 Python 데모의 **동일한 파일 바이트를 학생용으로 복제**했다(Git blob SHA: `9eb5fb41ea3836da5bade7fcdb3bce99969fc212`). 따라서 강사가 화면에서 해설한 `YOLO(...)`, `model.predict(...)`, `boxes.cls/conf/xyxy`, `detections.csv` 저장 코드를 그대로 따라가며 실행할 수 있다. 이 코드는 **강사 솔루션 `block_b_reference.py`나 hidden tests를 포함하지 않는다.**
+강사 Python 데모의 **동일한 파일 바이트를 학생용으로 복제**했다(Git blob SHA: `9eb5fb41ea3836da5bade7fcdb3bce99969fc212`). 따라서 강사가 화면에서 해설한 `YOLO(...)`, `model.predict(...)`, `boxes.cls/conf/xyxy`, `detections.csv` 저장 코드를 그대로 따라가며 실행할 수 있다. 이 코드는 **강사 정답 코드인 `block_b_reference.py`나 hidden tests를 포함하지 않는다.**
 
 > 강사 **실제 Gazebo/ROS2 동적 Bounding Box**는 비공개 P1과 공식 Nav2를 포함하는 별도 통합 시연이다. 아래 Python **정지 이미지 1장 추론**은 그 전체 ROS 실행기를 복제하는 것이 아니다. 학생에게도 영상→YOLO→검출 데이터의 핵심만 재현하도록 범위를 좁혔다.
 
