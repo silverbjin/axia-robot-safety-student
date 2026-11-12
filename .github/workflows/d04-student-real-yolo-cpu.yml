@@ -19,9 +19,6 @@ jobs:
     env:
       OMP_NUM_THREADS: '2'
       MKL_NUM_THREADS: '2'
-      AXIA_D04_STUDENT_CACHE: ${{ runner.temp }}/d04_student_cache
-      AXIA_D04_STUDENT_RESULTS: ${{ runner.temp }}/d04_student_results
-      YOLO_CONFIG_DIR: ${{ runner.temp }}/d04_yolo_settings
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,6 +38,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          export AXIA_D04_STUDENT_CACHE="$RUNNER_TEMP/d04_student_cache"
+          export AXIA_D04_STUDENT_RESULTS="$RUNNER_TEMP/d04_student_results"
+          export YOLO_CONFIG_DIR="$RUNNER_TEMP/d04_yolo_settings"
           AXIA_D04_STUDENT_PYTHON="$(command -v python)" \
             bash block_B/day04/run_teacher_yolo_demo_once.sh --run \
               | tee "$RUNNER_TEMP/d04-real-cpu-run.log"
@@ -52,4 +52,4 @@ jobs:
         if: always()
         shell: bash
         run: |
-          rm -rf "$AXIA_D04_STUDENT_CACHE" "$AXIA_D04_STUDENT_RESULTS"
+          rm -rf "$RUNNER_TEMP/d04_student_cache" "$RUNNER_TEMP/d04_student_results"
