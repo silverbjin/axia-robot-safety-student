@@ -5,6 +5,17 @@
 - **실습 범위:** SYNTHETIC_COURSE_FIXTURE / Python 3.12+ / pytest 8.3.5 / ROS·Gazebo·GPU 불필요 / NO_GOAL / NO_CMD_VEL
 - **강사 정답 비공개:** 학생은 block_B/block_b_todo.py의 기존 measure_person_range() TODO를 직접 구현한다. 강사 정답과 hidden tests는 학생 공개 저장소에 넣지 않는다.
 
+## 학습 목표와 교육용 위험 수치화
+
+원래 차시 주제는 다음 두 가지다.
+
+1. **Depth 기반 사람-로봇 간 거리 계산 구조 이해:** D04 bbox → registered Depth ROI → 유효 픽셀 median Z-depth(m), RGB/Depth 시각·이미지 크기 검증.
+2. **접근 위험 수치화 및 거리정보 추출 실습:** 합성 CSV 거리정보를 추출하고, **별도 합성 2시점** 2.0m→1.5m/1초에서 Z-depth 변화율 **−0.50m/s**를 계산하며, invalid/stale가 UNKNOWN이라는 것을 설명한다.
+
+실습에 들어가기 전에 [D05_STUDENT_DEMO_GUIDE_KO.md](D05_STUDENT_DEMO_GUIDE_KO.md)의 **1분 중앙값·5분 변화율·5분 무효 픽셀 데모**를 먼저 수행한다. 학생이 1.30m를 즉시 확인하도록 순서를 변경한 것이다. 교재 예시 변화율은 **코드 기능 확장이나 충돌 위험 확률 계산이 아니다**. 카메라 Z-depth는 실제 로봇-사람 외곽 사이의 최소 이격거리와 다르다.
+
+**권장 2시간 TDD 순서:** 20:00–20:15 fixture 준비, 20:15–20:30 의도적 RED, 20:30–20:50 정상 median GREEN, 20:50–21:10 invalid·50% GREEN, 21:10–21:35 skew 경계·bbox/ragged GREEN, 21:35–21:50 CSV, 21:50–22:00 실제 Gazebo 증거로 리뷰. 수업 준비는 새 ROS/Gazebo 설치 없이 Python venv만 사용한다.
+
 ## 0. 먼저 결과를 눈으로 확인
 
 어제 D04의 bbox=(1,1,3,3)은 4×4 영상에서 반열린 구간 [1,3)×[1,3)의 2×2 ROI이다. 오늘의 합성 Depth는 ROI 네 값이 **[1.0,1.2,1.4,1.6] m**, median은 **1.30m**다. 반면 Depth가 끊기거나 invalid 픽셀이 많으면 **UNKNOWN**이어야 한다. 마지막 정상 측정값을 재사용하지 않는다.
