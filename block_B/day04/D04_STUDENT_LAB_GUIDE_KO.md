@@ -5,6 +5,35 @@
 > **관련 교안:** D04 v4 32장, 특히 11–16장(데이터 경계), 22–31장(실습·코드·검증).
 > **주의:** 여기서는 실제 YOLO를 실행하지 않는다. D04의 학습용 `select_person`은 ROS 실시간 노드와 자동 연결되지 않는다.
 
+## 0. 실습 시작 전: 강사 YOLO 환경 오류와 학생 과제는 별개 (2026-11-12 보완)
+
+강사 선택형 이미지 데모에서 `No module named 'ultralytics'` 또는 `can't open file '/home/.../training/block_B/instructor/yolo_single_image_demo.py'`가 나오더라도 **이 학생 실습은 진행할 수 있다**. 해당 스크립트는 비공개 강사 저장소의 Python/`.pt` 이미지 추론 데모로, 학생용 `block_B` 코드가 아니다. **학생 PC에 ultralytics, PyTorch, Gazebo, ROS, 모델 가중치를 설치하지 않는다.**
+
+반드시 **GitHub에서 독립 학생 저장소를 clone한 뒤 저장소 루트에서** 명령을 실행한다. `~/`에서 바로 `python3 training/...`을 실행하지 않는다. 아래는 새 터미널 하나에서 수행할 최소 진단이다.
+
+~~~bash
+(
+  set -Eeuo pipefail
+  git clone --single-branch --branch feature/block-b-d04-guides-20261112 \
+    https://github.com/silverbjin/axia-robot-safety-student.git \
+    "$HOME/axia-robot-safety-student-d04"
+  cd "$HOME/axia-robot-safety-student-d04"
+  python3 -m venv .venv
+  source .venv/bin/activate
+  python -m pip install pytest==8.3.5
+  pwd
+  python -m pytest -q block_B/tests/test_fixture_io.py
+)
+~~~
+
+**첫 설치의 예상 결과:** `pwd`가 학생 저장소 루트, fixture 테스트 `4 passed`. 동일 디렉터리가 이미 있으면 위 clone을 다시 실행하지 말고 기존 저장소의 Git 브랜치/수정사항을 확인한 뒤 이어서 진행한다. 이 검사 PASS는 **fixture 무결성만** 의미한다.
+
+다음 D04 선택 테스트는 기본 TODO에서 `NotImplementedError: TODO_D04_SELECT_PERSON`으로 **예상 RED**이다. 함수를 직접 구현한 뒤에만 GREEN이다. D05 `measure_person_range()` 테스트가 남아 있어 전체 `block_B/tests`는 D04 완료 시점에도 실패할 수 있다.
+
+**공개 CI 재현:** [D04 현장 오류 RED](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43138902285) → [공개 CI GREEN](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43139616709). GREEN이 검증한 것은 **강사 선택형 이미지 사전진단의 경로·누락 의존성 계약과 학생 fixture/의도된 RED**이며, 실제 YOLO 추론이나 학생 TODO 전체 GREEN이 아니다.
+
+---
+
 ## 1. 오늘의 미션: 검출된 후보 중 '유효한 사람 1명' 선택
 
 강사는 실제 YOLO 영상에서 `class`, `confidence`, `bbox`를 보여준다. 여러분은 **검출 결과처럼 생긴 기록 데이터**를 읽고, 어떤 후보를 사용할 수 있는지 판단하는 코드를 작성한다.
