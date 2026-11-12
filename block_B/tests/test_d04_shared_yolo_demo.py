@@ -135,3 +135,42 @@ def test_student_guide_explains_actual_model_vs_fixture_and_exact_command():
     assert "SYNTHETIC_COURSE_FIXTURE" in guide
     assert "AGPL-3.0" in guide
     assert "강사 정답" in guide
+
+
+def test_one_shot_from_arbitrary_directory_has_no_ghost_teacher_paths(tmp_path):
+    import subprocess
+    runner = ROOT / "block_B/day04/run_teacher_yolo_demo_once.sh"
+    assert runner.is_file()
+    assert subprocess.run(["bash", "-n", str(runner)], capture_output=True).returncode == 0
+    res = subprocess.run(
+        ["bash", str(runner), "--self-check"], cwd=tmp_path,
+        capture_output=True, text=True, timeout=5,
+    )
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "D04_STUDENT_STATIC_PASS" in res.stdout
+    text = runner.read_text()
+    assert "axia_licensed_assets" not in text
+    assert "axia_d04_classroom/instructor" not in text
+    assert "yolo26n.pt" in text and "bus.jpg" in text
+    assert "cmd_vel" not in text.lower() or "no_cmd_vel" in text.lower()
+
+
+def test_doctor_does_not_install_or_download_missing_assets(tmp_path):
+    import os
+    import subprocess
+    runner = ROOT / "block_B/day04/run_teacher_yolo_demo_once.sh"
+    env = os.environ.copy()
+    env["HOME"] = str(tmp_path)
+    env.pop("AXIA_D04_STUDENT_PYTHON", None)
+    env.pop("AXIA_D04_STUDENT_CACHE", None)
+    env.pop("AXIA_D04_STUDENT_VENV", None)
+    res = subprocess.run(
+        ["bash", str(runner), "--doctor"], cwd=tmp_path,
+        capture_output=True, text=True, env=env, timeout=8,
+    )
+    assert res.returncode == 2, res.stdout + res.stderr
+    assert "D04_STUDENT_DOCTOR_BLOCKED" in res.stdout
+    assert "D04_STUDENT_MODEL_NOT_READY" in res.stdout
+    assert "D04_STUDENT_IMAGE_NOT_READY" in res.stdout
+    assert not (tmp_path / ".venvs").exists()
+    assert not (tmp_path / ".cache").exists()
