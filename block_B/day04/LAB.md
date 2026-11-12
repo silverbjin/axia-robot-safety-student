@@ -8,6 +8,19 @@
 ## 준비 / 터미널
 기존 [학생용 상세 실습 가이드](D04_STUDENT_LAB_GUIDE_KO.md)와 [공통 Block B 가이드](../README_KO.md)를 따른다. **터미널 1개**에서 시작하고 `.venv`를 직접 사용한다. 이미 clone한 학생 저장소와 기존 YOLO 성공 결과를 재사용한다. ROS/Jazzy가 source되어 있어도 외부 `launch_testing` pytest 플러그인은 차단해야 한다.
 
+## 실시간 Gazebo + YOLO 창 확인 (학습 목표 1의 핵심 시연)
+
+[학생 Gazebo YOLO GUI 실습 가이드](D04_GAZEBO_YOLO_GUI_STUDENT_GUIDE_KO.md)의 **한 번 실행** 절차를 따른다. 공개 학생 프로그램은 공식 Nav2 Waffle + Gazebo Harmonic + ROBOTIS RGB + C++ yolo_ros ONNX를 연결하여 **Gazebo와 Bounding Box 이미지 창**을 연다. Python 사진 한 장 실습 `run_teacher_yolo_demo_once.sh`는 Gazebo GUI를 열지 않으므로 혼동하지 않는다.
+
+저장소 준비 후 학생 GUI 전용 디렉터리에서 실행:
+
+~~~bash
+cd "$HOME/axia_d04_student_gazebo_demo"
+bash block_B/day04/run_student_gazebo_yolo_once.sh --run
+~~~
+
+학생 관찰 체크: Gazebo에서 Waffle과 움직이는 사람 모델, `image_view`에서 사람 Bounding Box, 선택형 RViz2에서 `/scan`, TF, RobotModel과 카메라를 확인한다. 실제 메시지 검증이 되면 `D04_STUDENT_GAZEBO_YOLO_LIVE_PASS`가 출력된다. **사용자 WSL2 GUI 인수는 별도 확인**이며 이 단계를 안전 정지 검증으로 취급하지 않는다.
+
 ## 실습 120분 (이론 60분 별도)
 1. (20분) `detections.csv` 4행 확인: `f001` person+chair, `f002` 저신뢰, `f003` 정상 검출.
 2. (20분) `bash block_B/day04/run_student_fixture_once.sh --fixture`로 `4 passed` 확인 후, `--red`로 `TODO_D04_SELECT_PERSON` 예상 RED 확인. 이때 래퍼의 exit 0은 예상 RED를 정확히 분류했다는 의미이며 학생 구현 GREEN이 아니다.
