@@ -46,7 +46,7 @@
 
 다음 D04 선택 테스트는 기본 TODO에서 `NotImplementedError: TODO_D04_SELECT_PERSON`으로 **예상 RED**이다. 함수를 직접 구현한 뒤에만 GREEN이다. D05 `measure_person_range()` 테스트가 남아 있어 전체 `block_B/tests`는 D04 완료 시점에도 실패할 수 있다.
 
-**공개 CI 재현:** [D04 현장 오류 RED](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43138902285) → [공개 CI GREEN](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43139616709). GREEN이 검증한 것은 **강사 선택형 이미지 사전진단의 경로·누락 의존성 계약과 학생 fixture/의도된 RED**이며, 실제 YOLO 추론이나 학생 TODO 전체 GREEN이 아니다.
+**이번 WSL2 회귀의 실제 공개 CI:** [RED #43159446189](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43159446189)에서 외부 `pytest11` 플러그인의 `No module named 'yaml'` 오류를 모사하고, 수정 전 안내·CPU 설치 경계 **3 failed / 기존 12 passed**를 확인했다. [GREEN #43160240955](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43160240955)에서 **15 passed**, [실제 CPU YOLO #43160241004](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43160241004)에서 **4 persons / CSV 4 rows / PASS**를 확인했다. 환경 회귀는 공개 CI의 재현 모의 플러그인 테스트이며, **사용자 WSL2의 pytest를 이 CI가 직접 실행한 것은 아니다**. 학생 `select_person()` TODO의 GREEN이나 Gazebo/ROS 실기 PASS로 승격하지 않는다.
 
 ---
 
