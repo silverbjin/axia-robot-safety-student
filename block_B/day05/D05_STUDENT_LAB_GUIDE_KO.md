@@ -51,6 +51,8 @@ D04 select_person()을 이미 완성했다면 **기존 checkout과 개인 수정
 
 **예상:** pytest fixture **4 passed**, D04_FIXTURE_ISOLATED_PASS, D04_FIXTURE_SCOPE=SYNTHETIC_COURSE_FIXTURE. 아직 거리 계산/Gazebo 검증이 아니다. D04 Gazebo GUI가 실행 중이라면 해당 터미널에서 **Ctrl+C**로 종료한다. 학생 필수 실습은 터미널 1개만 쓴다.
 
+공개 테스트의 실제 함수 이름은 **test_f001_median_depth**와 **test_depth_stamp_mismatch_returns_unknown**이다. 아래 -k 필터는 이 두 함수를 선택한다.
+
 ## 2. RED — 20:15–20:30
 
 기존 학생 block_B/block_b_todo.py를 열어 measure_person_range()의 TODO_D05_PERSON_RANGE를 확인한다. 이미 본인이 구현했다면 일부러 코드를 초기화하지 않는다.
