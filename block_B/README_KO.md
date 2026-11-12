@@ -1,5 +1,7 @@
 # AXIA Block B — D04 사람 검출 / D05 거리 측정 (학생용)
 
+- **D05 11/13 실습 시작:** [D05 RGB-D ROI median·UNKNOWN 학생 가이드](day05/D05_STUDENT_LAB_GUIDE_KO.md) — D04 개인 작업물 보존, 학생 TODO 독립 수행. 기존 ROS/Gazebo 안전제어와 별개.
+
 **상태:** 합성 CSV/Depth 교육 실습. 실제 ROS 2 / Gazebo / 로봇 주행 안전 인증이 아닙니다.
 
 - 필요: Python 3.12+, pytest 8.3.5 (필수 경로에 torch, GPU, 카메라, ROS 없음)
