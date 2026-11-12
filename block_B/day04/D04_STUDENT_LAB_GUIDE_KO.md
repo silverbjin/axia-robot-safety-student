@@ -123,6 +123,22 @@ sed -n '1,120p' block_B/day04/yolo_single_image_demo.py
 
 ---
 
+## 0-C. 강사 Gazebo 실기의 로봇 상태를 RViz2로 확인 (관찰 선택 과제)
+
+슬라이드 8~10장의 **실제 로봇 상태 파악**을 위해 [공개 D04 RViz2 관찰 가이드](https://github.com/silverbjin/axia-robot-safety-ci-public/blob/fix/d04-course-field-preflight-20261112/docs/D04_RVIZ_ROBOT_STATE_GUIDE_KO.md)와 [바로 여는 `axia_d04_robot_state.rviz` 구성파일](https://github.com/silverbjin/axia-robot-safety-ci-public/blob/fix/d04-course-field-preflight-20261112/rviz/axia_d04_robot_state.rviz)을 제공한다. 강사는 기존 D04 Gazebo/ROS2 원샷에 RViz2 자동 열기를 포함했다.
+
+- **RobotModel:** `/robot_description`에서 Waffle 링크 모델 확인
+- **LaserScan:** `/scan` 데이터의 거리점과 frame_id/Best Effort QoS 확인
+- **TF:** `/tf`, `/tf_static`이 Fixed Frame `odom`까지 연결되는지 확인
+- **Camera:** `/camera/image_raw`(실제 RGB)와 `/yolo/cam0/debug_image`(bbox) 비교
+- **Odometry:** `/odom`; 강사 D04는 Goal 없이 정지된 로봇 시연
+
+**중요한 실행 범위:** 앞의 `run_teacher_yolo_demo_once.sh`는 **사진 한 장을 Python으로 추론**하므로 ROS 2/Gazebo·로봇 모델·LaserScan·TF를 실행하지 않는다. 따라서 **학생 개인 PC에서 단일 이미지 데모만 실행한 경우 RViz에 로봇은 나타나지 않는다.** 이 RViz 실습은 강사가 라이브 D04 ROS 시연을 띄운 환경을 함께 관찰하거나, 학생이 합법적으로 사용 가능한 별도 TurtleBot3 ROS 시뮬레이션을 실행하는 경우에만 한다.
+
+강사 D04 원샷은 기존 비공개 P1을 참조하므로 학생의 독립 저장소만으로 전체 D04 ROS launch를 재현하도록 요구하지 않는다. RViz 관찰 체크리스트는 별도 5분 미션이며 학생 TODO `select_person()`의 합격 판정과도 별개다. 안전 TTL/인증 E-Stop은 RViz 화면만으로 검증되지 않는다.
+
+---
+
 ## 1. 오늘의 미션: 검출된 후보 중 '유효한 사람 1명' 선택
 
 강사는 실제 YOLO 영상에서 `class`, `confidence`, `bbox`를 보여준다. 여러분은 **`SYNTHETIC_COURSE_FIXTURE`로 표시된 합성 검출 데이터**를 읽고, 어떤 후보를 사용할 수 있는지 판단하는 코드를 작성한다. 학생 전원이 동일한 입력으로 TDD를 재현하도록 만든 데이터이며, 선택형 YOLO 실추론 결과에서 자동 생성된 데이터가 아니다.
