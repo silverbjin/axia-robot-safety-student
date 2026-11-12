@@ -70,6 +70,8 @@ def test_guide_has_drop_in_recovery_for_both_existing_user_checkouts():
     assert "이미 clone" in guide or "이미 내려받" in guide
     assert "No module named 'yaml'" in guide
     assert "LOCAL_YOLO_CPU_ONLY" in guide
+    assert ".venv/bin/bash" not in guide
+    assert "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest" in guide
 
 def test_yolo_install_prefers_cpu_wheels_before_ultralytics():
     text = YOLO_RUNNER.read_text(encoding="utf-8")
