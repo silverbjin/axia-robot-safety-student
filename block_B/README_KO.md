@@ -9,6 +9,12 @@
 - TODO: `block_b_todo.py`의 `select_person`, `measure_person_range` 두 함수만 작성
 - 정상 센서 유효성 판단: bbox/image bounds, confidence, 단위 m, 0/NaN/Inf 필터, 최소 ROI 유효 비율 50%, 영상/Depth stamp 차이 0.05s 이하(교육용 예시값)
 
+## D05 독립 데모·실습 빠른 진입 (2026-11-13)
+
+- [D05 학생용 데모 가이드](day05/D05_STUDENT_DEMO_GUIDE_KO.md): 결과부터 보기(합성 1.30m, −0.50m/s, invalid→UNKNOWN)
+- [D05 학생용 실습 가이드](day05/D05_STUDENT_LAB_GUIDE_KO.md): 기존 D04 TODO 보존, D05 한 함수 구현, TDD와 CSV 산출
+- D05 강사 실제 Gazebo L2는 **이 학생 Python 실습과 별개의 선행 인수**이다. D04 Gazebo 시각화만으로 D05 실측까지 성공했다고 주장하지 않는다.
+
 ## D04 Gazebo GUI 실시간 YOLO 시연 — 사진 1장 실습과 별개
 
 [Gazebo 학생 시연 가이드](day04/D04_GAZEBO_YOLO_GUI_STUDENT_GUIDE_KO.md)를 먼저 확인한다. 이전 `run_teacher_yolo_demo_once.sh`는 실제 YOLO26n 모델로 사진 한 장만 추론하므로 Gazebo가 열리지 않는다. **학생이 강사의 시연과 같이 로봇과 움직이는 사람 및 실시간 Bounding Box를 관찰하려면** WSL2 Ubuntu 24.04 + ROS 2 Jazzy + Gazebo Harmonic에서 새 학생 GUI 실행기 `block_B/day04/run_student_gazebo_yolo_once.sh --run`을 사용한다. 학생 GUI용 공개 브랜치에서 제공되며 **비공개 강사 저장소·정답은 필요 없다**.
