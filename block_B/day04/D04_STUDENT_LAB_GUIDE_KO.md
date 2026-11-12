@@ -36,6 +36,8 @@
 )
 ~~~
 
+**이미 clone한 학생 저장소를 보존하는 절차입니다.** 새 폴더를 만들거나 기존 `.venv`를 삭제하지 않습니다.
+
 **기대 출력:** `4 passed`와 `D04_FIXTURE_ISOLATED_PASS PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`. 기존 `~/axia-robot-safety-student-d04`가 있다면 재-clone하지 않고 공개 브랜치를 **fast-forward만** 수행한다. 개인의 수정이 감지되면 자동 병합을 중지하며 삭제·reset하지 않는다. 이 검사 PASS는 **합성 fixture 무결성만** 의미한다.
 
 **이번 WSL2 오류의 최초 원인:** ROS 2 Jazzy를 source한 터미널의 `launch_testing` pytest11 플러그인이 자동 검색됐고, 학생용 `.venv`에는 그 플러그인에 필요한 `PyYAML`이 없어 `ModuleNotFoundError: No module named 'yaml'`이 났다. **fixture 코드가 실행되기 전의 테스트 환경 오류**다. `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`은 이 학생용 pytest 호출에서만 외부 플러그인 자동 검색을 끄는 최소 수정이며, 전역 ROS 설치나 학생 가상환경에 불필요한 ROS 의존성을 추가하지 않는다.
