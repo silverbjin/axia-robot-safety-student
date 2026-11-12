@@ -1,0 +1,84 @@
+name: D04 student PUBLIC actual Gazebo Harmonic -> camera -> YOLO
+
+on:
+  push:
+    branches: ['feature/d04-student-gazebo-yolo-20261112']
+    paths:
+      - 'block_B/day04/run_student_gazebo_yolo_once.sh'
+      - 'block_B/day04/gazebo_yolo/**'
+      - '.github/workflows/d04-student-gazebo-real.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gazebocamera-yolo-real-sensors:
+    # No secret, no private instructor or cloud runner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      ROS_DOMAIN_ID: '40'
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      QT_QPA_PLATFORM: offscreen
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install real Jazzy Nav2/Gazebo/bridge/GUI and build tools
+        shell: bash
+        run: |
+          set -eo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            git curl xz-utils python3-colcon-common-extensions \
+            ros-jazzy-nav2-bringup ros-jazzy-nav2-minimal-tb3-sim \
+            ros-jazzy-turtlebot3-gazebo ros-jazzy-ros-gz \
+            ros-jazzy-image-view ros-jazzy-xacro ros-jazzy-rviz2 \
+            libgl1-mesa-dri xvfb xauth
+          source /opt/ros/jazzy/setup.bash
+          ros2 pkg prefix nav2_minimal_tb3_sim
+          ros2 pkg prefix turtlebot3_gazebo
+          ros2 pkg prefix ros_gz_image
+          bash -n block_B/day04/run_student_gazebo_yolo_once.sh
+          python3 -m py_compile block_B/day04/gazebo_yolo/prepare_scene.py \
+             block_B/day04/gazebo_yolo/verify_live.py
+      - name: Run REAL Gazebo Harmonic sensors and upstream YOLO ONNX (PUBLIC)
+        shell: bash
+        run: |
+          set -eo pipefail
+          # Run Xvfb for Gazebo OGRE sensors, with GUI disabled in CI.
+          mkdir -p "$RUNNER_TEMP/home"
+          export HOME="$RUNNER_TEMP/home"
+          export AXIA_D04_STUDENT_CI_HEADLESS=1
+          export AXIA_D04_STUDENT_GUI=0
+          export AXIA_D04_STUDENT_MONITOR_TIMEOUT_S=190
+          LOG="$RUNNER_TEMP/d04-student-gazebo-real.log"
+          set +e
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            timeout --signal=TERM --kill-after=20s 1100s \
+            bash block_B/day04/run_student_gazebo_yolo_once.sh --run \
+            > "$LOG" 2>&1
+          RC=$?
+          set -e
+          tail -n 100 "$LOG"
+          if [[ "$RC" != 0 ]]; then
+            echo "D04_PUBLIC_REAL_GAZEBO_YOLO_BLOCKED rc=$RC"
+            find "$HOME/axia_d04_student_evidence" -type f -name '*.log' -maxdepth 4 \
+              -print -exec sh -c 'tail -n 35 "$1"' _ {} \; || true
+            exit 1
+          fi
+          grep -F 'D04_STUDENT_GAZEBO_YOLO_LIVE_PASS' "$LOG"
+          echo 'D04_PUBLIC_REAL_GAZEBO_CAMERA_YOLO_PASS HEADLESS_XVFB'
+          echo 'D04_USER_WSL2_ACTUAL_GUI=NOT_CHECKED'
+      - name: Remove third-party model and actor (never upload licensed assets)
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/home/.cache/axia/d04/assets" || true
