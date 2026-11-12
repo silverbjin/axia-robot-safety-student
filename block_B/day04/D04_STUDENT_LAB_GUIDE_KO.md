@@ -48,6 +48,13 @@
 
 **이번 WSL2 회귀의 실제 공개 CI:** [RED #43159446189](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43159446189)에서 외부 `pytest11` 플러그인의 `No module named 'yaml'` 오류를 모사하고, 수정 전 안내·CPU 설치 경계 **3 failed / 기존 12 passed**를 확인했다. [GREEN #43160240955](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43160240955)에서 **15 passed**, [실제 CPU YOLO #43160241004](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43160241004)에서 **4 persons / CSV 4 rows / PASS**를 확인했다. 환경 회귀는 공개 CI의 재현 모의 플러그인 테스트이며, **사용자 WSL2의 pytest를 이 CI가 직접 실행한 것은 아니다**. 학생 `select_person()` TODO의 GREEN이나 Gazebo/ROS 실기 PASS로 승격하지 않는다.
 
+
+**D04 학생 문서 전체 검수(공개 GitHub Actions):** [실제 문서 명령 검수 #43162453883](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43162453883)에서 **23 passed in 10.61s**. 문서의 Bash 구문을 점검하고, 공개 GitHub에서 **첫 clone → fixture 실행 → 같은 폴더 재실행과 기존 가상환경 파일 보존**, `--fixture` 4 PASS, `--red` 의도된 실패, 미구현 `--green` 거부, f001~f003 합성 예제 결과, YOLO CSV/manifest 조회 명령을 검수했다. 연관 문서인 [`block_B/README_KO.md`](../README_KO.md)와 [`day04/LAB.md`](LAB.md)의 pytest 명령도 동일하게 수정했다.
+
+**실제 이미지 추론:** [공개 CPU YOLO #43162057476](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43162057476)에서 공식 샘플 이미지의 사람 4명과 CSV 4행을 확인했다. 이 검사는 이미 성공한 사용자 WSL2 로그와 일치한다. 문서 예시 확인에 사용하는 임시 출력 파일은 모의 증거이며 실제 추론 결과를 대체하지 않는다.
+
+**CI 범위:** 공개 Ubuntu 24.04 / Python 3.12의 D04 문서 실행 계약과 별도의 실제 CPU YOLO 검증이다. 학생이 아직 구현하지 않은 `select_person()`의 최종 GREEN, D05 `measure_person_range()`, 개인 WSL2의 새 실행, ROS/Gazebo/RViz 및 안전 TTL은 이 검수에서 실행·인수하지 않았다. 그 결과를 성공으로 표시하지 않는다.
+
 ---
 
 ## 0-A. 강의 슬라이드별 소스 코드 지도 — 학생이 열어볼 파일
