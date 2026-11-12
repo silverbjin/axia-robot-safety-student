@@ -98,3 +98,11 @@ def test_guide_has_gazebo_eyeballs_not_photo_only():
               "visual-only", "비공개", "RViz"):
         assert s in txt,s
     assert "Python 단일 이미지" in txt
+
+
+def test_jazzy_setup_is_sourced_before_ros2_cli_tool_discovery():
+    """CI regression: ros:jazzy-ros-base-noble has no ros2 on PATH until setup."""
+    script=RUNNER.read_text()
+    assert script.index('source "$ROS_SETUP"') < script.index("for tool in ros2 gz xacro colcon")
+    assert "D04_STUDENT_ROS_TOOL_MISSING_AFTER_SOURCE" in script
+    assert "D04_STUDENT_INSTALL_OFFICIAL_TOOLS_AFTER_ROS_SOURCE" in script
