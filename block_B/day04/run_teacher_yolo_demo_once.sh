@@ -60,6 +60,13 @@ if [[ -z "${AXIA_D04_STUDENT_PYTHON:-}" ]]; then
     python3 -m venv "$VENV"
   fi
   if ! "$PYTHON" -c 'from ultralytics import YOLO' >/dev/null 2>&1; then
+    # CPU-only WSL2 classroom: install official PyTorch CPU wheels BEFORE
+    # Ultralytics. Otherwise pip may pull multi-GB CUDA/NVIDIA dependencies.
+    if ! "$PYTHON" -c 'import torch, torchvision; assert "+cpu" in torch.__version__' >/dev/null 2>&1; then
+      "$PYTHON" -m pip install --disable-pip-version-check \
+        --index-url https://download.pytorch.org/whl/cpu torch torchvision
+      echo 'D04_STUDENT_PYTORCH_CPU_WHEELS_READY'
+    fi
     "$PYTHON" -m pip install --disable-pip-version-check "ultralytics==$ULTRALYTICS_VERSION"
   fi
 fi
