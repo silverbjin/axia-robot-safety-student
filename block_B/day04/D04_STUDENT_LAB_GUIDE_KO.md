@@ -9,7 +9,7 @@
 
 강사 선택형 이미지 데모에서 `No module named 'ultralytics'` 또는 `can't open file '/home/.../training/block_B/instructor/yolo_single_image_demo.py'`가 나오더라도 **이 학생 실습은 진행할 수 있다**. 해당 스크립트는 비공개 강사 저장소의 Python/`.pt` 이미지 추론 데모로, 기존 학생 TODO 코드와는 별도였다. 이제 **같은 추론 스크립트를 `block_B/day04/yolo_single_image_demo.py`에 공개**했다. 필수 CSV 실습에는 Ultralytics·PyTorch·Gazebo·ROS·모델 가중치가 필요 없고, **선택형 실제 이미지 추론**을 할 때만 학생용 가상환경에 Ultralytics와 공식 모델·샘플 사진을 준비한다.
 
-반드시 **GitHub에서 독립 학생 저장소를 clone한 뒤 저장소 루트에서** 명령을 실행한다. `~/`에서 바로 `python3 training/...`을 실행하지 않는다. 아래는 새 터미널 하나에서 수행할 최소 진단이다.
+독립 학생 저장소가 **이미 있다면 그대로 재사용하고, 없다면 최초 1회 clone**한 뒤 저장소 루트에서 명령을 실행한다. `~/`에서 바로 `python3 training/...`을 실행하지 않는다. 아래는 새 터미널 하나에서 수행할 최소 진단이다.
 
 ~~~bash
 (
@@ -42,7 +42,7 @@
 
 **이번 WSL2 오류의 최초 원인:** ROS 2 Jazzy를 source한 터미널의 `launch_testing` pytest11 플러그인이 자동 검색됐고, 학생용 `.venv`에는 그 플러그인에 필요한 `PyYAML`이 없어 `ModuleNotFoundError: No module named 'yaml'`이 났다. **fixture 코드가 실행되기 전의 테스트 환경 오류**다. `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`은 이 학생용 pytest 호출에서만 외부 플러그인 자동 검색을 끄는 최소 수정이며, 전역 ROS 설치나 학생 가상환경에 불필요한 ROS 의존성을 추가하지 않는다.
 
-**이미 설치된 `.venv`에서 직접 확인할 때** (새 스크립트 없이도 가능): `cd ~/axia-robot-safety-student-d04 && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/bash block_B/day04/run_student_fixture_once.sh --fixture`.
+**이미 설치된 `.venv`에서 직접 확인할 때** (새 스크립트 없이도 가능): `cd ~/axia-robot-safety-student-d04 && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest -q block_B/tests/test_fixture_io.py`.
 
 다음 D04 선택 테스트는 기본 TODO에서 `NotImplementedError: TODO_D04_SELECT_PERSON`으로 **예상 RED**이다. 함수를 직접 구현한 뒤에만 GREEN이다. D05 `measure_person_range()` 테스트가 남아 있어 전체 `block_B/tests`는 D04 완료 시점에도 실패할 수 있다.
 
