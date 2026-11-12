@@ -50,7 +50,9 @@ if [[ "$CI_HEADLESS" != 1 ]]; then
     echo "D04_STUDENT_WSL2_UBUNTU_24_04_REQUIRED"; exit 2
   fi
 fi
-for tool in bash curl git colcon python3 ros2 gz xacro sha256sum setsid timeout; do
+# First check only OS-level tools. ros2 can be absent from PATH until
+# after sourcing /opt/ros/jazzy/setup.bash (observed in public CI RED).
+for tool in bash curl git python3 sha256sum setsid timeout; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "D04_STUDENT_MISSING_TOOL=$tool"; exit 2
   fi
@@ -65,6 +67,21 @@ fi
 set +u
 source "$ROS_SETUP"
 set -u
+for tool in ros2 gz xacro colcon; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    if [[ "$MODE" == --doctor ]]; then
+      echo "D04_STUDENT_ROS_TOOL_MISSING_AFTER_SOURCE=$tool"; exit 2
+    fi
+    echo "D04_STUDENT_INSTALL_OFFICIAL_TOOLS_AFTER_ROS_SOURCE missing=$tool"
+    sudo apt-get update -qq
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+      python3-colcon-common-extensions ros-jazzy-ros-gz ros-jazzy-xacro
+    break
+  fi
+done
+for tool in ros2 gz xacro colcon; do
+  command -v "$tool" >/dev/null || { echo "D04_STUDENT_TOOL_BLOCKED=$tool"; exit 2; }
+done
 
 for p in nav2_bringup nav2_minimal_tb3_sim turtlebot3_gazebo ros_gz_image image_view; do
   if ! ros2 pkg prefix "$p" >/dev/null 2>&1; then
