@@ -22,7 +22,12 @@ RGB = "/axia/d05/rgbd/image"
 DEPTH = "/axia/d05/rgbd/depth_image"
 TOPIC = "axia/d05/rgbd"
 FRAME = "axia_d05_rgbd_optical"
-PATH = [(0, 1.6), (5, 0.6), (10, 1.6)]
+# Keep the visual actor near the earlier D04 classroom reference (x≈2.8m).
+# x=0.6m cropped the person badly in the Owner screenshot.
+PATH = [(0, 2.8), (5, 2.0), (10, 2.8)]
+# Mounted camera optical axis: slight upward pitch (~10.3°).
+# This is a D05 scene-only change; all RGB-D topics and image timing stay unchanged.
+CAMERA_UP_PITCH_RAD = -0.18
 
 
 def compose(waffle: Path, pi: Path, world: Path, actor: Path,
@@ -50,6 +55,12 @@ def compose(waffle: Path, pi: Path, world: Path, actor: Path,
     if frame is None:
         frame = ET.SubElement(rgb, "gz_frame_id")
     frame.text = FRAME
+    # D04's copied sensor was level. Tilt only this D05 sensor up so
+    # the actor's head is not cut off near the camera.
+    pose = rgb.find("pose")
+    if pose is None:
+        pose = ET.SubElement(rgb, "pose")
+    pose.text = f"0 0 0 0 {CAMERA_UP_PITCH_RAD:.2f} 0"
     # Only this sensor is registered: RGB and Depth come from one native camera.
     if tuple(rgb.findtext("camera/image/"+k) for k in ("width","height","format")) != (
             "640", "480", "R8G8B8"):
@@ -87,6 +98,7 @@ def compose(waffle: Path, pi: Path, world: Path, actor: Path,
         "registered_rgbd_sensor": "axia_d05_registered_rgbd",
         "optical_frame": FRAME,
         "actor_trajectory_x": [x for _, x in PATH],
+        "camera_pitch_rad": CAMERA_UP_PITCH_RAD,
         "d05_sensor_actual_execution": False,
         "d05_distance_actual_execution": False,
         "goal_sent": False,
