@@ -32,6 +32,7 @@ def run(phase: str, timeout: float) -> dict:
             self.depth = []
             self.yolo_count = 0
             self.person_count = 0
+            self.person_areas = []
             self.valid = []
             self.unknown = []
             self.first_reason = None
@@ -53,8 +54,13 @@ def run(phase: str, timeout: float) -> dict:
 
         def on_yolo(self, msg):
             self.yolo_count += 1
-            self.person_count += sum(1 for d in msg.detections
-                                     if str(d.class_name).lower() == "person")
+            for d in msg.detections:
+                if str(d.class_name).lower() != "person":
+                    continue
+                self.person_count += 1
+                area = float(d.bbox.size.x) * float(d.bbox.size.y)
+                if math.isfinite(area) and area > 0 and len(self.person_areas) < 240:
+                    self.person_areas.append(area)
 
         def on_status(self, msg):
             try:
@@ -83,7 +89,14 @@ def run(phase: str, timeout: float) -> dict:
             seen = {d["frame_stamp_ns"]:d["distance_m"] for d in self.valid}
             distances = list(seen.values())
             delta = max(distances)-min(distances) if len(distances)>=2 else 0.0
-            if phase == "moving":
+            area_span = ((max(self.person_areas)-min(self.person_areas)) /
+                         max(self.person_areas)) if len(self.person_areas) >= 2 else 0.0
+            if phase == "sensor":
+                # Public CI: real RGB-D + real YOLO only; NO private D05 range PASS.
+                passed = bool(len(pairs) >= 2 and self.person_count >= 2
+                              and area_span >= .05)
+                status = "PASS_REAL_GAZEBO_REGISTERED_RGBD_YOLO_MOVING_BBOX_ONLY" if passed else "BLOCKED_PUBLIC_SENSOR"
+            elif phase == "moving":
                 passed = bool(pairs and self.yolo_count and self.person_count
                               and len(distances)>=2 and delta>=.15)
                 status = "PASS_REAL_RGBD_YOLO_PERSON_DISTANCE_TREND" if passed else "BLOCKED_MOVING"
@@ -97,7 +110,8 @@ def run(phase: str, timeout: float) -> dict:
                 "status":status, "passed":passed,"phase":phase,
                 "registered_rgbd_pairs":len(pairs), "rgb_frames":len(self.rgb),
                 "depth_frames":len(self.depth),"yolo_frames":self.yolo_count,
-                "person_count":self.person_count,"valid_samples":len(distances),
+                "person_count":self.person_count,"bbox_area_span":area_span,
+                "valid_samples":len(distances),
                 "min_distance_m":min(distances) if distances else None,
                 "max_distance_m":max(distances) if distances else None,
                 "distance_delta_m":delta,"unknown_reasons":self.unknown[-20:],
@@ -122,7 +136,7 @@ def run(phase: str, timeout: float) -> dict:
 
 def main() -> int:
     cli=argparse.ArgumentParser()
-    cli.add_argument("--phase",choices=("moving","depth-loss"),required=True)
+    cli.add_argument("--phase",choices=("sensor","moving","depth-loss"),required=True)
     cli.add_argument("--timeout",type=float,default=120)
     cli.add_argument("--out",type=Path,required=True)
     args=cli.parse_args()
