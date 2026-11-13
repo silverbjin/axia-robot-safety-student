@@ -82,7 +82,8 @@ def compose(waffle: Path, pi: Path, world: Path, actor: Path,
         ET.SubElement(wp, "time").text = str(t)
         # Waffle from D04 launch: x=-0.5, y=-0.5, yaw=0.
         # Stay in forward FOV without adding a collision proxy.
-        ET.SubElement(wp, "pose").text = f"{x:.1f} -0.5 0 0 0 3.14159"
+        # Pinned D04 classroom visual Actor mesh uses z=1.0; z=0 sinks legs.
+        ET.SubElement(wp, "pose").text = f"{x:.1f} -0.5 1.0 0 0 3.14159"
     world_tree.write(world_path, encoding="unicode", xml_declaration=True)
 
     conf = out / "student_yolo.yaml"
