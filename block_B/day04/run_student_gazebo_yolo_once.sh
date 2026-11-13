@@ -12,6 +12,11 @@ BASE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$BASE/gazebo_yolo"
 SCENE="$ROOT/prepare_scene.py"
 MONITOR="$ROOT/verify_live.py"
+D05_LIVE="${AXIA_D05_LIVE:-0}"
+if [[ "$D05_LIVE" == 1 ]]; then
+  SCENE="$BASE/../day05/gazebo_live/prepare_scene.py"
+  MONITOR="$BASE/../day05/gazebo_live/verify_live.py"
+fi
 RVIZ="$ROOT/axia_d04_student.rviz"
 YOLO_SHA='94d2dd500cb26027ee9c019f4d3a02029ac615cc'
 ONNX_SHA='4f44c33cea12d4b5785e5e7c0a20c13d0c62a77de607ce96a40d6036c7d7bbcf'
@@ -61,6 +66,7 @@ if [[ "$GUI" == 1 && -z "${DISPLAY:-}" ]]; then
   echo "D04_STUDENT_WSLG_DISPLAY_MISSING: Gazebo GUI requires WSLg DISPLAY"; exit 2
 fi
 [[ "$GUI" == 0 || "$GUI" == 1 ]] || { echo "D04_STUDENT_GUI_INVALID"; exit 2; }
+[[ "$D05_LIVE" == 0 || "$D05_LIVE" == 1 ]] || { echo "D05_LIVE_MODE_INVALID"; exit 2; }
 [[ "$SHOW_RVIZ" == 0 || "$SHOW_RVIZ" == 1 ]] || { echo "D04_STUDENT_RVIZ_INVALID"; exit 2; }
 [[ "$HOLD" =~ ^[0-9]{1,4}$ ]] || { echo "D04_STUDENT_HOLD_INVALID"; exit 2; }
 
@@ -155,6 +161,11 @@ set +u
 source "$YOLO_WS/install/setup.bash"
 set -u
 ros2 pkg prefix yolo_msgs >/dev/null || { echo "D04_STUDENT_YOLO_MESSAGES_UNAVAILABLE"; exit 2; }
+if [[ "$D05_LIVE" == 1 ]]; then
+  ros2 pkg prefix axia_d05_depth_demo >/dev/null || {
+    echo "D05_LIVE_BLOCKED_PRIVATE_OBSERVER_NOT_INSTALLED: use pinned instructor overlay"; exit 2;
+  }
+fi
 
 download_pinned() {
   local target="$1" hash="$2" url="$3"
@@ -203,7 +214,19 @@ start_group gazebo_nav2 ros2 launch nav2_bringup tb3_simulation_launch.py \
   "world:=$SCENE_DIR/student_human_world.sdf.xacro" \
   "$HEADLESS" use_rviz:=False use_composition:=False autostart:=False \
   x_pose:=-0.5 y_pose:=-0.5 yaw:=0.0
-start_group camera_bridge ros2 run ros_gz_image image_bridge /camera/image_raw
+if [[ "$D05_LIVE" == 1 ]]; then
+  start_group camera_bridge ros2 run ros_gz_image image_bridge /axia/d05/rgbd/image
+  start_group depth_bridge ros2 run ros_gz_image image_bridge /axia/d05/rgbd/depth_image
+  DEPTH_PID="${PIDS[${#PIDS[@]}-1]}"
+  start_group d05_observer ros2 run axia_d05_depth_demo d05_range_observer --ros-args \
+    -p rgb_topic:=/axia/d05/rgbd/image \
+    -p depth_topic:=/axia/d05/rgbd/depth_image \
+    -p detections_topic:=/yolo/cam0/detections \
+    -p aligned_to_rgb:=true -p max_skew_s:=0.05 -p max_age_s:=0.5 \
+    -p min_confidence:=0.15
+else
+  start_group camera_bridge ros2 run ros_gz_image image_bridge /camera/image_raw
+fi
 start_group yolo_ros ros2 launch yolo_bringup yolo.launch.py \
   "params_file:=$SCENE_DIR/student_yolo.yaml" namespace:=yolo
 if [[ "$GUI" == 1 ]]; then
@@ -221,14 +244,33 @@ echo "D04_STUDENT_GAZEBO_LAUNCHED: GUI startup requested; NOT yet verified"
 echo "D04_STUDENT_GUI_NOTICE: Gazebo and yolo image_view windows may open after ROS startup"
 
 set +e
-python3 "$MONITOR" --timeout "${AXIA_D04_STUDENT_MONITOR_TIMEOUT_S:-160}" \
-  --out "$OUT/live_verdict.json" | tee "$OUT/live_monitor.log"
+if [[ "$D05_LIVE" == 1 ]]; then
+  python3 "$MONITOR" --phase moving --timeout "${AXIA_D04_STUDENT_MONITOR_TIMEOUT_S:-160}" \
+    --out "$OUT/live_verdict.json" | tee "$OUT/live_monitor.log"
+else
+  python3 "$MONITOR" --timeout "${AXIA_D04_STUDENT_MONITOR_TIMEOUT_S:-160}" \
+    --out "$OUT/live_verdict.json" | tee "$OUT/live_monitor.log"
+fi
 LIVE_RC=${PIPESTATUS[0]}
 set -e
 if [[ "$LIVE_RC" -ne 0 ]]; then
   echo "D04_STUDENT_LIVE_BLOCKED rc=$LIVE_RC"
   echo "D04_STUDENT_FIRST_LOGS=$OUT/gazebo_nav2.log,$OUT/camera_bridge.log,$OUT/yolo_ros.log"
   exit 3
+fi
+if [[ "$D05_LIVE" == 1 ]]; then
+  echo "D05_LIVE_MOVING_VALID_PASS: stopping only Depth bridge"
+  kill -TERM -- "-$DEPTH_PID" 2>/dev/null || true
+  set +e
+  python3 "$MONITOR" --phase depth-loss --timeout 25 \
+    --out "$OUT/depth_loss_verdict.json" | tee "$OUT/depth_loss_monitor.log"
+  LOSS_RC=${PIPESTATUS[0]}
+  set -e
+  if [[ "$LOSS_RC" -ne 0 ]]; then
+    echo "D05_LIVE_UNKNOWN_BLOCKED: inspect timestamps/TTL and depth bridge"
+    exit 3
+  fi
+  echo "D05_LIVE_VALID_TO_UNKNOWN_PASS NO_GOAL NO_CMD_VEL NO_ESTOP"
 fi
 if [[ "$GUI" == 1 ]]; then
   echo "D04_STUDENT_GUI_HOLD_STARTED seconds=$HOLD; press Ctrl+C when finished"
