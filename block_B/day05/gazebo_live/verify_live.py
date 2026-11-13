@@ -78,6 +78,14 @@ def run(phase: str, timeout: float) -> dict:
                 self.valid.append({"distance_m":data["distance_m"],
                                    "frame_stamp_ns":data["frame_stamp_ns"],
                                    "valid_fraction":data["valid_fraction"]})
+                # Genuine observer output only; no synthetic/fallback distance.
+                if phase == "moving":
+                    print(
+                        f"D05_LIVE_VALID_DISTANCE_M={data['distance_m']:.6f} "
+                        f"valid_fraction={data['valid_fraction']:.3f} "
+                        f"frame_stamp_ns={data['frame_stamp_ns']}",
+                        flush=True,
+                    )
             if state == "UNKNOWN" and data.get("distance_m") is None:
                 self.unknown.append(reason)
 
