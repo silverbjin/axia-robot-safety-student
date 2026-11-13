@@ -265,7 +265,30 @@ if [[ "$LIVE_RC" -ne 0 ]]; then
   exit 3
 fi
 if [[ "$D05_LIVE" == 1 && "$D05_SENSOR_ONLY" != 1 ]]; then
-  echo "D05_LIVE_MOVING_VALID_PASS: stopping only Depth bridge"
+  echo "D05_LIVE_MOVING_VALID_PASS: Depth bridge still active for distance observation"
+  # The prior Owner script killed Depth *before* the 90s GUI hold, so
+  # 'ros2 topic echo' during that hold could show STALE_INPUT only.
+  # Keep source sensors live while displaying real Observer JSON to the teacher.
+  if [[ "$GUI" == 1 && "$HOLD" -gt 0 ]]; then
+    echo "D05_LIVE_DISTANCE_OBSERVATION_STARTED seconds=$HOLD domain=$ROS_DOMAIN_ID"
+    echo "D05_LIVE_DISTANCE_SOURCE=/axia/d05/person_range_status: REAL ROS Z-depth (m)"
+    set +e
+    PYTHONUNBUFFERED=1 timeout --signal=INT --kill-after=5s "$HOLD" \
+      ros2 topic echo /axia/d05/person_range_status --field data \
+      | tee "$OUT/d05_live_distance.log"
+    OBS_RC=${PIPESTATUS[0]}
+    set -e
+    if [[ "$OBS_RC" -ne 0 && "$OBS_RC" -ne 124 ]]; then
+      echo "D05_LIVE_DISTANCE_ECHO_BLOCKED rc=$OBS_RC: check ROS_DOMAIN_ID and observer"
+      exit 3
+    fi
+    if ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"VALID"' "$OUT/d05_live_distance.log"; then
+      echo "D05_LIVE_DISTANCE_VALID_NOT_OBSERVED: inspect first RGB/Depth/YOLO stamp or TTL violation"
+      exit 3
+    fi
+    echo "D05_LIVE_DISTANCE_OBSERVATION_DONE: valid distance_m shown before Depth loss"
+  fi
+  echo "D05_LIVE_DEPTH_FAULT_BEGIN: stopping only Depth bridge"
   kill -TERM -- "-$DEPTH_PID" 2>/dev/null || true
   set +e
   python3 "$MONITOR" --phase depth-loss --timeout 25 \
@@ -281,7 +304,9 @@ fi
 if [[ "$D05_LIVE" == 1 && "$D05_SENSOR_ONLY" == 1 ]]; then
   echo "D05_PUBLIC_SENSOR_ONLY_PASS REAL_RGBD_YOLO PRIVATE_D05_RANGE_NOT_RUN"
 fi
-if [[ "$GUI" == 1 ]]; then
+# The full D05 instructor mode already used its GUI hold with healthy Depth.
+# Preserve the original D04 and public D05 sensor-only hold after the gate.
+if [[ "$GUI" == 1 && ( "$D05_LIVE" != 1 || "$D05_SENSOR_ONLY" == 1 ) ]]; then
   echo "D04_STUDENT_GUI_HOLD_STARTED seconds=$HOLD; press Ctrl+C when finished"
   sleep "$HOLD"
 fi
