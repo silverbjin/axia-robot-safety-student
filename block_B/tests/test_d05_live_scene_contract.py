@@ -29,6 +29,13 @@ def test_live_variant_mounts_one_registered_rgbd_on_waffle(tmp_path):
     assert len(rgbd)==1, "Only one registered D05 RGB-D on mounted camera_link"
     assert rgbd[0].findtext("topic")=="axia/d05/rgbd"
     assert rgbd[0].findtext("gz_frame_id")=="axia_d05_rgbd_optical"
+    # User-reported regression: at x=0.6m the person fills/clips the camera view.
+    # Require a small upward pitch without altering camera_link or native RGB-D source.
+    camera_pose = [float(x) for x in rgbd[0].findtext("pose").split()]
+    assert len(camera_pose)==6
+    assert -0.22 <= camera_pose[4] <= -0.12, "RED: D05 camera must look slightly upward for full-body person"
+    assert abs(camera_pose[3]) < 1e-8 and abs(camera_pose[5]) < 1e-8
+
     assert tree.find(".//model[@name='axia_d05_rgbd_rig']") is None
     world_tree=ET.parse(out/"student_human_world.sdf.xacro")
     waypoints=world_tree.findall(".//actor[@name='axia_student_person']/script/trajectory/waypoint")
@@ -37,6 +44,12 @@ def test_live_variant_mounts_one_registered_rgbd_on_waffle(tmp_path):
     xs=[pose[0] for pose in poses]
     assert max(xs)-min(xs)>=0.6,"Actor must approach and recede in camera forward direction"
     assert abs(xs[0]-xs[-1])<1e-6,"Loop should return to start"
+    # Reference classroom D04 human is around world x≈2.8m.
+    # New D05 approach should remain in a comparable forward range, not x=0.6.
+    assert min(xs) >= 2.0, "RED: actor too close; cropped in YOLO image"
+    assert max(xs) <= 3.3, "RED: actor should remain detectable with the same ONNX model"
+    assert xs[0] > xs[1] and xs[-1] > xs[1], "Person approaches then recedes"
+
     assert all(abs(pose[1]+0.5)<1e-6 for pose in poses),"Actor stays in Waffle optical FOV"
     conf=(out/"student_yolo.yaml").read_text()
     assert "rgb_topic: /axia/d05/rgbd/image" in conf
