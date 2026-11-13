@@ -5,6 +5,8 @@
 - **실습 범위:** SYNTHETIC_COURSE_FIXTURE / Python 3.12+ / pytest 8.3.5 / ROS·Gazebo·GPU 불필요 / NO_GOAL / NO_CMD_VEL
 - **강사 정답 비공개:** 학생은 block_B/block_b_todo.py의 기존 measure_person_range() TODO를 직접 구현한다. 강사 정답과 hidden tests는 학생 공개 저장소에 넣지 않는다.
 
+**선택 시각 실습:** [D05 학생 Gazebo Live Demo 가이드](D05_STUDENT_GAZEBO_LIVE_GUIDE_KO.md)로 Waffle RGB-D와 YOLO 사람 검출을 관찰할 수 있다. 이 Live Demo는 `AXIA_D05_SENSOR_ONLY=1`이고 학생 Python TODO를 실제 센서에 연결하지 않으므로 **실시간 거리 미터값은 제공되지 않는다**. 아래 1.30m 및 CSV는 합성 fixture이다.
+
 ## 학습 목표와 교육용 위험 수치화
 
 원래 차시 주제는 다음 두 가지다.
