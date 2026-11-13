@@ -4,6 +4,7 @@ on:
     branches:
       - 'feature/block-b-*'
       - 'feature/d04-student-gazebo-*'
+      - 'feature/d05-mounted-*'
       - 'work/block-b-*'
   pull_request:
     paths:
@@ -35,7 +36,7 @@ jobs:
         run: |
           python -m compileall -q block_B
           mkdir -p results
-          python -m pytest -q block_B/tests/test_fixture_io.py block_B/tests/test_d04_shared_yolo_demo.py block_B/tests/test_d04_wsl2_pytest_isolation.py block_B/tests/test_d04_guide_command_e2e.py block_B/tests/test_d04_student_gazebo_gui.py --junitxml=results/block-b-scaffold.xml
+          python -m pytest -q block_B/tests/test_fixture_io.py block_B/tests/test_d04_shared_yolo_demo.py block_B/tests/test_d04_wsl2_pytest_isolation.py block_B/tests/test_d04_guide_command_e2e.py block_B/tests/test_d04_student_gazebo_gui.py block_B/tests/test_d05_live_scene_contract.py --junitxml=results/block-b-scaffold.xml
       - name: Upload scaffold JUnit
         if: always()
         uses: actions/upload-artifact@v4
