@@ -72,3 +72,26 @@ def test_existing_d04_entrypoint_is_opt_in_only():
     assert "image_view" in txt
     for forbidden in ("send_goal(", "Twist(", "cmd_vel pub", "gh auth"):
         assert forbidden not in txt
+
+
+def test_d05_owner_observes_real_distance_before_depth_loss():
+    """Owner incident regression: previous GUI hold began AFTER Depth bridge killed.
+
+    The public student sensor-only path stays unchanged. No ROS fake or private
+    observer success is claimed by this source-level ordering contract.
+    """
+    script = RUNNER.read_text(encoding="utf-8")
+    moving_pass = script.find("D05_LIVE_MOVING_VALID_PASS")
+    show_start = script.find("D05_LIVE_DISTANCE_OBSERVATION_STARTED")
+    topic_echo = script.find("ros2 topic echo /axia/d05/person_range_status --field data")
+    show_done = script.find("D05_LIVE_DISTANCE_OBSERVATION_DONE")
+    depth_kill = script.find('kill -TERM -- "-$DEPTH_PID"')
+    loss_pass = script.find("D05_LIVE_VALID_TO_UNKNOWN_PASS")
+    assert -1 not in (moving_pass, show_start, topic_echo, show_done, depth_kill, loss_pass), (
+        "RED: D05 instructor distance display phase not implemented"
+    )
+    assert moving_pass < show_start < topic_echo < show_done < depth_kill < loss_pass, (
+        "RED: instructor GUI distance observation must precede injected Depth loss"
+    )
+    assert 'D05_PUBLIC_SENSOR_ONLY_PASS' in script
+    assert 'if [[ "$D05_LIVE" == 1 && "$D05_SENSOR_ONLY" != 1 ]]' in script
