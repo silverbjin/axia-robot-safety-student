@@ -1,0 +1,105 @@
+name: D05 live mounted RGBD + approaching YOLO actor (PUBLIC real Gazebo)
+on:
+  pull_request:
+    paths:
+      - 'block_B/day05/gazebo_live/**'
+      - 'block_B/day04/run_student_gazebo_yolo_once.sh'
+      - '.github/workflows/d05-live-gazebo-l2.yml'
+  push:
+    branches: ['feature/d05-mounted-*']
+    paths:
+      - 'block_B/day05/gazebo_live/**'
+      - 'block_B/day04/run_student_gazebo_yolo_once.sh'
+      - '.github/workflows/d05-live-gazebo-l2.yml'
+permissions:
+  contents: read
+jobs:
+  actual-public-mounted-rgbd-yolo-gui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      MAKEFLAGS: -j2
+      CMAKE_BUILD_PARALLEL_LEVEL: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install exact official D04 Jazzy/Gazebo/YOLO build runtime (PUBLIC)
+        shell: bash
+        run: |
+          set -eo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            git curl xz-utils python3-colcon-common-extensions \
+            ros-jazzy-nav2-bringup ros-jazzy-nav2-minimal-tb3-sim \
+            ros-jazzy-turtlebot3-gazebo ros-jazzy-ros-gz \
+            ros-jazzy-image-view ros-jazzy-xacro ros-jazzy-rviz2 \
+            libgl1-mesa-dri xvfb xauth x11-utils
+          source /opt/ros/jazzy/setup.bash
+          ros2 pkg prefix nav2_minimal_tb3_sim
+          ros2 pkg prefix turtlebot3_gazebo
+          ros2 pkg prefix ros_gz_image
+          bash -n block_B/day04/run_student_gazebo_yolo_once.sh
+          AXIA_D05_LIVE=1 bash block_B/day04/run_student_gazebo_yolo_once.sh --self-check
+      - name: REAL Gazebo camera_link RGBD + moving human + upstream C++ YOLO and GUI windows
+        shell: bash
+        run: |
+          set -eo pipefail
+          mkdir -p "$RUNNER_TEMP/home"
+          export HOME="$RUNNER_TEMP/home"
+          export AXIA_D05_LIVE=1
+          export AXIA_D05_SENSOR_ONLY=1
+          export AXIA_D04_STUDENT_CI_HEADLESS=1
+          export AXIA_D04_STUDENT_GUI=1
+          export AXIA_D04_STUDENT_GUI_HOLD_S=35
+          export AXIA_D04_STUDENT_MONITOR_TIMEOUT_S=175
+          export QT_QPA_PLATFORM=xcb
+          LOG="$RUNNER_TEMP/d05-mounted-gazebo-real.log"
+          WINDOWS="$RUNNER_TEMP/d05-x11-windows.txt"
+          export LOG WINDOWS
+          xvfb-run -a -s '-screen 0 1530x900x24' bash -c '
+            set -eo pipefail
+            timeout --signal=TERM --kill-after=20s 1100s \
+              bash block_B/day04/run_student_gazebo_yolo_once.sh --run > "$LOG" 2>&1 &
+            PID=$!
+            found=0
+            for i in $(seq 1 100); do
+              sleep 2
+              if grep -q "D04_STUDENT_GUI_HOLD_STARTED" "$LOG"; then
+                found=1
+                break
+              fi
+              if ! kill -0 "$PID" 2>/dev/null; then break; fi
+            done
+            xwininfo -root -tree > "$WINDOWS" 2>&1 || true
+            wait "$PID"
+            if [[ "$found" != 1 ]]; then
+              echo "D05_PUBLIC_GAZEBO_GUI_HOLD_NOT_REACHED"; exit 1
+            fi
+          ' || {
+            tail -n 110 "$LOG" || true
+            find "$HOME/axia_d04_student_evidence" -maxdepth 3 \
+              -type f -name '*.log' -print -exec sh -c 'tail -n 25 "$1"' _ {} \; || true
+            exit 1
+          }
+          tail -n 95 "$LOG"
+          grep -F 'D05_PUBLIC_SENSOR_ONLY_PASS' "$LOG"
+          if grep -Eiq 'Gazebo|gz sim' "$WINDOWS" &&
+             grep -Eiq 'image_view|yolo|debug_image' "$WINDOWS"; then
+            echo 'D05_PUBLIC_REAL_GAZEBO_RGBD_YOLO_GUI_WINDOWS_PASS'
+          else
+            echo 'D05_PUBLIC_GUI_WINDOW_NOT_CONFIRMED'
+            grep -Ei 'Gazebo|gz sim|image_view|yolo' "$WINDOWS" || true
+            exit 1
+          fi
+          echo 'D05_PRIVATE_DISTANCE_OBSERVER=NOT_RUN'
+          echo 'D05_INSTRUCTOR_WSL2_GUI=NOT_RUN'
+      - name: Remove third-party model and actor from CI workspace
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/home/.cache/axia/d04/assets" || true
+          echo 'MODEL_WEIGHTS_NOT_PUBLISHED'
