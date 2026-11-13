@@ -11,6 +11,9 @@
 
 ## D05 독립 데모·실습 빠른 진입 (2026-11-13)
 
+- **[D05 학생 Gazebo Live Demo](day05/D05_STUDENT_GAZEBO_LIVE_GUIDE_KO.md)**: 공개 Waffle RGB-D + 움직이는 사람 + YOLO를 학생 PC에서 직접 관찰. `AXIA_D05_SENSOR_ONLY=1`에서는 실시간 거리 `distance_m`이 제공되지 않으며, 거리 계산은 별도 학생 TODO 실습
+
+
 - [D05 학생용 데모 가이드](day05/D05_STUDENT_DEMO_GUIDE_KO.md): 결과부터 보기(합성 1.30m, −0.50m/s, invalid→UNKNOWN)
 - [D05 학생용 실습 가이드](day05/D05_STUDENT_LAB_GUIDE_KO.md): 기존 D04 TODO 보존, D05 한 함수 구현, TDD와 CSV 산출
 - D05 강사 실제 Gazebo L2는 **이 학생 Python 실습과 별개의 선행 인수**이다. D04 Gazebo 시각화만으로 D05 실측까지 성공했다고 주장하지 않는다.
