@@ -1,11 +1,19 @@
 # AXIA Block B — D04 사람 검출 / D05 거리 측정 (학생용)
 
+- **D05 11/13 실습 시작:** [D05 RGB-D ROI median·UNKNOWN 학생 가이드](day05/D05_STUDENT_LAB_GUIDE_KO.md) — D04 개인 작업물 보존, 학생 TODO 독립 수행. 기존 ROS/Gazebo 안전제어와 별개.
+
 **상태:** 합성 CSV/Depth 교육 실습. 실제 ROS 2 / Gazebo / 로봇 주행 안전 인증이 아닙니다.
 
 - 필요: Python 3.12+, pytest 8.3.5 (필수 경로에 torch, GPU, 카메라, ROS 없음)
 - 입력: `fixtures/detections.csv`, `fixtures/depth_samples.json`, `fixtures/scenario_manifest.json`, `fixtures/SHA256SUMS`
 - TODO: `block_b_todo.py`의 `select_person`, `measure_person_range` 두 함수만 작성
 - 정상 센서 유효성 판단: bbox/image bounds, confidence, 단위 m, 0/NaN/Inf 필터, 최소 ROI 유효 비율 50%, 영상/Depth stamp 차이 0.05s 이하(교육용 예시값)
+
+## D05 독립 데모·실습 빠른 진입 (2026-11-13)
+
+- [D05 학생용 데모 가이드](day05/D05_STUDENT_DEMO_GUIDE_KO.md): 결과부터 보기(합성 1.30m, −0.50m/s, invalid→UNKNOWN)
+- [D05 학생용 실습 가이드](day05/D05_STUDENT_LAB_GUIDE_KO.md): 기존 D04 TODO 보존, D05 한 함수 구현, TDD와 CSV 산출
+- D05 강사 실제 Gazebo L2는 **이 학생 Python 실습과 별개의 선행 인수**이다. D04 Gazebo 시각화만으로 D05 실측까지 성공했다고 주장하지 않는다.
 
 ## D04 Gazebo GUI 실시간 YOLO 시연 — 사진 1장 실습과 별개
 
