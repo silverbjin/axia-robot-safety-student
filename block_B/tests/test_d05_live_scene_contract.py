@@ -51,6 +51,11 @@ def test_live_variant_mounts_one_registered_rgbd_on_waffle(tmp_path):
     assert xs[0] > xs[1] and xs[-1] > xs[1], "Person approaches then recedes"
 
     assert all(abs(pose[1]+0.5)<1e-6 for pose in poses),"Actor stays in Waffle optical FOV"
+    # The known-good D04 classroom scene (public 7c911f4...) used world z=1.0.
+    # z=0.0 on this walk.dae sinks the person into the floor in Gazebo.
+    assert all(abs(pose[2]-1.0)<1e-6 for pose in poses), (
+        "RED: Actor root z=0 sinks the body below floor; restore reference z=1.0"
+    )
     conf=(out/"student_yolo.yaml").read_text()
     assert "rgb_topic: /axia/d05/rgbd/image" in conf
     meta=json.loads((out/"scene_manifest.json").read_text())
