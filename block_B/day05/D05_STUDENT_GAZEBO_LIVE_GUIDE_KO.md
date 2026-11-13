@@ -9,6 +9,8 @@
 
 **중요한 경계:** 학생 공개 Live Demo는 **실제 Gazebo RGB-D·YOLO 검출**까지 보여준다. 실행 옵션은 AXIA_D05_LIVE=1, AXIA_D05_SENSOR_ONLY=1이다. 이때 **D05_PRIVATE_DISTANCE_OBSERVER=NOT_RUN**은 정상이며 실시간 거리 토픽 /axia/d05/person_range_status의 VALID 미터값은 제공하지 않는다. 강사용 Observer의 실시간 미터 계산은 비공개이고, 학생의 measure_person_range() TODO도 현재 Live runner와 연결되지 않았다. 학생이 실제 거리 계산까지 완료했다고 발표하면 안 된다.
 
+학생 라이브 장면은 공개 소스 `block_B/day05/gazebo_live/prepare_scene.py`가 기존 D04 Waffle GUI를 재사용하며 생성한다. 거리 원샷을 위해 비공개 Observer나 별도 ROS 패키지를 추가하지 않는다.
+
 ## 1. 시스템 데이터 파이프라인과 화면
 
 ~~~text
@@ -156,7 +158,7 @@ print(f"D05_STUDENT_SYNTHETIC_MEDIAN={median(pixels_m):.2f}m")
 PY
 ~~~
 
-**예상 출력:** D05_STUDENT_SYNTHETIC_MEDIAN=1.30m. 이 숫자는 실제 Gazebo 센서 실측이 **아니고 합성 ROI 값**이다. [D05_STUDENT_LAB_GUIDE_KO.md](D05_STUDENT_LAB_GUIDE_KO.md)를 따라 기존 개인 작업 폴더의 block_B/block_b_todo.py::measure_person_range() 함수를 직접 작성하여 RED→GREEN으로 검증한다. \`invalid\`와 timestamp 불일치에서는 UNKNOWN을 반환해야 하며, UNKNOWN은 안전(CLEAR)과 다르다.
+**예상 출력:** D05_STUDENT_SYNTHETIC_MEDIAN=1.30m. 이 숫자는 실제 Gazebo 센서 실측이 **아니고 합성 ROI 값**이다. [D05_STUDENT_LAB_GUIDE_KO.md](D05_STUDENT_LAB_GUIDE_KO.md)를 따라 기존 개인 작업 폴더의 block_B/block_b_todo.py::measure_person_range() 함수를 직접 작성하여 RED→GREEN으로 검증한다. `invalid`와 timestamp 불일치에서는 UNKNOWN을 반환해야 하며, UNKNOWN은 안전(CLEAR)과 다르다.
 
 접근 변화율 수치화는 같은 사람의 두 **유효한 거리 샘플** 사이에서만 의미가 있으며, f001과 임의의 다른 프레임을 같은 사람이라고 가정해서 위험 확률을 만들지 않는다. 학생 TODO를 현재 Live ROS Depth에 연결하는 별도 어댑터는 **이번 문서에서 구현하지 않았다**.
 
