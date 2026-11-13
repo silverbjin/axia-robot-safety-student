@@ -27,6 +27,8 @@
 
 학생 필수 D05는 ROS와 Gazebo 없이 Python으로 수행한다. 선택적 **D04 실시간 Gazebo+YOLO GUI**는 기존 [D04 학생 데모 가이드](../day04/D04_GAZEBO_YOLO_GUI_STUDENT_GUIDE_KO.md)에 있다. 해당 GUI는 YOLO bbox를 시각화하지만 D05 aligned Depth 관측기를 실행하지 않는다. 두 데모를 한 화면의 실시간 거리 추정이라고 잘못 설명하지 않는다.
 
+**학생 PC에서 실제 Gazebo RGB-D·YOLO 장면을 직접 관찰하려면** [D05 학생 Gazebo Live Demo 가이드](D05_STUDENT_GAZEBO_LIVE_GUIDE_KO.md)를 따른다. 공개 sensor-only 모드라서 카메라 Depth 토픽과 YOLO bbox를 보여주지만, 이 페이지의 합성 median `1.30m`를 실시간 센서에서 계산해 출력하는 것은 아니다. 기존 D04 GUI 및 학생 TODO 과제와 구분한다.
+
 ## 2. 첫 성취 — 1분 만에 1.30m 출력
 
 **터미널 A 하나**, Python 3만 사용한다. 새로운 ROS/Gazebo 터미널이 필요 없다.
