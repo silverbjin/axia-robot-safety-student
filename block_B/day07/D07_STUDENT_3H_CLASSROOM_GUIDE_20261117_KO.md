@@ -181,3 +181,51 @@ student 제출 폴더: ~/axia_d07_student_evidence/. 개인 route_todo.py, sourc
 **2. 사람 회피 로직 및 주행제어 실습**: 합성 경로의 BLOCKED/CLEAR 판정과 제어 계층의 의사결정 워크시트를 작성한다.
 
 **주행제어 실습의 검증 경계**: 본 수업의 필수 코드는 읽기 전용 경로 분석이다. **실제 주행제어는 미실행**이다. 실제 ControllerServer, 주행 Goal, /cmd_vel, /odom, contact를 이용한 Gazebo 물리 회피는 별도 인수 전까지 NOT_RUN이다. G07 감속·정지 시연은 회피 주행 성공을 증명하지 않는다.
+## 12. 전체 시스템 아키텍처 — 실제 이동 시스템의 개념도
+
+다음은 공식 Nav2의 계획/추종과 AXIA 보호 체인을 설명하기 위한 **개념도**다. 이번 D07 L1에서 ControllerServer와 BT Navigator를 모두 기동한 것이 아니다.
+
+~~~mermaid
+flowchart TD
+ H[사람/장애물] --> S[LiDAR /scan]
+ S --> G[Global Costmap - ObstacleLayer + InflationLayer]
+ G --> P[PlannerServer - NavfnPlanner]
+ N[BT Navigator - NavigateToPose] -->|ComputePathToPose| P
+ P -->|Path 계획 결과| N
+ S --> L[Local Costmap]
+ L --> C[ControllerServer - FollowPath]
+ N -->|경로 추종 요청| C
+ C --> SUP[AXIA Safety Supervisor]
+ SUP --> CM[공식 Collision Monitor]
+ S --> CM
+ CM -->|/cmd_vel_pre_guard| GUARD[AXIA Base Guard]
+ GUARD -->|/cmd_vel| BASE[Robot Base]
+ BASE --> O[/odom]
+~~~
+
+PlannerServer는 경로를 계획하지만 속도 명령을 직접 구동하지 않는다. ControllerServer가 경로를 추종할 때 속도 명령을 계산하고, Collision Monitor는 근접 물체를 독립적으로 검사해 감속·소프트웨어 정지할 수 있다. 기존 G07의 /cmd_vel_pre_guard는 CM 이후/Guard 이전 관측 토픽이다. D04 YOLO 및 D05 RGB-D 실제 데이터는 아래 D07 L1 합성 LaserScan과 연결되지 않았다.
+
+## 13. 실제 D07 ROS L1 데이터 파이프라인 — 이미 검증된 격리 경로
+
+~~~mermaid
+flowchart LR
+ SC[_scan synthetic LaserScan] -->|/axia/d07/test/scan| OL[Official ObstacleLayer + InflationLayer]
+ OL -->|/global_costmap/costmap| GRID[_run_stage lethal grid count]
+ OL --> PL[Official PlannerServer / NavfnPlanner]
+ REQ[_request_path] -->|/compute_path_to_pose Action| PL
+ PL -->|nav_msgs/Path result| ROUTE[Path points and clearance]
+ GRID --> V[verdict.json]
+ ROUTE --> V
+~~~
+
+**실제 실행한 순서:** 정적 TF map→base_footprint → synthetic LaserScan → ObstacleLayer marking/clearing → InflationLayer → /global_costmap/costmap 실제 수신 → /compute_path_to_pose 계획 Action 질의 → nav_msgs/Path 결과 검증 → verdict.json/SHA256SUMS 저장. 이 격리 실험에서는 최종 /cmd_vel publisher 수 0개를 확인했다.
+
+**동적 장애물의 시간 변화:** 이 시험은 실제 사람이 걸어 다니는 좌표 추적이 아니다. 같은 위치에 proxy가 **없음→나타남→사라짐**으로 시간 변화하는 시나리오이다.
+
+| 시간/단계 | 합성 장애물 | 기존 공식 ROS L1 lethal cells | 기존 공식 ROS L1 Path 점 수 |
+|---|---|---:|---:|
+| t0 clear_before | 없음 | 0 | 58 |
+| t1 person_blocking | 전방 0.8m proxy | 101 | 74 |
+| t2 person_cleared | 제거 | 0 | 58 |
+
+위 0→101→0, 58→74→58은 이전 공개 Actions #42661513782 및 2026-11-10 강사 WSL2 L1의 실측 사례이며 이번 문서 수정의 새로운 ROS PASS가 아니다.
