@@ -1,5 +1,8 @@
 # D07 Nav2 Human-aware Avoidance — 교육생 3시간 실습
 
+> **2026-11-17 19:00–22:00 수업 시작:** [학생 3시간 다운로드·RED/GREEN·강사 L1 관찰·제출 가이드](D07_STUDENT_3H_CLASSROOM_GUIDE_20261117_KO.md)를 먼저 읽으세요. 아래 문서는 기존 핵심 요약입니다. 새 자료는 Draft PR #20 브랜치에 있으며 Owner의 main 병합 승인 전까지 main에는 포함되지 않습니다.
+> 학생은 두 TODO 함수와 합성 fixture만 다루며, 공식 Planner L1의 과거 인수 증거를 실제 Gazebo 이동·물리 충돌 회피 증거로 바꾸어 말하지 않습니다.
+
 학습목표: (1) Nav2 costmap ObstacleLayer/InflationLayer가 실제 LaserScan 점을 경로 비용으로 반영하는 방식을 설명한다. (2) planner의 경로 변경과 Collision Monitor의 감속/정지를 구별한다. (3) 사람 track/Scan이 사라지거나 오래되면 경로 안전성을 보증하지 않는 이유를 설명한다.
 
 ## 실습 구성
