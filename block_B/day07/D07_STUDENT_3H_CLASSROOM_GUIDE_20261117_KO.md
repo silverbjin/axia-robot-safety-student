@@ -171,3 +171,13 @@ student 제출 폴더: ~/axia_d07_student_evidence/. 개인 route_todo.py, sourc
 **30초 Exit Ticket:** “Planner가 path 74점을 계산했으면 실제 로봇이 사람을 피해 갔다고 말할 수 있는가? ComputePathToPose와 NavigateToPose는 무엇이 다르고, 왜 Collision Monitor가 여전히 필요한가?”
 
 수업 종료 시 학생 S만 닫는다. 강사의 ROS/WSL2/Gazebo 프로세스는 변경하거나 강제 종료하지 않는다. 이 가이드를 통해 새 ROS/Gazebo 실행 성공을 주장하지 않는다.
+
+---
+
+## 11. 두 원래 주제와 실습 경계
+
+**1. 사람을 동적 장애물로 처리하는 회피제어 구조 이해**: 공식 Nav2의 LaserScan→Costmap→Planner와 시간에 따른 장애물 등장·제거를 설명한다.
+
+**2. 사람 회피 로직 및 주행제어 실습**: 합성 경로의 BLOCKED/CLEAR 판정과 제어 계층의 의사결정 워크시트를 작성한다.
+
+**주행제어 실습의 검증 경계**: 본 수업의 필수 코드는 읽기 전용 경로 분석이다. **실제 주행제어는 미실행**이다. 실제 ControllerServer, 주행 Goal, /cmd_vel, /odom, contact를 이용한 Gazebo 물리 회피는 별도 인수 전까지 NOT_RUN이다. G07 감속·정지 시연은 회피 주행 성공을 증명하지 않는다.
