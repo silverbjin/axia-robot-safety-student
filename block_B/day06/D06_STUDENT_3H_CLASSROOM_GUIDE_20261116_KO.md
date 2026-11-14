@@ -8,6 +8,23 @@
 
 > 실습 함수는 **교육용 예상 상태/비율만 반환한다.** 로봇을 구동하거나 /cmd_vel을 발행하지 않는다. 실제 ROS L1 실습은 공식 nav2_collision_monitor를 로봇과 격리한 테스트 토픽에서 검증한다. STOP 명령은 차체 정지 또는 인증된 HW E-Stop 증거가 아니다.
 
+## 0. 오늘의 두 학습 목표 — 수업 시작 전에 확인
+
+1. **거리 구간별 속도 제한 및 감속ㆍ정지 규칙 이해**: 입력 속도 0.20m/s와 장애물 거리 1.20/0.65/0.30m를 보고 CLEAR/SLOWDOWN/STOP을 예측하고, 공식 CM 격리 L1의 실제 출력 0.20/0.06/0.00m/s를 해석한다.
+2. **Safety Bubble 기반 안전제어 로직 설계 실습**: 교육용 Safety Bubble의 입력 유효성 검사 → Stop/Slow 경계 및 우선순위 결정 → expected_ratio 계산 → UNKNOWN/TTL 반례 검증을 `classify_range()`와 `bubble_policy()`의 RED→GREEN TDD로 완성한다.
+
+**수업 종료 조건:** 목표 1은 **거리별 상태·속도 규칙표**, 목표 2는 **학생이 만든 정책 함수·RED/GREEN 로그·UNKNOWN 반례 설명**으로 각각 증명한다. 이는 교육용 정책 설계 실습이며 실제 로봇의 안전제어 노드를 제작하거나 인증하는 실습이 아니다.
+
+~~~text
+교육용 Safety Bubble 설계 흐름 (로봇 명령 발행 없음)
+거리·valid·age 입력
+    → 입력 유효성 검사 (None/NaN/stale → UNKNOWN)
+    → Stop 우선(≤0.40m), Slow(≤0.75m), 나머지 CLEAR
+    → expected_ratio = 0 / 0.30 / 1.0 (UNKNOWN → None)
+    → 공개 테스트로 경계와 반례 확인
+별도 공식 CM 격리 L1: 합성 LaserScan + 시험 Twist → 공식 nav2_collision_monitor → 시험 Twist
+~~~
+
 ## 1. 학습 목표 및 통과 기준
 
 1. CLEAR·SLOWDOWN·STOP·UNKNOWN의 의미, 두 반경과 경계 포함 규칙을 설명한다.
@@ -193,3 +210,22 @@ cd "$HOME/axia_d06_student_lab"
 - **의도한 RED만 지속:** 마지막 오류보다 첫 `NotImplementedError`와 입력값 종류를 좁혀 수정한다. 테스트/fixture를 임의로 고치지 않는다.
 - **강사 ROS L1 설치 또는 네트워크 실패:** 이미 보존된 성공 CI·WSL2 verdict을 **과거 증거**로 읽기 전용 시연하고, 이번 Live는 NOT_RUN/BLOCKED로 기록한다. 실패한 원샷을 반복하지 않는다.
 - **교육 범위 종료:** Gazebo 물리 주행·Nav2 Goal·인증 E-Stop으로 실습을 확장하지 않는다.
+
+## 13. 수업 전체 정리 — 학습 목표 달성 확인
+
+**목표 1 달성 증거 — 거리 구간별 속도 제한 및 감속ㆍ정지 규칙 이해**
+
+| 장애물 거리 | 학생 정책 분류 | 입력 명령 | 기존 공식 CM 격리 ROS L1 출력 |
+|---|---|---:|---:|
+| 1.20m | CLEAR | 0.20m/s | 0.20m/s |
+| 0.65m | SLOWDOWN | 0.20m/s | 0.06m/s (입력의 30%) |
+| 0.30m | STOP | 0.20m/s | 0.00m/s |
+
+**목표 2 달성 증거 — Safety Bubble 기반 안전제어 로직 설계 실습**
+
+- 자신의 `classify_range()`와 `bubble_policy()`가 **유효성→경계/우선순위→비율→UNKNOWN** 정책을 교육용으로 설명하는가?
+- 최초 RED의 `NotImplementedError`와 구현 후 GREEN의 실제 pytest 결과를 별도로 보존했는가? 최초 RED를 삭제하거나 테스트를 완화하지 않았는가?
+- `age_s=0.51`, `None`, `NaN`을 CLEAR가 아니라 UNKNOWN으로 처리하고 그 이유를 설명할 수 있는가?
+- 학생 Python 단일 거리값 분류와 공식 CM의 LaserScan 포인트·StopZone/SlowZone 판정은 **같은 구현이 아님**을 설명할 수 있는가?
+
+**마지막 30초 자기 설명:** “나는 거리별 감속·정지 규칙을 설명할 수 있고, Safety Bubble 교육 정책을 RED→GREEN으로 설계·검증했다. 다만 실제 물리적 정지나 인증된 E-Stop은 검증하지 않았다.”
