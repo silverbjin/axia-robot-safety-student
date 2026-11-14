@@ -27,3 +27,13 @@ def test_existing_student_todo_is_intentionally_red_and_not_replaced():
     assert 'raise NotImplementedError("TODO_D06_CLASSIFY_RANGE")' in src
     assert 'raise NotImplementedError("TODO_D06_BUBBLE_POLICY")' in src
     assert "create_publisher" not in src
+
+
+def test_d06_original_two_course_objectives_and_final_summary():
+    """Course promises must be explicit, not merely implicit in safety terms."""
+    content = GUIDE.read_text(encoding="utf-8")
+    assert "거리 구간별 속도 제한 및 감속ㆍ정지 규칙 이해" in content
+    assert "Safety Bubble 기반 안전제어 로직 설계 실습" in content
+    assert "수업 전체 정리" in content
+    assert "목표 1 달성 증거" in content
+    assert "목표 2 달성 증거" in content
