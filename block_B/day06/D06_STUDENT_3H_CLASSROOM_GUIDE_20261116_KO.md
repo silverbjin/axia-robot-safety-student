@@ -59,6 +59,11 @@
       https://github.com/silverbjin/axia-robot-safety-student.git "$REPO"
   fi
   cd "$REPO"
+  if [ "$(git branch --show-current)" != "docs/d06-classroom-materials-20261113" ]; then
+    echo "D06_STUDENT_WRONG_BRANCH: existing files preserved; use a new D06 folder"
+    exit 2
+  fi
+  test -f block_B/day06/D06_STUDENT_LIVE_DEMO_GUIDE_20261116_KO.md
   test -f block_B/day06/safety_bubble_todo.py
   printf 'D06_STUDENT_SOURCE_SHA=%s\n' "$(git rev-parse HEAD)"
   python3 --version
