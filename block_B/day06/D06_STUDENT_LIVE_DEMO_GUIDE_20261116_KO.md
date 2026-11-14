@@ -68,7 +68,7 @@ ros2 topic echo /axia/d05/rgbd/depth_image \
   --once --field encoding --qos-reliability best_effort
 ~~~
 
-예상 Depth encoding은 `32FC1`이다. 이는 실제 ROS 이미지 **형식**이며 사람까지의 거리 숫자가 아니다. 학생은 `ros2 topic pub` 또는 `ros2 action send_goal`을 실행하지 않는다. `Ctrl+C`로 B의 구독만 닫는다.
+예상 Depth encoding은 `32FC1`이다. 이는 실제 ROS 이미지 **형식**이며 사람까지의 거리 숫자가 아니다. 학생은 **ROS 토픽 발행 명령이나 Action Goal 전송 명령을 실행하지 않는다.** `Ctrl+C`로 B의 구독만 닫는다.
 
 ## 4. 강사 G07 Gazebo + RViz2 관찰표 — 15분
 
