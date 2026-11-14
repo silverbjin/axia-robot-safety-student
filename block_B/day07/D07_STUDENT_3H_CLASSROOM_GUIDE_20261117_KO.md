@@ -229,3 +229,51 @@ flowchart LR
 | t2 person_cleared | 제거 | 0 | 58 |
 
 위 0→101→0, 58→74→58은 이전 공개 Actions #42661513782 및 2026-11-10 강사 WSL2 L1의 실측 사례이며 이번 문서 수정의 새로운 ROS PASS가 아니다.
+## 14. 코드 해설 — 실제 데이터가 어디서 어떻게 처리되는가
+
+| 코드/파일 | 입력과 역할 | 처리와 결과 |
+|---|---|---|
+| block_B/day07/fixtures/routes.json | person_xy=(0.8,0), radius=0.35, path_before/path_detour | 합성 좌표의 두 경로 입력, 실제 센서 아님 |
+| route_todo.py: route_obstacle_status() | 경로·사람좌표·valid·age | 학생이 입력 검증→모든 선분 최소거리→BLOCKED/CLEAR/UNKNOWN 구현 |
+| route_todo.py: assess_replan() | 이전·후속 경로와 person | 기존 BLOCKED + 새 경로 CLEAR일 때 REPLAN_EVIDENCED, robot_moved 등 False |
+| tests/test_d07_public.py | 기존 fixture와 두 TODO | fixture 검사 1개 + 함수 시험 3개; 테스트는 수정 금지 |
+| d07/scripts/d07_nav2_planner_l1.py: _scan() | 현재 stamp, obstacle 불리언 | LaserScan 360 beams; 일반 7.0m, proxy 등장 시 전방 약 ±0.18rad를 0.8m |
+| 같은 파일: _run_stage() | synthetic scan publisher + Costmap subscriber | 약 0.1초 주기 발행, 수신된 OccupancyGrid에서 lethal cell 계수 |
+| 같은 파일: _request_path() | start (0,0) goal (1.5,0) | /compute_path_to_pose 공식 Action, nav_msgs/Path 점 수·최소거리·hash 기록 |
+| d07/params/nav2_d07_planner.yaml | NavfnPlanner 및 Costmap 파라미터 | scan topic, update/publish rate, ObstacleLayer/InflationLayer 선택 |
+| verdict.json / SHA256SUMS | 공식 L1 결과 JSON 및 파일 checksum | ros_actual / gazebo_actual / stage / robot cmd publisher 0을 구분 |
+
+**route_obstacle_status 핵심 해설:** 단순 점과 점의 거리가 아니라, 사람 P에서 경로를 이루는 각 선분 AB까지 최근접 거리를 계산한다. P를 AB에 정사영한 비율을 0~1로 제한하면 최근접점은 선분 내부나 끝점이다. 모든 선분 중 최소거리가 buffer 이하이면 BLOCKED이다. valid=false, NaN, None, 잘못된 경로, age>0.5s는 판정 전에 UNKNOWN 처리한다.
+
+**assess_replan 핵심 해설:** 두 경로를 각각 위 함수로 분류한 후 원본 BLOCKED / 변경 후보 CLEAR인 경우에만 REPLAN_EVIDENCED이다. 이 함수는 새 경로를 직접 생성하거나 ControllerServer로 전달하지 않는다. robot_moved=false, collision_free_verified=false, safety_certified=false는 결과 해석의 필수 한계이다.
+
+**fixtures 예측값:** 직선은 사람과의 최소 선분거리 0.000m, 우회 후보는 약 0.515m로 계산된다. 0.35m buffer 기준 직선 BLOCKED / detour CLEAR. 이 0.515m는 실제 ROS L1 결과의 proxy clearance 약 0.473m와 **다른 경로 데이터**에서 구한 수치다.
+
+**nav2_d07_planner.yaml 설정:** GridBased = official NavfnPlanner, map/base_footprint TF, width 4m × height 4m, resolution 0.05m(80×80 셀), update_frequency 5Hz, publish_frequency 5Hz, scan topic=/axia/d07/test/scan, marking=true, clearing=true, inflation_radius 0.33m, robot_radius 0.20m. 학생 합성 fixture의 0.35m와 공식 Costmap inflation 0.33m를 동일 설정으로 오인하지 않는다. 설정 주기 5Hz는 실제 통신 TTL 검증의 대체물이 아니다.
+
+## 15. 실행 시 예상 결과 — 입력, 콘솔 출력, 실패 해석
+
+| 명령/관찰 | 실행 시 예상 결과 (과거 근거 또는 실습 기대) | 실패할 때 먼저 볼 항목 |
+|---|---|---|
+| python3 --version | 권장 Python 3.12.x | 기본 interpreter와 venv/PATH |
+| pytest ...::test_fixture_schema | 1 passed | repo root와 routes.json 스키마 |
+| 미구현 학생 TODO의 공개 pytest | **1 passed, 3 failed**, NotImplementedError, D07_STUDENT_RED_RC≠0 | 어느 TODO 함수가 아직 미구현인가? |
+| 학생 2함수 완성 후 공개 pytest | **4 passed**, D07_STUDENT_GREEN_RC=0 | 거리 투영/UNKNOWN/False 플래그/테스트 변조 |
+| 공식 _scan → _run_stage → _request_path | 기존 실측 lethal **0→101→0**, Path **58→74→58** | 최초 TF/Scan stamp/Costmap 수신/Planner Action 단계 |
+| 공식 L1 verdict | status PASS_OFFICIAL_NAV2_COSTMAP_REPLAN_L1; ros_actual=true; gazebo_actual=false; actual_robot_cmd_publishers=0 | 반환코드, 결과 JSON, source SHA |
+
+실행 명령 전체와 실제 반환코드 저장 방법은 이 문서 3절, 5절, 6절에 있다. GREEN은 학생이 TODO를 구현했을 때의 **예상 결과**이며 이번 문서 작업이 학생 구현에 대해 4 passed를 실행한 사실은 아니다. 실제 공식 ROS L1 로그는 과거 공개 Actions #42661513782의 기록을 사용한다.
+
+## 16. 주행제어 판단 워크시트 (기존 Python L0 안에서 수행)
+
+아래 표를 학생이 직접 완성한다. 이는 읽기 전용 **주행제어 구조·판단 실습**이며 실제 ControllerServer·Nav2 이동 Goal·/cmd_vel을 새로 실행하지 않는다.
+
+| 상황 | 관측된 경로/지도 | 학생의 주행제어 판단 | 담당 계층 | 실제 운동 증거 |
+|---|---|---|---|---|
+| A 사람 없음 | lethal 0, path 58 | 추종 가능한 경로 **후보** | Planner→Controller(후자는 이번 L1 미실행) | 없음 |
+| B 사람 등장 | lethal 101, path 74 | 우회 계획 후보가 생성되었는가? | Planner, CM 근접 보호는 별도 | 없음 |
+| C 매우 근접 | 별도 D06 CM STOP 사례 | 감속/정지는 경로 변경과 별도임 | Collision Monitor / Guard | D07 L1 없음 |
+| D 입력 stale | 학생 age>0.5, UNKNOWN | 자동 CLEAR·재주행 금지 | Safety 정책과 운영자 승인 | 없음 |
+| E 사람 제거 | lethal 0, path 58 | 지도 clearing과 기존 경로 후보 복귀 | Planner, 실제 주행은 별개 | 없음 |
+
+학생 발표: 원래 주제 1에 대해 각 화살표의 입력·출력을 설명하고, 원래 주제 2에 대해 두 TODO 결과와 각 단계의 책임을 설명한다. 실제 주행제어는 미실행이므로 실제 사람 회피를 완료했다고 주장하지 않는다.
