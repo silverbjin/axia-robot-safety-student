@@ -45,12 +45,14 @@ D04–D06 폴더를 초기화하거나 덮어쓰지 않는다. **이번 새 자�
         echo "D07_WRONG_BRANCH: existing work preserved"; exit 2
       fi
       test -f block_B/day07/route_todo.py
-      echo "D07_STUDENT_SOURCE_SHA=$(git rev-parse HEAD)"
+      test -f block_B/day07/D07_STUDENT_3H_CLASSROOM_GUIDE_20261117_KO.md
+      mkdir -p "$HOME/axia_d07_student_evidence"
+      echo "D07_STUDENT_SOURCE_SHA=$(git rev-parse HEAD)" \
+        | tee "$HOME/axia_d07_student_evidence/source_sha.txt"
       python3 --version
       if [[ ! -x .venv/bin/python ]]; then python3 -m venv .venv; fi
       .venv/bin/python -m pip install -q "pytest==8.3.5"
       .venv/bin/python -m compileall -q block_B/day07
-      mkdir -p "$HOME/axia_d07_student_evidence"
     )
 
 **예상(현장 실행 보증 아님):** Git SHA 40자리·Python 3.12.x·컴파일 정상. 오류가 나면 네트워크/가상환경/잘못된 브랜치부터 확인한다. 별도 Gazebo나 ROS는 학생 터미널 S에서 실행하지 않는다.
