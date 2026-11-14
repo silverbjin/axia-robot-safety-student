@@ -42,20 +42,20 @@
 | 20:25–20:45 | L3 RED | 학생 TODO 의도적 실패, 첫 NotImplementedError 추적 |
 | 20:45–21:05 | L4 GREEN | 정상 1.20/0.65/0.30m 정책 구현 |
 | 21:05–21:25 | L5 반례 | 0.40/0.75 경계·NaN·stale·UNKNOWN 검증 |
-| 21:25–21:40 | L6 ROS L1 | 강사 CM 격리 시연·실측 출력/상태 표 작성 |
+| 21:25–21:40 | L6 선택 Live | 강사 격리 CM ROS L1 또는 기존 G07 Gazebo+RViz2(강사 PC), 학생은 상태·출력 관찰표 작성 |
 | 21:40–21:50 | L7 검토 | /cmd_vel 우회 여부·제어권/안전 용어 리뷰 |
 | 21:50–22:00 | L8 제출 | 로그·SHA·평가표·미검증 명시 |
 
 ## 3. 실습 시작 — 터미널 사용법 (L1, 10분)
 
-**터미널 S 하나만** 사용한다. D04/D05 작업 폴더를 보존하고 D06은 새 폴더로 복제한다. 이미 개인 D06 작업물이 있으면 새로 덮어쓰지 않는다.
+**터미널 S 하나만** 사용한다. D04/D05 작업 폴더를 보존하고 D06은 새 폴더로 복제한다. **main 병합 전에는 Draft PR #19의 브랜치에서 받아야 새 3시간 가이드와 Live Demo 가이드를 찾을 수 있다.** 이미 본인의 D06 작업 폴더가 있으면 덮어쓰거나 reset하지 않는다. 이미 개인 D06 작업물이 있으면 새로 덮어쓰지 않는다.
 
 ~~~bash
 (
   set -Eeuo pipefail
   REPO="$HOME/axia_d06_student_lab"
   if [ ! -e "$REPO" ]; then
-    git clone --branch main --single-branch \
+    git clone --branch docs/d06-classroom-materials-20261113 --single-branch \
       https://github.com/silverbjin/axia-robot-safety-student.git "$REPO"
   fi
   cd "$REPO"
@@ -142,16 +142,25 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest -q \
 
 ~~~bash
 cd "$HOME/axia_d06_student_lab"
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest -q \
-  block_B/day06/tests/test_d06_public.py \
-  | tee "$HOME/axia_d06_student_evidence/d06_GREEN.log"
+if (
+  set -o pipefail
+  PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest -q \
+    block_B/day06/tests/test_d06_public.py \
+    | tee "$HOME/axia_d06_student_evidence/d06_GREEN.log"
+); then
+  RC=0
+else
+  RC=$?
+fi
+printf 'D06_STUDENT_GREEN_RC=%s\n' "$RC"
+test "$RC" -eq 0
 ~~~
 
 **학생 TODO를 올바르게 구현한 경우 기대:** `4 passed`. **이 문서는 실행 성공을 보증하지 않는다.** 이 수업에서 검증한 범위는 Python 합성 데이터 정책이다. 특히 `pytest 4 passed`는 실제 로봇 주행 성공이 아니다.
 
-## 8. L6 — 공식 Nav2 Collision Monitor 격리 ROS L1 관찰 (15분)
+## 8. L6 — 강사 공식 CM 격리 ROS L1 또는 Gazebo+RViz2 Live 관찰 (15분)
 
-이 구간은 **강사가 실행**한다. 학생은 기존 공개 증거 또는 강사 실시간 출력과 비교표를 작성한다. 학생은 **절대 /cmd_vel을 발행하거나 Nav2 Goal을 보내지 않는다.** Gazebo GUI가 나타나지 않는 것이 정상이다.
+이 구간은 **강사가 실행**한다. 학생은 기존 공개 증거 또는 강사 실시간 출력과 비교표를 작성한다. 학생은 **절대 /cmd_vel을 발행하거나 Nav2 Goal을 보내지 않는다.** **격리 CM ROS L1이면 Gazebo GUI가 없는 것이 정상**이고, **기존 G07 Gazebo+RViz2 선택 시 강사 PC의 GUI를 관찰**한다. [학생 D06 Live Demo 가이드](D06_STUDENT_LIVE_DEMO_GUIDE_20261116_KO.md) §4 관찰표를 사용할 것. 학생 PC의 독립 D05 Gazebo 장면은 주행·CM STOP을 증명하지 않는다.
 
 강사 공식 WSL2 원샷 가이드: 비공개 `training/block_B/instructor/D06_OWNER_WSL2_ONCE_KO.md`. 공개 실행기 pin은 `bc3fa7abe63ef3677bbf8b342e4aba96fd3e6ea1`; 내부 검증 소스 pin은 `94f4900f89f8e04c4d0a45461ac39ea9e13d6e6f`.
 
@@ -209,7 +218,11 @@ cd "$HOME/axia_d06_student_lab"
 - **venv/pytest 준비 실패:** 강사 출력과 기존 공개 fixture 표를 직접 해석하고 재실행 불가를 기록한다. GREEN으로 표시하지 않는다.
 - **의도한 RED만 지속:** 마지막 오류보다 첫 `NotImplementedError`와 입력값 종류를 좁혀 수정한다. 테스트/fixture를 임의로 고치지 않는다.
 - **강사 ROS L1 설치 또는 네트워크 실패:** 이미 보존된 성공 CI·WSL2 verdict을 **과거 증거**로 읽기 전용 시연하고, 이번 Live는 NOT_RUN/BLOCKED로 기록한다. 실패한 원샷을 반복하지 않는다.
-- **교육 범위 종료:** Gazebo 물리 주행·Nav2 Goal·인증 E-Stop으로 실습을 확장하지 않는다.
+- **교육 범위 종료:** 학생 코드·학생 PC에서 Gazebo Goal·/cmd_vel·인증 E-Stop으로 실습을 확장하지 않는다. 강사가 통제한 기존 G07 시연은 학생 구현 범위에 포함하지 않는다.
+
+## 12A. 선택 실습 — 학생 독립 Gazebo Live와 강사 G07의 분리
+
+학생은 [D06 학생 Live Demo 가이드](D06_STUDENT_LIVE_DEMO_GUIDE_20261116_KO.md)의 **공개 D05 센서/YOLO Gazebo 원샷**을 독립 실행할 수 있다(수업 전 준비 권장). 실제 CLEAR→SLOWDOWN→STOP 주행은 강사 Owner가 TTY로 승인한 기존 G07 Gazebo+RViz2를 화면으로 관찰한다. 학생 TODO가 실제 ROS /cmd_vel을 발행하지 않으며, 두 시연의 증거 범위를 혼동하지 않는다. 준비가 어렵다면 강사 화면만 보아도 실습 제출 가능하다.
 
 ## 13. 수업 전체 정리 — 학습 목표 달성 확인
 
