@@ -6,6 +6,12 @@
 
 시나리오: 로봇 앞 사람/장애물 거리가 1.20m -> 0.65m -> 0.30m로 바뀐다. 교육용 예시 Stop 0.40m, Slow 0.75m, Ratio 0.30. NULL/STALE/NaN은 UNKNOWN이다. 이는 특정 안전거리의 인증 값이 아니다.
 
+## 수업 시작점 및 Live Demo
+
+- 단계별 3시간 실습은 [D06_STUDENT_3H_CLASSROOM_GUIDE_20261116_KO.md](D06_STUDENT_3H_CLASSROOM_GUIDE_20261116_KO.md)를 따른다.
+- 학생 독립 Gazebo + 강사 G07 주행 화면 관찰은 [D06_STUDENT_LIVE_DEMO_GUIDE_20261116_KO.md](D06_STUDENT_LIVE_DEMO_GUIDE_20261116_KO.md)를 따른다.
+- **main 병합 전에는** `docs/d06-classroom-materials-20261113` 브랜치에서 새 문서를 사용한다. 학생 Python TODO는 **의도한 RED**, 학생의 별도 Gazebo는 **NO_GOAL/NO_CMD_VEL**이다.
+
 ## RED 실습
 기존 공개 저장소의 루트에서:
 
