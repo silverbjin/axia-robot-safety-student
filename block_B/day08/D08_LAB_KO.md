@@ -15,7 +15,7 @@
 처음 받는 학생은 **터미널 하나**를 열어 아래 순서로 실행합니다.
 
 ```bash
-git clone --branch feature/d08-online-integration-todo-20261110 --single-branch \
+git clone --branch main --single-branch \
   https://github.com/silverbjin/axia-robot-safety-student.git
 cd axia-robot-safety-student
 python3 -m venv .venv
