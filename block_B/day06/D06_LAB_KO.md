@@ -6,6 +6,13 @@
 
 시나리오: 로봇 앞 사람/장애물 거리가 1.20m -> 0.65m -> 0.30m로 바뀐다. 교육용 예시 Stop 0.40m, Slow 0.75m, Ratio 0.30. NULL/STALE/NaN은 UNKNOWN이다. 이는 특정 안전거리의 인증 값이 아니다.
 
+## 3시간 수업·Live 안내
+
+- [D06 학생 3시간 수업 가이드](D06_STUDENT_3H_CLASSROOM_GUIDE_20261116_KO.md): 이론 60분·실습 120분, RED→GREEN→경계·UNKNOWN·제출
+- [독립 Gazebo Live·강사 격리 CM 관찰 가이드](D06_STUDENT_LIVE_DEMO_GUIDE_20261116_KO.md): 학생은 공개 D05 센서 전용 NO_GOAL 장면만 실행한다.
+- **강사 G07 이동 Goal + RViz2는 HOLD.** 공식 CM 격리 ROS L1을 기본 시연으로 사용한다. 학생의 실제 안전정지/인증 E-Stop 검증으로 주장하지 않는다.
+- 수강 소스는 별도 D06 개발 브랜치가 아닌 현재 `main`을 사용한다.
+
 ## RED 실습
 기존 공개 저장소의 루트에서:
 
