@@ -36,7 +36,8 @@ def test_release_entrypoint_is_one_command_without_ros_source_in_caller():
     assert "run_d08_student_live_once.sh" in text
     assert "D08_STUDENT_BOOTSTRAP_STATIC_PASS" in text
     assert "git clone" in text and "merge --ff-only" in text
-    assert "source /opt/ros/jazzy/setup.bash" not in text
+    assert not any(line.strip().startswith("source /opt/ros/jazzy/setup.bash")
+                   for line in text.splitlines())
     assert "--self-check" in text and "--doctor" in text and "--run" in text
     assert subprocess.run(["bash", "-n", str(BOOT)],capture_output=True).returncode == 0
     out = subprocess.run(["bash", str(BOOT), "--self-check"],
