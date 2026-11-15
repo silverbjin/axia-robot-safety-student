@@ -1,0 +1,49 @@
+name: AXIA Block C D09-D12 student scaffold L0
+on:
+  push:
+    branches: ['feat/block-c-c01-*']
+    paths: ['block_C/**', '.github/workflows/block-c-c06-student-scaffold.yml']
+  pull_request:
+    paths: ['block_C/**', '.github/workflows/block-c-c06-student-scaffold.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scaffold:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest==8.3.5
+      - name: Student C01 source + C06 release shell and intentional TODO RED
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p results/block-c-student
+          AXIA_BLOCK_C_EVIDENCE_DIR=results/block-c-student/unit \
+            bash block_C/scripts/block_c_once.sh --unit
+          set +e
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
+            block_C/tests/test_student_task_expected_red.py \
+            >results/block-c-student/expected_red.log 2>&1
+          rc=$?
+          set -e
+          if [[ "$rc" -ne 1 ]] || ! grep -q '4 failed' results/block-c-student/expected_red.log; then
+            cat results/block-c-student/expected_red.log
+            echo BLOCK_C_STUDENT_RED_BOUNDARY_CHANGED >&2
+            exit 1
+          fi
+          echo STUDENT_TODO_EXPECTED_RED_4_CONFIRMED
+          echo C06_STUDENT_SCAFFOLD_PUBLIC_L0_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: c06-student-contract-evidence
+          path: results/block-c-student/
+          retention-days: 7
+          if-no-files-found: warn

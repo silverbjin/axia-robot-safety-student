@@ -1,0 +1,32 @@
+{
+  "c01_source_sha": "766ef987fc0357fdf171fa0926dbef65c6aae972",
+  "certified_estop": false,
+  "control_authority": false,
+  "data_source": "SYNTHETIC_COURSE_FIXTURE",
+  "days": [
+    "D09",
+    "D10",
+    "D11",
+    "D12"
+  ],
+  "file_sha256": {
+    "LEARNER_RUBRIC_KO.md": "64957d46cc272fdb311644be470b113c20439e084c64e6c194353fa55e417261",
+    "README_KO.md": "b4df58a7e065612009e5d0598d6545a88f7010214b1e4e7659fcece071c0cd67",
+    "day09/student_eda_todo.py": "5bb5ad13a4227f3f289e6da5ce95be81998a986619148d350832d0500bac1dab",
+    "day10/student_if_todo.py": "1b2f4699776a7d417969223cd37ee6c393878d598a2160de99d452d53bcb7237",
+    "day11/student_ae_todo.py": "c7219c2c5c3940d53f5afd3260f0be514d621541a080796a9f9770664685ec01",
+    "day12/ros_transport/event_contract.py": "5253ca9e8751e6637d16259304e8a5d091d9e9e688cb43d2e5109120ca59119b",
+    "day12/ros_transport/ros_diagnostic_bridge.py": "d0ea62896d6e6dd2876fdfee2b18b2780cca686c1cead56de29ae5591a581677",
+    "day12/ros_transport/ros_l1_probe.py": "fa24176b7438599d393788d0995b0066ddb7475ae8dd35dc85340902c3231748",
+    "day12/ros_transport/sample_events.jsonl": "848969d9a42f2aa607d2d2f6f29080d6819639c158533ea56cf1449c1cfedb40",
+    "day12/student_event_todo.py": "7698706db57284683ab25c027432c9fc8c2190d2e588c5172d1fb9bc2a579127",
+    "scripts/block_c_once.sh": "020bfb0ff9aa5da9bb891f427791b5ffd65c7c1fca9ec4d47c278f04d205890b"
+  },
+  "owner_wsl2_verified": false,
+  "private_hidden_tests_included": false,
+  "private_model_weights_included": false,
+  "release_approved": false,
+  "schema_version": 1,
+  "scope": "Student scaffold delivery; C02-C04 teacher solutions not executed by public CI",
+  "student_scaffold_expected_red": true
+}
