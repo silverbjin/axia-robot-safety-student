@@ -44,7 +44,7 @@ def test_d07_launcher_delegates_existing_proven_gazebo_owner_and_rviz():
 def test_d07_immutable_source_bootstrap_preserves_existing_student_work():
     s=BOOT.read_text(encoding="utf-8")
     for token in ("AXIA_D07_PUBLIC_SHA",'git -C "$DIR" fetch','git -C "$DIR" checkout',
-                  "git status --porcelain", "D07_SOURCE_SHA_MISMATCH",
+                  'git -C "$DIR" status --porcelain', "D07_SOURCE_SHA_MISMATCH",
                   "run_d07_student_gazebo_rviz_once.sh", "--self-check",
                   "--doctor", "--run"):
         assert token in s, token
