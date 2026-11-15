@@ -39,12 +39,19 @@ jobs:
             ros-jazzy-turtlebot3-gazebo ros-jazzy-ros-gz \
             ros-jazzy-image-view ros-jazzy-xacro ros-jazzy-rviz2 \
             libgl1-mesa-dri xvfb xauth x11-utils
+          # Reproduce the Owner's strict parent shell safely: source only with nounset OFF.
+          set -u
+          unset AMENT_TRACE_SETUP_FILES || true
+          set +u
           source /opt/ros/jazzy/setup.bash
+          set -u
+          echo D08_AMENT_TRACE_NOUNSET_SAFE_SOURCE_PASS
           ros2 pkg prefix nav2_minimal_tb3_sim
           ros2 pkg prefix turtlebot3_gazebo
           ros2 pkg prefix ros_gz_image
           bash -n block_B/day04/run_student_gazebo_yolo_once.sh
-          bash block_B/day08/run_d08_student_live_once.sh --self-check
+          bash -u block_B/day08/run_d08_student_live_bootstrap.sh --self-check
+          bash -u block_B/day08/run_d08_student_live_once.sh --self-check
       - name: REAL Gazebo camera_link RGBD + moving human + upstream C++ YOLO and GUI windows
         shell: bash
         run: |
@@ -65,7 +72,7 @@ jobs:
           xvfb-run -a -s '-screen 0 1530x900x24' bash -c '
             set -eo pipefail
             timeout --signal=TERM --kill-after=20s 1100s \
-              bash block_B/day08/run_d08_student_live_once.sh --run > "$LOG" 2>&1 &
+              bash block_B/day08/run_d08_student_live_bootstrap.sh --run > "$LOG" 2>&1 &
             PID=$!
             found=0
             for i in $(seq 1 100); do
@@ -98,6 +105,7 @@ jobs:
             exit 1
           fi
           grep -F 'D08_STUDENT_LIVE_LAUNCH_REQUESTED' "$LOG"
+          grep -F 'D08_STUDENT_RELEASE_SOURCE_SHA=' "$LOG"
           grep -F 'D08_STUDENT_RVIZ_CONFIG=' "$LOG"
           if grep -Eiq 'rviz' "$WINDOWS"; then
             echo 'D08_RVIZ2_ACTUAL_X11_WINDOW_PASS'
