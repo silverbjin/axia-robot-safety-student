@@ -25,5 +25,20 @@ python3 "$FIX/generator.py" --check --fixture-dir "$FIX" >"$RUN/generator.stdout
  cat "$RUN/generator.stderr.log" >&2; echo C01_CONTRACT_FAIL; exit 1; }
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q "$TEST" --junitxml="$RUN/pytest.xml" >"$RUN/pytest.stdout.log" 2>"$RUN/pytest.stderr.log" || {
  cat "$RUN/pytest.stdout.log"; cat "$RUN/pytest.stderr.log" >&2; echo C01_TEST_FAIL; exit 1; }
+C01_GIT_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
+cp "$FIX/SHA256SUMS" "$RUN/SHA256SUMS"
+python3 - "$RUN" "$C01_GIT_SHA" "$PY_VER" <<'PYVERDICT'
+import json, sys
+from pathlib import Path
+run, sha, python = sys.argv[1:]
+result = {
+    'status': 'PASS', 'level': 'PYTHON_L0', 'source': 'SYNTHETIC_COURSE_FIXTURE',
+    'source_sha': sha or None, 'python': python, 'traces': 46, 'rows': 4599,
+    'ros_actual': False, 'gazebo_actual': False, 'owner_wsl2_verified': False,
+    'artifact_files': ['SHA256SUMS', 'generator.stdout.log', 'generator.stderr.log',
+                       'pytest.stdout.log', 'pytest.stderr.log', 'pytest.xml']
+}
+Path(run, 'verdict.json').write_text(json.dumps(result, sort_keys=True, indent=2)+'\n')
+PYVERDICT
 cat "$RUN/generator.stdout.log" "$RUN/pytest.stdout.log"
 printf 'C01_FIXTURE_CONTRACT_PASS level=PYTHON_L0 traces=46 rows=4599 evidence=%s\n' "$RUN"

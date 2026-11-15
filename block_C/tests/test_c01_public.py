@@ -122,3 +122,9 @@ def test_c01_t02_pycache_is_not_part_of_fixture_inventory(tmp_path):
     cache.mkdir()
     (cache / 'generator.pyc').write_bytes(b'ignored local bytecode cache')
     assert check_fixture(target)['traces'] == 46
+
+
+def test_c01_t09_runner_artifact_contract():
+    source = (ROOT / 'scripts' / 'c01_fixture_once.sh').read_text()
+    for required in ('pytest.xml', 'SHA256SUMS', 'verdict.json', 'C01_GIT_SHA'):
+        assert required in source

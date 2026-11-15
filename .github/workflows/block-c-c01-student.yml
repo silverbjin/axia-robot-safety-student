@@ -25,7 +25,14 @@ jobs:
         run: |
           set -euo pipefail
           bash block_C/scripts/c01_fixture_once.sh --doctor
-          bash block_C/scripts/c01_fixture_once.sh --check
+          AXIA_C01_EVIDENCE_DIR=results/c01 bash block_C/scripts/c01_fixture_once.sh --check
           test ! -d block_C/instructor
           test ! -d block_C/hidden_tests
           echo C01_STUDENT_L0_VERIFIED_NO_ROS
+      - name: Persist C01 L0 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c01-student-l0-evidence
+          path: results/c01/
+          if-no-files-found: warn
