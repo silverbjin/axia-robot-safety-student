@@ -18,7 +18,7 @@ if [[ "$D05_LIVE" == 1 ]]; then
   SCENE="$BASE/../day05/gazebo_live/prepare_scene.py"
   MONITOR="$BASE/../day05/gazebo_live/verify_live.py"
 fi
-RVIZ="$ROOT/axia_d04_student.rviz"
+RVIZ="${AXIA_D04_STUDENT_RVIZ_CONFIG:-$ROOT/axia_d04_student.rviz}"
 YOLO_SHA='94d2dd500cb26027ee9c019f4d3a02029ac615cc'
 ONNX_SHA='4f44c33cea12d4b5785e5e7c0a20c13d0c62a77de607ce96a40d6036c7d7bbcf'
 ACTOR_SHA='49af0df3a319d1cb8ca2cebf02dbd00f625e5d5bec820bc5e109925b18b65c6e'

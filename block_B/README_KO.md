@@ -71,6 +71,7 @@ cat results/d04_d05_run1/person_range.csv
 
 ## D08 온라인 4시간 통합 실습 — 2026-11-18 19:00~23:00
 
+- [**D08 Gazebo + YOLO + RViz2 Live 관찰 (NO GOAL, 실측/합성 경계)**](day08/D08_GAZEBO_RVIZ_LIVE_GUIDE_20261115_KO.md)
 - [**D08 V2 학생 데모: 아키텍처·데이터 파이프라인·예상 실행 출력**](day08/D08_STUDENT_DEMO_GUIDE_V2_20261115_KO.md)
 - [**D08 V2 학생 실습: 단일 TODO·6사례·pytest·SHA256 ZIP**](day08/D08_STUDENT_PRACTICE_GUIDE_V2_20261115_KO.md)
 - [학생 D08 첫 다운로드·RED→GREEN·6사례·ZIP 제출](day08/D08_LAB_KO.md)

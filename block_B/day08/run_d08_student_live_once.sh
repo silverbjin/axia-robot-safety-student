@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# D08 classroom live observer: D04/D05 official Gazebo Waffle RGB-D + YOLO
+# plus D08 read-only RViz. No Goal, cmd_vel, private observer or safety claims.
+set -Eeuo pipefail
+umask 077
+MODE="${1:---run}"
+case "$MODE" in
+  --self-check|--doctor|--run) ;;
+  *) echo "D08_STUDENT_LIVE_USAGE=--self-check|--doctor|--run" >&2; exit 2 ;;
+esac
+[[ "$#" -le 1 ]] || { echo "D08_STUDENT_LIVE_TOO_MANY_ARGS" >&2; exit 2; }
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+BASE="$(cd -- "$HERE/.." && pwd)"
+SOURCE="$BASE/day04/run_student_gazebo_yolo_once.sh"
+RVIZ="$HERE/live/d08_student_rgbd_monitor.rviz"
+[[ -s "$SOURCE" && -s "$RVIZ" ]] || {
+  echo "D08_STUDENT_LIVE_SOURCE_MISSING" >&2; exit 2;
+}
+bash -n "$SOURCE"
+grep -Fq '/axia/d05/rgbd/image' "$RVIZ"
+grep -Fq '/axia/d05/rgbd/depth_image' "$RVIZ"
+grep -Fq '/yolo/cam0/debug_image' "$RVIZ"
+
+# Reuse the proven D04/D05 launcher with NO private D05 distance observer.
+# D08 RViz selection changes only the read-only view.
+export AXIA_D05_LIVE=1
+export AXIA_D05_SENSOR_ONLY=1
+export AXIA_D04_STUDENT_RVIZ=1
+export AXIA_D04_STUDENT_RVIZ_CONFIG="$RVIZ"
+export AXIA_D04_STUDENT_GUI=1
+export AXIA_D04_STUDENT_DOMAIN_ID="${AXIA_D08_DOMAIN_ID:-49}"
+export AXIA_D04_STUDENT_GUI_HOLD_S="${AXIA_D08_HOLD_S:-300}"
+
+if [[ "$MODE" == --self-check ]]; then
+  bash "$SOURCE" --self-check
+  echo "D08_LIVE_RVIZ_STATIC_PASS GAZEBO_NOT_RUN RVIZ_NOT_RUN YOLO_NOT_RUN NO_GOAL"
+  exit 0
+fi
+
+ROS_SETUP="${AXIA_D04_STUDENT_ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
+[[ -r "$ROS_SETUP" ]] || {
+  echo "D08_STUDENT_JAZZY_SETUP_MISSING=$ROS_SETUP" >&2; exit 2;
+}
+# ROS setup files reference optional unset environment variables.
+set +u
+source "$ROS_SETUP"
+set -u
+if ! command -v rviz2 >/dev/null 2>&1; then
+  echo "D08_RVIZ2_NOT_INSTALLED: sudo apt-get install ros-jazzy-rviz2" >&2
+  exit 2
+fi
+if [[ "$MODE" == --doctor ]]; then
+  echo "D08_STUDENT_RVIZ2_FOUND=1"
+  exec bash "$SOURCE" --doctor
+fi
+
+echo "D08_STUDENT_LIVE_LAUNCH_REQUESTED: Gazebo + moving visual-only person + RGB-D + YOLO + RViz2"
+echo "D08_STUDENT_LIVE_READONLY: NO_GOAL NO_CMD_VEL NO_PRIVATE_D05_RANGE NO_SAFETY_TTL"
+echo "D08_STUDENT_RVIZ_CONFIG=$RVIZ"
+echo "D08_STUDENT_DOMAIN_ID=$AXIA_D04_STUDENT_DOMAIN_ID"
+echo "D08_STUDENT_LIVE_NOT_YET_VERIFIED: check D05_PUBLIC_SENSOR_ONLY_PASS and actual GUI"
+# Existing D04 runner owns ROS/Gazebo/RViz process groups and cleans on Ctrl+C.
+exec bash "$SOURCE" --run
