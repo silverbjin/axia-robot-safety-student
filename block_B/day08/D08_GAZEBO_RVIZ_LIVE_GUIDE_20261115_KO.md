@@ -77,6 +77,43 @@ D05_PUBLIC_SENSOR_ONLY_PASS REAL_RGBD_YOLO PRIVATE_D05_RANGE_NOT_RUN
 
 `LAUNCH_REQUESTED`는 세 창이 **실제로 나타났다는 증거가 아니다**. 기존 검증기가 ROS RGB/Depth·YOLO 데이터를 확인해야 센서 Live로 판정한다. Gazebo/YOLO/RViz **세 창의 실제 표시**는 학생 WSL2 화면에서 별도로 확인한다. 녹화·스크린샷 1장과 종료 코드·verdict 원본을 같이 남기면 좋다.
 
+## 2-A. Owner WSL2 현장 실행 기록과 인수 판정 (2026-11-15)
+
+**현장 결과: `OWNER_WSL2_SENSOR_LIVE_PASS` — Gazebo·RGB-D·YOLO 센서 Live 및 소유 실행기 정상 종료.** 위 SHA 고정 원샷을 **기존 `~/axia_d08_student_live` 폴더에 재실행**한 실제 Owner 로그를 기준으로 한다. 테스트용으로 만든 출력이나 CI 예상값이 아니다. 공개 Student `main`에 병합된 실행기 바이트는 현장 소스 SHA와 동일함이 확인되었으며, 이 항목을 이유로 기존 정상 실행을 반복하지 않는다.
+
+```text
+D08_STUDENT_RELEASE_SOURCE_SHA=6a007eafa36957f17dc3e57e1a2e4acf3f3af5bd
+D08_LIVE_RVIZ_STATIC_PASS GAZEBO_NOT_RUN RVIZ_NOT_RUN YOLO_NOT_RUN NO_GOAL
+D04_STUDENT_PROCESS_STARTED name=gazebo_nav2 pid=1863
+D04_STUDENT_PROCESS_STARTED name=camera_bridge pid=1864
+D04_STUDENT_PROCESS_STARTED name=depth_bridge pid=1865
+D04_STUDENT_PROCESS_STARTED name=yolo_ros pid=1866
+D04_STUDENT_PROCESS_STARTED name=image_view pid=1867
+D04_STUDENT_PROCESS_STARTED name=rviz2 pid=1868
+D05_LIVE_VERDICT={"status":"PASS_REAL_GAZEBO_REGISTERED_RGBD_YOLO_MOVING_BBOX_ONLY","passed":true,"phase":"sensor","registered_rgbd_pairs":9,"rgb_frames":11,"depth_frames":13,"yolo_frames":4,"person_count":2,"bbox_area_span":0.2539007134522838,"valid_samples":0,"min_distance_m":null,"max_distance_m":null,"goal_sent":false,"cmd_vel_published":false,"certified_estop":false}
+D05_PUBLIC_SENSOR_ONLY_PASS REAL_RGBD_YOLO PRIVATE_D05_RANGE_NOT_RUN
+D04_STUDENT_GUI_HOLD_STARTED seconds=300; press Ctrl+C when finished
+D04_STUDENT_DEMO_COMPLETE: live RGB+YOLO checked
+D04_STUDENT_SHUTDOWN: stopping only child process groups
+D04_STUDENT_EXIT_CODE=0
+```
+
+| 관찰 항목 | 현장 근거와 해석 | 판정 |
+|---|---|---|
+| ROS Jazzy + Gazebo 실제 센서 전달 | `source=ACTUAL_ROS_GAZEBO`, RGB 11, Depth 13, 등록된 RGB-D 9쌍 | **PASS** |
+| 동적 YOLO 사람 검출 | YOLO 프레임 4, `person_count=2`, `bbox_area_span=0.2539007134522838` | **PASS** (관측 게이트) |
+| ROS·GUI 프로세스 기동 | `gazebo_nav2`, `image_view`, `rviz2` PID 생성 | **PASS** (프로세스 시작) |
+| WSLg에 세 창의 실제 표시, RViz 각 패널의 픽셀·토픽 시각화 | 창 스크린샷·화면 판독 기록 미제공 | **`RVIZ_PANEL_VISUAL_NOT_VERIFIED`** |
+| 실제 YOLO bbox+Depth ROI 거리(m) | `valid_samples=0`, `min_distance_m=null`, `max_distance_m=null`, `PRIVATE_D05_RANGE_NOT_RUN` | **NOT_RUN** |
+| 이동·충돌 회피·정지 안전제어 | `goal_sent=false`, `cmd_vel_published=false`, `NO_GOAL` | **NOT_RUN** |
+| 소유 실행기 종료 | `D04_STUDENT_SHUTDOWN` 및 `D04_STUDENT_EXIT_CODE=0` | **PASS** |
+
+`not found: ".../install/local_setup.bash"` 메시지 2개는 현재 셸에 남은 **이전 D03 교육용 ROS overlay 경로를 찾지 못했다는 경고**로 해석한다. 이 실행에서는 이후 ROS·Gazebo·YOLO 관측과 종료 코드가 정상이라 **이번 센서 Live 실패 원인은 아니었다.** 그렇다고 누락된 기존 overlay가 필요한 다른 ROS 프로젝트까지 정상이라고 판단하지 않는다. 환경변수·overlay를 임의로 삭제하거나 전체 WSL2를 초기화하지 않는다.
+
+**학생 현장 확인(추가 설치·재주행 없이):** 실행 중 Gazebo 사람 이동, YOLO bbox, RViz2의 `/scan`·TF·RGB·Depth 표시를 눈으로 확인한다. 확인 가능한 화면이 없다면 `RVIZ_PANEL_VISUAL_NOT_VERIFIED` 상태를 유지한다. `D08_LIVE_RVIZ_STATIC_PASS`는 **실제 Gazebo 실행 전의 정적 검사**이므로 Live PASS의 근거로 단독 사용하지 않는다.
+
+**수업에서의 경계:** 움직이는 사람 Actor는 `visual-only`다. `person_count=2`는 메시지 관측 건수이며 `2명`이라는 뜻이 아니다. 학생에게 실제 거리·`Collision Monitor`·Guard 150ms TTL·실제 주행/회피 및 인증 E-Stop 성공이라고 설명하지 않는다. D08 최종 Python 합성 실습의 `PYTHON_ONLY`와 센서 Live 성과는 **서로 별도의 검증 레벨**이다.
+
 ## 3. RViz2 표시가 비었을 때 (코드 수정 전 진단)
 
 RViz2 파일: `block_B/day08/live/d08_student_rgbd_monitor.rviz`. **D04 기본 설정의 RGB**는 `/camera/image_raw`이지만 **D08 관측 모드의 실제 RGB**는 `/axia/d05/rgbd/image`다. 새 설정은 이 불일치를 수정한다.
@@ -152,4 +189,4 @@ ros2 bag info "$BAG"
 - **먼저 볼 로그:** `$HOME/axia_d04_student_evidence/d04-gazebo-*/live_verdict.json`, 같은 폴더 `gazebo_nav2.log`, `camera_bridge.log`, `depth_bridge.log`, `yolo_ros.log`, `rviz2.log` (생성된 경우). 최초 실패 데이터 전달·최초 타이밍 위반부터 해석한다.
 - **통과 조건:** 세 GUI가 실제 열리고 RGB·Depth·YOLO·RViz 주요 구독 표시, 센서 Live verdict, 종료 시 프로세스 재생성 없음. GUI는 CI 가상 디스플레이 PASS와 사용자 WSLg PASS를 구분한다.
 - **기존 검증:** D04 공개 실 Gazebo·YOLO GUI [Run #43166756309](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43166756309); D05 실제 registered RGB-D/움직이는 Actor YOLO [Run #43353480617](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43353480617); D08 별도 near/far 물리 모델·ROS YOLO 영상 재생 [Run #43676658454](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43676658454). **서로 다른 소스 SHA·검증 범위를 하나의 동시 실행 성공으로 합치지 않는다.**
-- **이번 D08 검증 경계:** 공개 CI에서는 동일 공개 실행기를 통한 실제 Gazebo+YOLO+RViz2 **Xvfb L2**를 검증했다([Run #43701861114](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43701861114)). 현재 수정의 **WSL2 nounset 회귀는 공개 L0→L2에서 다시 검사**하고 성공 이후에만 배포한다. 사용자 WSL2/WSLg 실기 화면·종료는 아직 NOT_RUN.
+- **최종 검증 경계(2026-11-15):** 동일 부트스트랩의 공개 CI 실제 Gazebo+YOLO+RViz2 **Xvfb L2** [Run #43703627239](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43703627239) PASS, 원샷 nounset 회귀 및 공개 L0 [Run #43704267580](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43704267580) 23 passed. 이 문서의 Owner 로그로 **실제 WSL2 센서 Live + 종료는 PASS**, 다만 RViz 화면 실물·개별 패널 시각 정상 여부는 `RVIZ_PANEL_VISUAL_NOT_VERIFIED`. 본 문서 추가 변경은 내용·증거 안내만이며 ROS 실행기 원본은 변경하지 않는다.
