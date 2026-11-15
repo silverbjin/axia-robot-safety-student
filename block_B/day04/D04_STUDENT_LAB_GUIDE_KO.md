@@ -15,7 +15,7 @@
 (
   set -Eeuo pipefail
   DIR="$HOME/axia-robot-safety-student-d04"
-  BRANCH="feature/block-b-d04-shared-yolo-demo-20261112"
+  BRANCH="main"
 
   if [[ -d "$DIR/.git" ]]; then
     # 기존 실습·.venv·개인 작업물을 삭제하거나 reset하지 않는다.
