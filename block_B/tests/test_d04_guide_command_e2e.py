@@ -142,4 +142,4 @@ def test_documented_clone_and_existing_checkout_keep_environment(tmp_path):
         else:
             assert (clone / ".venv" / "keep_my_lab.txt").read_text() == "preserve my evidence"
     checked = run("git", "-C", str(clone), "branch", "--show-current", cwd=tmp_path)
-    assert checked.stdout.strip() == "feature/block-b-d04-shared-yolo-demo-20261112"
+    assert checked.stdout.strip() == "main"
