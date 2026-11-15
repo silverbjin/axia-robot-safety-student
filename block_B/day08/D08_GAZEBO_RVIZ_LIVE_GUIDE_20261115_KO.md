@@ -43,27 +43,17 @@ flowchart TD
 ```bash
 (
   set -Eeuo pipefail
-  DEMO="$HOME/axia_d08_student_live"
-  BRANCH="feat/d08-live-gazebo-rviz-no-goal-20261115"
-  if [[ ! -e "$DEMO" ]]; then
-    git clone --branch "$BRANCH" --single-branch \
-      https://github.com/silverbjin/axia-robot-safety-student.git "$DEMO"
-  else
-    [[ -d "$DEMO/.git" ]] || { echo "D08_LIVE_DIRECTORY_NOT_GIT"; exit 2; }
-    [[ "$(git -C "$DEMO" branch --show-current)" == "$BRANCH" ]] || {
-      echo "D08_LIVE_WRONG_BRANCH"; exit 2; }
-    [[ -z "$(git -C "$DEMO" status --porcelain --untracked-files=no)" ]] || {
-      echo "D08_LIVE_LOCAL_CHANGES_PRESERVED"; exit 2; }
-    git -C "$DEMO" fetch origin "$BRANCH"
-    git -C "$DEMO" merge --ff-only FETCH_HEAD
-  fi
-  cd "$DEMO"
-  bash block_B/day08/run_d08_student_live_once.sh --self-check
-  bash block_B/day08/run_d08_student_live_once.sh --doctor
-  AXIA_D08_DOMAIN_ID=49 AXIA_D08_HOLD_S=300 \
-    bash block_B/day08/run_d08_student_live_once.sh --run
+  SCRIPT="$(mktemp)"
+  trap 'rm -f -- "$SCRIPT"' EXIT
+  curl -fL --retry 3 --max-time 90 \
+    "https://raw.githubusercontent.com/silverbjin/axia-robot-safety-student/a5f1cee52bbfa07578ddb40b9c28e8c23e742449/block_B/day08/run_d08_student_live_bootstrap.sh" \
+    -o "$SCRIPT"
+  bash -n "$SCRIPT"
+  AXIA_D08_DOMAIN_ID=49 AXIA_D08_HOLD_S=300 bash "$SCRIPT" --run
 )
 ```
+
+**WSL2 `AMENT_TRACE_SETUP_FILES: unbound variable` 회귀 해결:** 예전 명령의 `set -Eeuo pipefail` 뒤 **직접 `source /opt/ros/jazzy/setup.bash`**가 최초 실패 지점이었다. 새 단일 실행 명령은 외부 셸에서 ROS를 소싱하지 않고 검증된 내부 D08→D04 실행기에서 `set +u; source; set -u`로 처리한다. 원격 스크립트는 **Git SHA 고정**으로 내려받으며 실행기와 CI가 동일한 공개 코드를 사용한다. 학생의 `~/axia_d08_student_live` 및 가상환경·증거를 삭제하지 않는다. 기존 브랜치·수정이 있으면 안전하게 차단한다.
 
 `--self-check`는 **정적 검사만** 수행한다. `--doctor`는 Jazzy/공식 ROS 패키지/RViz 준비 상태를 검사하고 Gazebo는 실행하지 않는다. `--run`만 실제 Gazebo·YOLO·RViz2를 시도한다. 실습 플랫폼에 `rviz2`가 없으면 `D08_RVIZ2_NOT_INSTALLED`로 차단하므로 설치 뒤 재실행한다. WSLg `DISPLAY`가 없으면 기존 런처가 차단한다. `AXIA_D08_HOLD_S=300`은 시연 관찰용 300초이며 **비동기 백그라운드 데몬을 남기지 않는다.**
 
@@ -104,11 +94,13 @@ RViz2 파일: `block_B/day08/live/d08_student_rgbd_monitor.rviz`. **D04 기본 �
 터미널 A에서 세 창이 실행 중일 때, 같은 WSL2 배포판에서 **터미널 B**를 연다.
 
 ```bash
+set +u
 source /opt/ros/jazzy/setup.bash
+set -u
 # upstream yolo_ros custom DetectionArray의 타입을 터미널 B/C에서 해석하려면
 # 먼저 기존 D04 원샷의 고정 SHA 메시지 overlay를 소싱한다.
 YOLO_OVERLAY="$HOME/.cache/axia/d04/yolo_ws_94d2dd500cb26027ee9c019f4d3a02029ac615cc/install/setup.bash"
-if [[ -r "$YOLO_OVERLAY" ]]; then source "$YOLO_OVERLAY"; fi
+if [[ -r "$YOLO_OVERLAY" ]]; then set +u; source "$YOLO_OVERLAY"; set -u; fi
 export ROS_DOMAIN_ID=49
 export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 ros2 topic list | grep -E '^(/scan|/odom|/tf|/axia/d05/rgbd/(image|depth_image)|/yolo/cam0/(detections|debug_image))$'
@@ -131,11 +123,13 @@ ros2 topic echo /yolo/cam0/detections --once
 별도 **터미널 C**에서 센서와 관측 메타데이터를 모아 재현 데이터로 보존한다. 연구용으로만 권장하며 실시간 데모 우선 시에는 녹화하지 않아 프레임 지연을 줄인다.
 
 ```bash
+set +u
 source /opt/ros/jazzy/setup.bash
+set -u
 # upstream yolo_ros custom DetectionArray의 타입을 터미널 B/C에서 해석하려면
 # 먼저 기존 D04 원샷의 고정 SHA 메시지 overlay를 소싱한다.
 YOLO_OVERLAY="$HOME/.cache/axia/d04/yolo_ws_94d2dd500cb26027ee9c019f4d3a02029ac615cc/install/setup.bash"
-if [[ -r "$YOLO_OVERLAY" ]]; then source "$YOLO_OVERLAY"; fi
+if [[ -r "$YOLO_OVERLAY" ]]; then set +u; source "$YOLO_OVERLAY"; set -u; fi
 export ROS_DOMAIN_ID=49
 export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 mkdir -p "$HOME/axia_d08_research"
@@ -158,4 +152,4 @@ ros2 bag info "$BAG"
 - **먼저 볼 로그:** `$HOME/axia_d04_student_evidence/d04-gazebo-*/live_verdict.json`, 같은 폴더 `gazebo_nav2.log`, `camera_bridge.log`, `depth_bridge.log`, `yolo_ros.log`, `rviz2.log` (생성된 경우). 최초 실패 데이터 전달·최초 타이밍 위반부터 해석한다.
 - **통과 조건:** 세 GUI가 실제 열리고 RGB·Depth·YOLO·RViz 주요 구독 표시, 센서 Live verdict, 종료 시 프로세스 재생성 없음. GUI는 CI 가상 디스플레이 PASS와 사용자 WSLg PASS를 구분한다.
 - **기존 검증:** D04 공개 실 Gazebo·YOLO GUI [Run #43166756309](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43166756309); D05 실제 registered RGB-D/움직이는 Actor YOLO [Run #43353480617](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43353480617); D08 별도 near/far 물리 모델·ROS YOLO 영상 재생 [Run #43676658454](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43676658454). **서로 다른 소스 SHA·검증 범위를 하나의 동시 실행 성공으로 합치지 않는다.**
-- **이번 D08 변경 신규 검증 목표:** wrapper/RViz config/가이드 공개 CI **L0**. **Gazebo·RViz 동시 GUI L2 및 WSL2 Owner 현장 테스트는 별도**로 남긴다.
+- **이번 D08 검증 경계:** 공개 CI에서는 동일 공개 실행기를 통한 실제 Gazebo+YOLO+RViz2 **Xvfb L2**를 검증했다([Run #43701861114](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/43701861114)). 현재 수정의 **WSL2 nounset 회귀는 공개 L0→L2에서 다시 검사**하고 성공 이후에만 배포한다. 사용자 WSL2/WSLg 실기 화면·종료는 아직 NOT_RUN.
