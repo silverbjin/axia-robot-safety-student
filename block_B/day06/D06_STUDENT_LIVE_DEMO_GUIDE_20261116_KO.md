@@ -80,8 +80,9 @@ ros2 topic echo /axia/d05/rgbd/depth_image \
 
 ~~~bash
 (
-  set -Eeuo pipefail
+  set -Eeo pipefail
   source /opt/ros/jazzy/setup.bash
+  set -u
   PUBLIC_SHA="ea82b5d43a2cd415ed5e625d238f33d29b8c9662"
   SCRIPT="$(mktemp --suffix=.py)"
   trap 'rm -f -- "$SCRIPT"' EXIT
