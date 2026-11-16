@@ -1,0 +1,96 @@
+{
+  "anomaly_cases": {
+    "TST_A_00": "CURRENT_SPIKE",
+    "TST_A_01": "CURRENT_SPIKE",
+    "TST_A_02": "TORQUE_DRIFT",
+    "TST_A_03": "TORQUE_DRIFT",
+    "TST_A_04": "ACCEL_VIBRATION",
+    "TST_A_05": "ACCEL_VIBRATION"
+  },
+  "expected_rows": {
+    "normal_train.csv": 2400,
+    "normal_valid.csv": 800,
+    "test_mixed.csv": 1399
+  },
+  "generator_version": "c01-v1",
+  "license": "CC0-1.0",
+  "normal_only_train_valid": true,
+  "quality_cases": {
+    "TST_Q_00": "MISSING_VALUE",
+    "TST_Q_01": "SAMPLE_GAP",
+    "TST_Q_02": "STAMP_REGRESSION",
+    "TST_Q_03": "TIMESTAMP_DRIFT"
+  },
+  "schema_version": 1,
+  "seed": 2409,
+  "source": "SYNTHETIC_COURSE_FIXTURE",
+  "split_files": [
+    "normal_train.csv",
+    "normal_valid.csv",
+    "test_mixed.csv"
+  ],
+  "trace_class_counts": {
+    "anomaly_test": 6,
+    "normal_test": 4,
+    "quality_test": 4
+  },
+  "trace_counts": {
+    "normal_train.csv": 24,
+    "normal_valid.csv": 8,
+    "test_mixed.csv": 14
+  },
+  "trace_id_inventory": {
+    "normal_train.csv": [
+      "TRN_00",
+      "TRN_01",
+      "TRN_02",
+      "TRN_03",
+      "TRN_04",
+      "TRN_05",
+      "TRN_06",
+      "TRN_07",
+      "TRN_08",
+      "TRN_09",
+      "TRN_10",
+      "TRN_11",
+      "TRN_12",
+      "TRN_13",
+      "TRN_14",
+      "TRN_15",
+      "TRN_16",
+      "TRN_17",
+      "TRN_18",
+      "TRN_19",
+      "TRN_20",
+      "TRN_21",
+      "TRN_22",
+      "TRN_23"
+    ],
+    "normal_valid.csv": [
+      "VAL_00",
+      "VAL_01",
+      "VAL_02",
+      "VAL_03",
+      "VAL_04",
+      "VAL_05",
+      "VAL_06",
+      "VAL_07"
+    ],
+    "test_mixed.csv": [
+      "TST_N_00",
+      "TST_N_01",
+      "TST_N_02",
+      "TST_N_03",
+      "TST_A_00",
+      "TST_A_01",
+      "TST_A_02",
+      "TST_A_03",
+      "TST_A_04",
+      "TST_A_05",
+      "TST_Q_00",
+      "TST_Q_01",
+      "TST_Q_02",
+      "TST_Q_03"
+    ]
+  }
+}

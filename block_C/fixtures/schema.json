@@ -1,0 +1,32 @@
+{
+  "columns": [
+    "trace_id",
+    "sample_idx",
+    "timestamp_ns",
+    "current_a",
+    "torque_nm",
+    "accel_mps2",
+    "truth_label"
+  ],
+  "data_quality_policy": "INVALID_IS_INSUFFICIENT_DATA",
+  "model_features": [
+    "current_a",
+    "torque_nm",
+    "accel_mps2"
+  ],
+  "sample_hz": 10,
+  "schema_version": 1,
+  "source": "SYNTHETIC_COURSE_FIXTURE",
+  "step_ns": 100000000,
+  "time_domain": "SYNTHETIC_TRACE_LOCAL_NS",
+  "truth_labels": {
+    "-1": "INSUFFICIENT_DATA",
+    "0": "NORMAL",
+    "1": "ANOMALY"
+  },
+  "units": {
+    "accel_mps2": "m/s^2",
+    "current_a": "A",
+    "torque_nm": "N*m"
+  }
+}
