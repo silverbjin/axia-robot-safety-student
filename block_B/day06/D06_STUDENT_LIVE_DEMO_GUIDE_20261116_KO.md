@@ -72,6 +72,31 @@ ros2 topic echo /axia/d05/rgbd/depth_image \
 
 예상 Depth encoding은 `32FC1`이다. 이는 실제 ROS 이미지 **형식**이며 사람까지의 거리 숫자가 아니다. 학생은 **ROS 토픽 발행 명령이나 Action Goal 전송 명령을 실행하지 않는다.** `Ctrl+C`로 B의 구독만 닫는다.
 
+## 3A. 강사 공식 CM 격리 ROS L1 — 별도의 터미널 B에서 토픽·Action 그래프 관찰
+
+> **학생 독립 Gazebo 터미널 B(위 §3)와 구분:** 아래는 **강사와 동일한 WSL2 인스턴스**에서 공식 Collision Monitor **격리 L1 원샷을 관찰**하기 위한 명령이다. 학생의 별도 PC에서는 강사의 LOCALHOST ROS 도메인에 접속할 수 없으므로 프로젝터/화면 공유로 관찰한다. 학생이 Goal이나 시험 토픽을 발행할 필요가 없다.
+
+**순서:** 강사 PC 터미널 **B를 먼저 실행**해 WAIT_FOR_OFFICIAL_CM 메시지 확인 → 강사 PC 터미널 **A에서 강사 공식 L1 원샷** 실행. L1 실행기는 ROS_DOMAIN_ID를 매번 PID에서 계산하므로 값을 직접 49나 29로 고정하면 안 된다. 이 B 도구는 실제 official CM 프로세스에서 도메인을 확인하고 네 시험 토픽을 **읽기 전용** 구독한다.
+
+~~~bash
+(
+  set -Eeuo pipefail
+  source /opt/ros/jazzy/setup.bash
+  PUBLIC_SHA="ea82b5d43a2cd415ed5e625d238f33d29b8c9662"
+  SCRIPT="$(mktemp --suffix=.py)"
+  trap 'rm -f -- "$SCRIPT"' EXIT
+  curl -fL --retry 3 --retry-delay 2 -sS \
+    "https://raw.githubusercontent.com/silverbjin/axia-robot-safety-ci-public/$PUBLIC_SHA/d06/scripts/d06_cm_l1_terminal_b_readonly.py" \
+    -o "$SCRIPT"
+  python3 "$SCRIPT" --self-check
+  python3 -u "$SCRIPT" --wait-sec 600 --max-observe-sec 35
+)
+~~~
+
+**관찰할 항목:** 합성 /axia/d06/test/scan 앞쪽 거리 1.20 → 0.65 → 0.30m, 입력 /axia/d06/test/cmd_in 0.20m/s, 출력 /axia/d06/test/cmd_out 0.20 → 0.06 → 0.00m/s, /axia/d06/test/collision_monitor_state의 SlowZone(action_type=2)·StopZone(action_type=1) 이벤트. 실제 실행은 시작·종료 타이밍에 따라 일부 이벤트를 놓칠 수 있다. 상태 이벤트가 지속적으로 발행되지 않는 것이 정상일 수 있고, 새 실측 여부는 강사 verdict와 구분한다.
+
+**Action/서비스 주의:** 공식 CM **격리 L1에는 NavigateToPose/FollowPath Action Goal을 보내지 않는다.** B는 실제 ROS Action 그래프를 읽기 전용 조회하며 ACTION_GRAPH=[]가 정상이다. /collision_monitor/get_state는 **Lifecycle 서비스**이지 Action이 아니다. B의 Ctrl+C는 모니터만 종료한다. B가 표본을 수신해도 학생 Python 정책, Gazebo 이동, 차체 /odom 정지, 인증 HW E-Stop을 PASS로 승격하지 않는다. 강사의 A 터미널에서 생성한 live/verdict.json과 원본 증거를 기준으로 수업 결과를 판정한다.
+
 ## 4. 강사 G07 Gazebo + RViz2 관찰표 — 15분
 
 강사 원샷은 기존 G07 SHA 고정, 실제 TTY 수동 승인 `YES-P2-G07-GOAL`, Gazebo GUI 및 RViz2 읽기 전용 관찰기로 구성된다. 강사 PC의 `ROS_DOMAIN_ID`는 원샷이 자동으로 지정한다. 학생이 따라 입력하지 않는다.
