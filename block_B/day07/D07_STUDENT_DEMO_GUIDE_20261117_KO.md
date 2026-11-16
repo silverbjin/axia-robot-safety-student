@@ -18,7 +18,7 @@
 | **L2** D07-**H01** | Gazebo Harmonic 물리 장애물, 실제 Waffle LaserScan, 공식 Nav2 경로 질의 | 최신 검증된 경로 변화 **0.3659m**, 신규 lethal cell 92→0, Before/Intrusion/Restored Path 52점씩 | Controller 경로 추종, Contact·안전 TTL 인수 |
 | **L3** Owner WSL2 GUI | WSLg의 Gazebo 3D·Entity Tree / RViz2 실제 화면 | 사용자 육안 + 무결성 검증 XWD에서 **화면 복원 확인** | 자동 Owner L3 수락은 **VISUAL_HOLD**, 실제 주행 인수 아님 |
 
-**현재 강사 시연 기준선(2026-11-16):** `D07_H01_GUI_SCENE_RESTORED_OWNER_20261116`. 실제 공개 Gazebo L2 [#43866354976](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43866354976)는 성공했고, Owner `d07-h01-owner-SFvdvtvH`에서는 3D 월드·로봇과 RViz2 경로가 화면에서 확인되었다. **그러나 자동 Owner L3는 `D07_H01_OWNER_GUI_VISUAL_HOLD`, 전체 AXIA는 `AXIA_MVP_DEMO_ACCEPTED=HOLD`이다.** `NavigateToPose` 이동 Goal 및 실제 회피 주행은 수행하지 않았다. 과거 `POST_RESTORE_COSTMAP_DRIFT` 실패는 아래에서 학습용 사례로만 보존한다.
+**현재 강사 시연 기준선(2026-11-16):** `D07_H01_GUI_SCENE_RESTORED_OWNER_20261116`. 실제 공개 Gazebo L2 [#43866354976](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43866354976)는 성공했고, Owner `d07-h01-owner-SFvdvtvH`에서는 3D 월드·로봇과 RViz2 경로가 화면에서 확인되었다. **그러나 자동 Owner L3는 `D07_H01_OWNER_GUI_VISUAL_HOLD`, 전체 AXIA는 `AXIA_MVP_DEMO_ACCEPTED=HOLD`이다.** `NavigateToPose` 이동 Goal 및 실제 회피 주행은 **NOT_RUN**이다. 과거 `POST_RESTORE_COSTMAP_DRIFT` 실패는 아래에서 학습용 사례로만 보존한다.
 
 ## 1단계 — 학생 터미널 S: 합성 경로만 관찰 (5분)
 
