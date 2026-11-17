@@ -1,6 +1,6 @@
 # AXIA Block B D08 — WSLg Gazebo 흰 화면·RViz2 검은 3D 화면 복원 후보
 
-> **상태:** 검증용 수정 브랜치 `fix/d08-gazebo-rviz-scene-mesh-20261118`. 기존 센서 Live 성공은 보존한다. 이번 수정의 Owner WSL2 픽셀 표시 최종 인수는 아직 **NOT_VERIFIED**. 공식 ROS 2 Jazzy / Gazebo Harmonic / Nav2 / TurtleBot3 Waffle을 재사용하며 NO_GOAL·NO_CMD_VEL이다.
+> **상태:** 공개 CI 실 Gazebo+YOLO+RViz **L2 PASS** / Owner WSL2 렌더 픽셀 최종 인수 **NOT_VERIFIED**. 수정 브랜치 `fix/d08-gazebo-rviz-scene-mesh-20261118`. 기존 센서 Live 성공은 보존한다. 공식 ROS 2 Jazzy / Gazebo Harmonic / Nav2 / TurtleBot3 Waffle을 재사용하며 NO_GOAL·NO_CMD_VEL이다.
 
 ## 1. 증거로 확인한 최초 실패 경계
 
@@ -73,13 +73,43 @@ D07-H01과 동일한 기본 D3D12 렌더링이 WSLg 장치에서 지원되지 �
 
 즉, 마지막 행만 교체하고 나머지 `curl` 다운로드와 `trap`을 포함한 동일한 괄호 블록 안에서 실행한다. 기본 GPU 프로파일이 정상일 때는 이 옵션을 사용하지 않는다.
 
+## 3-A. 실제 RED→GREEN 검증·재현 가능한 최초 실패
+
+**수정한 런타임 검증 HEAD:** `689025f915730e4e26af5376d639addbf6b8436a`. 추가 문서 커밋은 실행기·메시 보정기·D05 장면 생성기를 변경하지 않는다.
+
+| 게이트 | 실제 공개 CI 결과 | 의미 |
+|---|---|---|
+| RED L0 | [Run #44116046097](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44116046097) — `5 failed, 26 passed` | 새 SceneBroadcaster/RViz 메시 복원 기능이 없음 |
+| GREEN L0 | [Run #44119696426](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44119696426) — `32 passed` | 두 복원 경로와 No-Goal 실행 계약 |
+| 기존 Block B | [Run #44119696463](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44119696463) — `56 passed` | D04/D05 기존 동작 회귀 정상 |
+| 기존 D05 실제 Gazebo | [Run #44119696470](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44119696470) — SUCCESS | 공통 D04/D05 실행 경계 보존 |
+| **D08 실제 GUI L2** | [Run #44119696238](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44119696238) — **SUCCESS** | 실제 Gazebo world pose/SceneBroadcaster 전송, RViz 공식 메시 4개 보정, 3창 생성, 센서 Live, 정상 종료 |
+
+L2 원본 출력:
+
+```text
+D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS
+D08_STUDENT_RELEASE_SOURCE_SHA=689025f915730e4e26af5376d639addbf6b8436a
+D08_RVIZ_OFFICIAL_MESH_VIEW_READY ... fixed_meshes=4
+D08_GAZEBO_WORLD_READY_BEFORE_GUI ...
+D05_PUBLIC_SENSOR_ONLY_PASS REAL_RGBD_YOLO PRIVATE_D05_RANGE_NOT_RUN
+D04_STUDENT_EXIT_CODE=0
+D08_RVIZ2_ACTUAL_X11_WINDOW_PASS
+D08_RVIZ_MESH_RESOURCE_ERRORS_NONE_PASS
+D08_STUDENT_GAZEBO_YOLO_RVIZ_GUI_L2_PASS_NO_GOAL
+```
+
+실측 `registered_rgbd_pairs=3`, `rgb_frames=4`, `depth_frames=5`, `yolo_frames=4`, `person_count=4`. 화면이 공백이었던 원래 Owner WSL2와 같은 **WSLg D3D12 화면 픽셀**을 CI Xvfb에서 관찰할 수는 없으므로 `OWNER_WSLG_3D_RENDER_NOT_VERIFIED`다. 센서 검출 수치는 로봇의 이동이나 물리적 사람 인식 정합을 증명하지 않는다.
+
+개발 도중 공개 L2에서 CI 스크립트의 중첩 쉘 따옴표 오류 및 장면 게이트 출력의 동시 기록 경쟁이 발생했다. 이를 공개 CI 회귀 검사에 포함해 수정한 결과, *실제 월드 장면 토픽 확인* 후 `SCENE_GATE` 별도 증거로 저장하여 GREEN. 추후 같은 오류는 로그 최종 에러가 아니라 최초 실패 경계부터 점검한다.
+
 ## 4. 장면/GUI/안전 검증 구분
 
 | 검증 수준 | 필요한 증거 | 판정 |
 |---|---|---|
-| L0 | XML 1개 unconditional SceneBroadcaster, 공식 설치 메시 경로 검증, 실행기 Bash 문법 | 공개 CI 결과 기준 |
-| L2 센서 | 실제 Gazebo RGB/Depth 및 YOLO person/bbox 관측 | 별도 확인 |
-| L2 GUI 전달 | 같은 Git SHA에서 Gazebo `/world/default/pose/info` 및 RViz 공식 메시 로딩 오류 없음, X11 3창 생성 | 공개 CI 결과 기준 |
+| L0 | XML 1개 unconditional SceneBroadcaster, 공식 설치 메시 경로 검증, 실행기 Bash 문법 | **32 passed — CI PASS** |
+| L2 센서 | 실제 Gazebo RGB/Depth 및 YOLO person/bbox 관측 | **CI PASS** (Owner 기존 센서 PASS도 별도 보존) |
+| L2 GUI 전달 | 같은 Git SHA에서 Gazebo `/world/default/pose/info` 및 RViz 공식 메시 로딩 오류 없음, X11 3창 생성 | **CI L2 PASS, WSLg pixels unverified** |
 | Owner WSLg 시각 | Gazebo 월드/로봇/사람, RViz 3D Grid/RobotModel/Scan 화면의 **실제 스크린샷** | 수정판 실행 전 NOT_VERIFIED |
 | 안전·실제 회피 | moving Goal, `/cmd_vel`, Contact/odom, CM→Guard 타이밍, 인증 E-Stop | 이번 범위 OUT |
 
