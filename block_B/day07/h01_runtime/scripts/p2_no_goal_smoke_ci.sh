@@ -85,6 +85,16 @@ cleanup() {
      launch_grace_steps=$((G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2))
      echo 'G07_CI_MANAGED_LAUNCH_EXIT_26S Nav2_ACK_REQUIRED'
    fi
+   # Actual student H01 rqt loop L2 #44063399501: all 4 Gazebo physical
+   # stages and official Nav2 Path succeeded, but GUI+Nav2 teardown took
+   # >10s. Reuse the pre-existing 26s managed exit budget ONLY for this
+   # no-moving-Goal classroom run, including Ctrl+C. This is a PROCESS
+   # shutdown grace, NOT an extension of CM 150ms or Scan 300ms safety TTL.
+   if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
+      && "${AXIA_D07_H01_TEACHING_LOOP:-0}" == 1 ]]; then
+     launch_grace_steps=$((G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2))
+     echo 'D07_H01_TEACHING_MANAGED_LAUNCH_EXIT_26S_NO_GOAL'
+   fi
    for ((i=0;i<launch_grace_steps;i++)); do launch_active || break; sleep .4; done
    if launch_active; then
      ps -eo pid,pgid,stat,args | awk -v pgid="$LAUNCH_PID" 'NR==1 || $2==pgid' \
