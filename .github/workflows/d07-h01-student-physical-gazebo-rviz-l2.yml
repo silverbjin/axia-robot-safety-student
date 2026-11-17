@@ -1,7 +1,7 @@
 name: D07 H01 student REAL physical Gazebo Waffle Nav2 Path RViz2 NO-GOAL
 on:
   push:
-    branches: [feat/d07-h01-student-physical-gazebo-rviz-20261117, main]
+    branches: [feat/d07-h01-student-physical-gazebo-rviz-20261117, feat/d07-h01-rqt-classroom-loop-20261117, main]
     paths:
       - 'block_B/day07/**'
       - 'block_B/tests/test_d07_h01_physical_student_live.py'
@@ -26,6 +26,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 -m unittest discover -s block_B/tests -p test_d07_h01_physical_student_live.py -v
+          python3 -m unittest discover -s block_B/tests -p test_d07_h01_rqt_classroom_loop.py -v
           python3 -m compileall -q block_B/day07/h01_runtime/tools
           bash block_B/day07/run_d07_h01_gazebo_rviz_student_once.sh --self-check
           echo AXIA_D07_H01_STUDENT_PHYSICAL_L0_PASS_NO_ROS_NO_GAZEBO_NO_GOAL
