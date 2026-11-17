@@ -1,0 +1,582 @@
+#!/usr/bin/env python3
+"""ONE public-CI-only actual Gazebo Harmonic / Nav2 moving G07 Goal.
+
+Independent from Owner L3's mandatory controlling-TTY approval: this runner
+does not import/call the Owner run() or consent helper. It reuses only read-only
+ROS event observation and the existing Supervisor start/goal primitives.
+Explicit GitHub Actions + simulation environment gate, no fault/crash/rearm.
+Simulation-only candidate; contact ground truth and hardware E-Stop unavailable.
+"""
+import argparse
+import faulthandler
+import json
+import math
+import os
+from pathlib import Path
+import subprocess
+import sys
+import threading
+import time
+
+from p2_l3_live_session import Observer, _call_start, _publish_goal, _map_robot_pose
+from p2_l3_coordinate_frames import make_frame_anchor
+from p2_g07_spawn_contract import official_tb3_spawn
+from p2_l3_gz_fixture import move_ci_verified
+from p2_g07_ci_stop_stage import plan_stop_fixture
+from p2_l3_acceptance_contract import zone_phase_sample
+from p2_g07_ci_moving_goal_oracle import assess, first_delivery_breach, first_pre_latch_delivery_timing, guard_cm_receive_skew, post_stop_odom_zero_dwell
+
+def _require_ci_only(expected_sha):
+    assert os.environ.get("GITHUB_ACTIONS")=="true", "NOT_PUBLIC_GITHUB_ACTIONS"
+    assert os.environ.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1", "NO_SCOPED_SIM_GOAL_OPT_IN"
+    assert os.environ.get("AXIA_P0_SIM_ONLY")=="1", "NOT_SIM_ONLY"
+    assert os.environ.get("ROS_DISTRO")=="jazzy", "ROS_JAZZY_REQUIRED"
+    assert os.environ.get("GZ_PARTITION","").startswith("axia_p2_"), "NO_ISOLATED_GZ_PARTITION"
+    assert os.environ.get("AXIA_P2_G07_PHYSICAL_PREFLIGHT")=="1", "NO_REAL_HARMONIC_PHYSICAL_OVERLAY"
+    current=subprocess.check_output(["git","rev-parse","HEAD"],text=True,timeout=5).strip()
+    assert current==expected_sha, "CI_SOURCE_SHA_MISMATCH"
+
+def _stop_supervisor_active(vin):
+    """STOP checks motion authority by magnitude: Nav2 can legitimately
+    reverse to avoid the physical obstacle. The *final* CM/Guard must still
+    be ZERO; no reverse-motion allowance bypasses the fresh physical scan,
+    Goal EXECUTING, native Gazebo ACK, or one-second odom stop dwell.
+    """
+    return (type(vin) in (int,float) and math.isfinite(vin)
+            and .005 < abs(vin) <= .22)
+
+def _fresh(snap,keys,limit=.3):
+    now=snap.get("mono")
+    if not isinstance(now,(int,float)):return None
+    ages=[]
+    for k in keys:
+        t=snap.get(k+"_at")
+        if not isinstance(t,(float,int)) or not 0<=now-t<=limit:
+            return None
+        ages.append(now-t)
+    return max(ages)
+
+def _period(values,t0,t1):
+    v=[z["t"] for z in values if t0<=z["t"]<=t1]
+    return max((b-a for a,b in zip(v,v[1:])),default=None)
+
+def run(args):
+    # Same exact Gazebo/ROS phase and stop oracle for public CI and WSL2.
+    # Only PRE-GOAL authority differs; the Owner cannot set CI credentials.
+    owner_launch_pid=getattr(args,"owner_launch_pid",None)
+    owner_mode=owner_launch_pid is not None
+    if owner_mode:
+        from p2_g07_shared_admission import admit_owner
+        from p2_pre_goal_process_gate import inspect as inspect_owned_processes
+        actual=subprocess.check_output(
+            ["git","-C",str(Path(__file__).resolve().parents[1]),
+             "rev-parse","HEAD"],text=True,timeout=5).strip()
+        owner_scope=admit_owner(
+            expected_sha=args.source_sha,actual_sha=actual,
+            launch_pid=owner_launch_pid,env=os.environ,
+            has_tty=(os.isatty(0) and os.path.exists("/dev/tty")),
+            inspect=inspect_owned_processes)
+        print("AXIA_G07_OWNER_COMMON_PREGOAL_PID_TTY_AUTHORITY_PASS "
+              "same_real_gazebo_goal_runner=true",flush=True)
+    else:
+        _require_ci_only(args.source_sha)
+        owner_scope=None
+    startup=json.loads(args.startup.read_text())
+    pregoal=json.loads(args.pregoal.read_text())
+    assert startup.get("status")=="SMOKE_READY" and startup.get("goal_sent") is False
+    assert startup.get("fault_injected") is False
+    assert pregoal.get("status")=="P2_G07_OWNER_PREGOAL_L2_READY_NO_GOAL"
+    assert pregoal.get("native_set_pose_ack") is True
+    assert pregoal.get("post_ack_distinct_ros_scan_count",0)>=2
+    assert pregoal.get("front_m",0)>.75 and .55<=pregoal.get("side_m",0)<=.95
+    args.output.mkdir(parents=True,exist_ok=False,mode=0o700)
+    report={"schema":"axia_g07_public_ci_moving_goal_v1","status":"BLOCKED",
+            "reason":"NOT_STARTED","sim_only":True,"ci_specific":not owner_mode,
+            "source_sha":args.source_sha,"goal_sent":False,
+            "fault_injected":False,"certified_estop":False,
+            "collision_ground_truth_available":False,"gate_accepted":False,
+            "owner_l3_accepted":False,
+            "owner_authority_verified":(owner_scope is not None),
+            "shared_execution_mode":("owner" if owner_mode else "ci")}
+    def save():
+        (args.output/"ci_moving_goal_result.json").write_text(
+            json.dumps(report,indent=2,sort_keys=True)+"\n")
+    save()
+    import rclpy
+    from rclpy.node import Node
+    from rclpy.executors import MultiThreadedExecutor
+    from rclpy.parameter import Parameter
+    from std_msgs.msg import String
+    rclpy.init()
+    node=Node("axia_g07_public_ci_sim_only_moving_goal",
+              parameter_overrides=[Parameter("use_sim_time",value=True)],
+              automatically_declare_parameters_from_overrides=True)
+    # Reproduce the WSL2 Owner's original observation scheduling and I/O:
+    # 2 executor workers plus line-buffered evidence. Only an explicitly
+    # admitted CI-only simulation may select the parity profile.
+    owner_observer_parity = (
+        owner_mode or os.environ.get("AXIA_G07_CI_OWNER_OBSERVER_PARITY") == "1")
+    if owner_observer_parity and not owner_mode:
+        assert os.environ.get("GITHUB_ACTIONS")=="true"
+        assert os.environ.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1"
+        print("AXIA_G07_CI_OWNER_OBSERVER_PARITY_ADMITTED "
+              "workers=2 buffered=true bounded_flush_sec=0.75 "
+              "periodic_watchdog=false",flush=True)
+    observer_started_at=time.monotonic()
+    obs=(Observer(node,args.output,buffered_evidence=True,periodic_flush_sec=.75)
+         if owner_observer_parity
+         else Observer(node,args.output,buffered_evidence=True))
+    parity_trace=(args.output/"owner_parity_fatal_trace.log").open("x",buffering=1) if owner_observer_parity else None
+    if parity_trace is not None:
+        faulthandler.enable(file=parity_trace, all_threads=True)
+    guard_ticks=[]
+    def on_guard(m):
+        guard_ticks.append(time.monotonic())
+        if len(guard_ticks)>3000:del guard_ticks[:1500]
+    extra=node.create_subscription(String,"/axia/p2/base_guard",on_guard,10)
+    executor=MultiThreadedExecutor(num_threads=2 if owner_observer_parity else 3)
+    executor.add_node(node)
+    worker=threading.Thread(target=executor.spin,daemon=True)
+    worker.start()
+    published=None
+    stop_ack_at=None
+    stop_pre_move_front=None
+    distinct_stop_scans=[]
+    try:
+        graph_checks=True
+        def wait(check,secs,label):
+            until=time.monotonic()+secs
+            samples=[]
+            last_sample=0.
+            while time.monotonic()<until:
+                snap=obs.snapshot(include_graph=graph_checks)
+                data=obs.data()
+                g=snap.get("guard",{})
+                if g.get("latched") is True:
+                    report["first_guard_latch"]=g.get("first_latch_trace")
+                    raise RuntimeError("GUARD_LATCH_DURING_"+label+":"+str(g.get("reason")))
+                goal_status=snap.get("action_status")
+                if report["goal_sent"] and goal_status in (3,4,5,6):
+                    raise RuntimeError("GOAL_TERMINATED_DURING_"+label+":"+str(goal_status))
+                result=check(snap,data)
+                if result is not None:return result
+                now=time.monotonic()
+                if label in ("SLOW","STOP") and now-last_sample>=.35:
+                    last_sample=now
+                    front=data.get("scan")
+                    pose=data.get("pose")
+                    samples.append({
+                        "t":round(now,3),
+                        "front_m":round(front,4) if isinstance(front,(float,int)) else None,
+                        "side_m":round(data["side_scan"],4) if isinstance(data.get("side_scan"),(float,int)) else None,
+                        "odom_pose": [round(z,4) for z in pose] if pose else None,
+                        "odom_vx":snap.get("odom_speed"),
+                        "supervised_vx":snap.get("supervised_speed"),
+                        "cm_vx":snap.get("pre_guard_speed"),
+                        "final_vx":snap.get("final_speed"),
+                        "goal_status":goal_status,
+                        "guard_reason":g.get("reason"),
+                    })
+                time.sleep(.025)
+            if samples:
+                scan=[x["front_m"] for x in samples if x["front_m"] is not None]
+                active=[x for x in samples if x["front_m"] is not None
+                        and .4<x["front_m"]<.75]
+                summary={"phase":label,"observations":len(samples),
+                         "min_front_m":min(scan) if scan else None,
+                         "max_supervised_in_slow_zone":max(
+                             (x["supervised_vx"] for x in active if isinstance(
+                                 x["supervised_vx"],(int,float))),default=None),
+                         "first":samples[:3],"last":samples[-8:]}
+                (args.output/(label.lower()+"_timeout_trace.json")).write_text(
+                    json.dumps(summary,sort_keys=True,indent=2)+"\n")
+                print("AXIA_G07_CI_MOVING_"+label+"_TIMEOUT_DIAGNOSTICS "
+                      +json.dumps(summary,sort_keys=True),flush=True)
+            raise RuntimeError("CI_MOVING_GOAL_TIMEOUT_"+label)
+        wait(lambda snap,data: True if
+             data["supervisor"].get("health_diagnostics",{}).get("cm_lifecycle_ok") is True
+             and snap.get("clock_advancing") and data.get("scan") is not None
+             else None,12,"HEALTH")
+        # Discovery is asynchronous in the full Harmonic/Nav2 overlay.
+        # Do not mistake an early empty graph for a safety defect, and never
+        # issue a Goal before all three exact actual publishers are present.
+        expected=[("axia_base_command_guard","geometry_msgs/msg/Twist")]
+        def real_graph_ready(s,d):
+            return s if (s["final_publishers"]==expected
+                and s["cm_publishers"]==[("collision_monitor","geometry_msgs/msg/Twist")]
+                and s["supervisor_publishers"]==[("axia_safety_supervisor","geometry_msgs/msg/Twist")]) else None
+        try:
+            s=wait(real_graph_ready,12,"EXCLUSIVE_SUPERVISOR_CM_GUARD_GRAPH")
+        except RuntimeError:
+            snap=obs.snapshot()
+            print("AXIA_G07_CI_PRE_GOAL_GRAPH_DIAGNOSTIC "+
+                  json.dumps({k:snap.get(k) for k in (
+                     "final_publishers","cm_publishers","supervisor_publishers")},
+                     sort_keys=True),flush=True)
+            raise
+        # Exclusive graph proved pre-Goal; avoid DDS introspection at 40Hz
+        # during safety-critical Supervisor -> CM -> Guard delivery.
+        graph_checks=False
+        start_pose=obs.data().get("pose")
+        assert start_pose is not None
+        # An actual TF-derived map/odom anchor and verified official world
+        # spawn are required before the Goal, not inferred from raw /odom.
+        world_anchor=make_frame_anchor(
+            _map_robot_pose(node,obs),start_pose,official_tb3_spawn(),
+            map_pose_source='amcl_pose_map_transient_local')
+        _call_start(node,obs)
+        wait(lambda s,d: True if d["supervisor"].get("state")=="NORMAL" else None,
+             5,"SUPERVISOR_START")
+        published=_publish_goal(node,obs,demo_corridor=True)
+        goal_sent_at=time.monotonic()
+        report["goal_sent"]=True
+        save()
+        print("AXIA_G07_PUBLIC_CI_SIMULATION_ONLY_ONE_SUPERVISOR_GOAL_SENT",flush=True)
+        wait(lambda s,d: s.get("goal_uuid") if
+             s.get("action_status")==2 and s.get("goal_uuid") is not None else None,
+             15,"ACTION_EXECUTING")
+        goal_uuid=obs.snapshot()["goal_uuid"]
+        report["goal_uuid"]=goal_uuid
+        print("AXIA_G07_PUBLIC_CI_ACTUAL_NAV2_GOAL_EXECUTING "+goal_uuid,flush=True)
+        def phase(name):
+            def check(s,d):
+                if s.get("action_status")!=2:return None
+                age=_fresh(s,("scan","supervised","pre_guard","final","odom","guard","clock"))
+                if age is None:return None
+                vin=s.get("supervised_speed")
+                cm=s.get("pre_guard_speed")
+                final=s.get("final_speed")
+                front=d.get("scan")
+                if not all(isinstance(x,(float,int)) and math.isfinite(x)
+                           for x in (vin,cm,final,front)):return None
+                # CLEAR needs observable cruise; the real Nav2 SLOW/STOP
+                # path can legitimately command 0.020m/s while rotating.
+                # Still require positive motion authority; never accept
+                # numerical noise, a synthetic scan or a stale command.
+                if name=="stop":
+                    if not _stop_supervisor_active(vin):return None
+                    if stop_ack_at is None or stop_pre_move_front is None:
+                        return None
+                    scan_at=s.get("scan_at")
+                    if not isinstance(scan_at,(int,float)) or scan_at<=stop_ack_at:
+                        return None
+                    if (not (.14<=front<.4)
+                        or stop_pre_move_front-front<.10):
+                        return None
+                    if (not distinct_stop_scans
+                        or scan_at>distinct_stop_scans[-1]):
+                        distinct_stop_scans.append(scan_at)
+                    if len(distinct_stop_scans)<2:
+                        return None
+                elif vin <= (.03 if name=="clear" else .005):
+                    # CLEAR and SLOW still require forward proof.
+                    return None
+                if name=="clear":
+                    condition=front>.75 and cm>.03 and final>.03
+                elif name=="slow":
+                    condition=(.4<front<.75 and 0<cm<=.30*vin+.01
+                               and 0<final<=.30*vin+.01)
+                else:
+                    condition=(.14<=front<.4 and abs(cm)<.01 and abs(final)<.01)
+                if not condition:return None
+                return {"front_m":front,"supervised_vx":vin,"cm_vx":cm,
+                        "final_vx":final,"age_sec":age}
+            return check
+        rows={}
+        for name,secs in (("clear",8),("slow",35),("stop",40)):
+            rows[name]=wait(phase(name),secs,name.upper())
+            report[name]=rows[name]
+            report["goal_status_at_"+name]=2
+            print("AXIA_G07_PUBLIC_CI_MOVING_"+name.upper()+"_REAL_GAZEBO_LIDAR_CM_PASS "
+                  +json.dumps(rows[name],sort_keys=True),flush=True)
+            save()
+            if name=="slow":
+                # One simulation-only dynamic physical STOP intrusion. Real
+                # Nav2 previously turned away from the prepositioned cylinder
+                # (CI #42971453613, min front=0.6545m), never entering STOP.
+                # Keep Owner's controlling-TTY path and its explicit no-moving-
+                # set_pose policy unchanged. Never publish synthetic LaserScan.
+                snap=obs.snapshot()
+                stop_pre_move_front=obs.data().get("scan")
+                if not isinstance(stop_pre_move_front,(float,int)):
+                    raise RuntimeError("STOP_PREPOSITION_REAL_SCAN_MISSING")
+                target=plan_stop_fixture(
+                    world_anchor,obs.data().get("pose"),
+                    goal_status=snap.get("action_status"),
+                    guard_latched=snap.get("guard",{}).get("latched"),
+                    real_slow_observed=True)
+                native_request_started=time.monotonic()
+                ack=move_ci_verified(*target,sim_env=os.environ,
+                    pregoal_native_verified=(pregoal.get("native_set_pose_ack") is True),
+                    owner_admitted=(owner_scope is not None))
+                stop_ack_at=time.monotonic()
+                report["stop_native_service_duration_sec"]=round(
+                    stop_ack_at-native_request_started,6)
+                (args.output/"ci_stop_native_gazebo_set_pose_ack.log").write_text(ack)
+                report.update(
+                    stop_native_set_pose_ack=True,
+                    stop_world_xy=list(target),
+                    stop_pre_move_front_m=stop_pre_move_front)
+                save()
+                print("AXIA_G07_CI_MOVING_REAL_GAZEBO_STOP_INTRUSION_ACK "
+                      +json.dumps({"world_xy":target,
+                                  "pre_front_m":stop_pre_move_front,
+                                  "native_service_duration_sec":
+                                      report["stop_native_service_duration_sec"]},
+                                 sort_keys=True),flush=True)
+            if name=="stop":
+                report["stop_post_ack_distinct_ros_scan_count"]=len(distinct_stop_scans)
+                save()
+        def dwell(s,d):
+            if _fresh(s,("odom","guard","clock")) is None:return None
+            # Only real consecutive /odom callbacks after the physical
+            # native STOP ACK can prove a one-second stopped robot.
+            value=post_stop_odom_zero_dwell(d["odom"],stop_ack_at)
+            return value if value>=1.0 else None
+        stop_dwell=wait(dwell,3.5,"ODOM_STOP_DWELL")
+        final=obs.data()
+        displacement=math.hypot(final["pose"][0]-start_pose[0],
+                                final["pose"][1]-start_pose[1])
+        latest=obs.snapshot()
+        t1=time.monotonic()
+        # Complete read-only host-monotonic callback evidence through t1
+        # before assessing required delivery intervals. Owner mode still
+        # line-flushes every event; CI buffered evidence flushes once here.
+        obs.flush_events()
+        speed_data=obs.data()
+        periods={}
+        for key,entries in (("source",speed_data["vin"]),
+                            ("cm",speed_data["pre"])):
+            periods[key]=_period(entries,goal_sent_at,t1)
+        gt=[x for x in guard_ticks if goal_sent_at<=x<=t1]
+        periods["guard"]=max((b-a for a,b in zip(gt,gt[1:])),default=None)
+        # Independently include actual LaserScan, odom and FSM message
+        # interarrival, not just whether each single signal is live.
+        # All timestamps come from the actual ROS Observer callback ledger.
+        event_ticks={"scan":[],"odom":[],"supervisor":[],"clock":[]}
+        for line in (args.output/"actual_ros_events.jsonl").read_text().splitlines():
+            event=json.loads(line)
+            kind=event.get("kind")
+            t=event.get("t")
+            if (kind in event_ticks and isinstance(t,(int,float))
+                    and goal_sent_at<=t<=t1):
+                event_ticks[kind].append(t)
+        for kind,ts in event_ticks.items():
+            periods[kind]=max((b-a for a,b in zip(ts,ts[1:])),default=None)
+        if any(x is None for x in periods.values()):
+            raise RuntimeError("REAL_CI_PUBLISHING_PERIODS_NOT_MEASURED")
+        # Required acceptance intervals are unchanged. Persist the earliest
+        # raw host-monotonic delivery gap for EACH safety channel, and the
+        # FIRST system-wide boundary violation (not the last exception).
+        timestamps={
+            "source":[x["t"] for x in speed_data["vin"]],
+            "cm":[x["t"] for x in speed_data["pre"]],
+            "guard":gt,
+            **event_ticks,
+        }
+        bounds={"source":.15,"cm":.15,"guard":.15,"supervisor":.15,
+                "scan":.30,"odom":.30,"clock":.30}
+        timing={kind:first_delivery_breach(
+            ts,start=goal_sent_at,end=t1,limit=bounds[kind],
+            stop_ack=stop_ack_at)
+            for kind,ts in timestamps.items()}
+        report["delivery_interval_diagnostics"]=timing
+        violations=sorted(
+            ({"channel":kind,"limit_sec":bounds[kind],**value}
+             for kind,value in timing.items()
+             if value["first_violation_sec"] is not None),
+            key=lambda value:value["first_violation_at"])
+        report["first_timing_violation"]=violations[0] if violations else None
+        report["odom_stop_dwell_sec_observed_before_oracle"]=stop_dwell
+        print("AXIA_G07_CI_ODOM_DWELL_PRE_ORACLE "
+              +"seconds="+str(round(stop_dwell,6)),flush=True)
+        print("AXIA_G07_CI_MEASURED_MESSAGE_PERIODS "+
+              json.dumps(periods,sort_keys=True),flush=True)
+        if violations:
+            print("AXIA_G07_CI_FIRST_TIMING_VIOLATION "+
+                  json.dumps(violations[0],sort_keys=True),flush=True)
+        report.update(
+            max_scan_interval_sec=periods["scan"],
+            max_odom_interval_sec=periods["odom"],
+            max_supervisor_fsm_interval_sec=periods["supervisor"],
+            max_clock_interval_sec=periods["clock"])
+        report.update(goal_status_executing=True,
+                      guard_latched=latest["guard"].get("latched"),
+                      real_gazebo_world=True,actual_physical_scan=True,
+                      native_obstacle_set_pose_ack=True,
+                      observed_odom_moved_m=displacement,
+                      odom_stopped_dwell_sec=stop_dwell,
+                      max_source_interval_sec=periods["source"],
+                      max_cm_interval_sec=periods["cm"],
+                      max_guard_interval_sec=periods["guard"])
+        verdict=assess(report,owner_authorized=(owner_scope is not None))
+        report["status"]=verdict["status"]
+        report["reason"]=verdict["reason"]
+        save()
+        if verdict["status"]!="CI_GAZEBO_MOVING_GOAL_CANDIDATE":
+            raise RuntimeError("ACTUAL_MOVING_GOAL_CI_ORACLE_"+verdict["reason"])
+        if owner_observer_parity:
+            # The original Owner died 14.997s after startup, with 15s dump.
+            # Keep this exact observer alive through the same boundary
+            # AFTER validating real CLEAR/SLOW/STOP and the strict TTLs.
+            until=observer_started_at+15.25
+            while time.monotonic()<until:
+                if not worker.is_alive():
+                    raise RuntimeError("CI_OWNER_EXECUTOR_DEAD_BEFORE_15S")
+                snap=obs.snapshot(include_graph=False)
+                now=time.monotonic()
+                if (not isinstance(snap.get("clock_at"),(float,int))
+                    or now-snap["clock_at"]>.30
+                    or not isinstance(snap.get("guard_at"),(float,int))
+                    or now-snap["guard_at"]>.15):
+                    raise RuntimeError("CI_OWNER_OBSERVER_STALE_BEFORE_15S")
+                time.sleep(.05)
+            report["owner_observer_parity_survived_15s"]=True
+            print("AXIA_G07_CI_OWNER_OBSERVER_SURVIVED_15S "
+                  "workers=2 buffered=true bounded_flush_sec=0.75 native_crash=false",
+                  flush=True)
+            save()
+        if owner_mode:
+            # CI safety verdict is reused verbatim, but never claim an
+            # accepted Owner L3 or hardware E-Stop from one demo run.
+            report["common_g07_ci_oracle_status"]=verdict["status"]
+            report["status"]="NUMERICAL_CANDIDATE"
+            report["reason"]="OWNER_G07_COMMON_SCENARIO_RAW_REVIEW_REQUIRED"
+            report["shared_execution_mode"]="owner"
+            save()
+            print("P2_L3_G07_NUMERICAL_CANDIDATE "
+                  "G07_COMMON_REAL_GAZEBO_CLEAR_SLOW_STOP_ODOM_PASS "
+                  +"displacement_m="+str(round(displacement,4))
+                  +" stopped_dwell_s="+str(round(stop_dwell,3))
+                  +" max_interarrival="+json.dumps(periods,sort_keys=True)
+                  +" OWNER_L3_RAW_REVIEW_REQUIRED CERTIFIED_ESTOP=false",
+                  flush=True)
+        else:
+            print("AXIA_G07_PUBLIC_CI_MOVING_GOAL_CLEAR_SLOW_STOP_ODOM_PASS "
+                  +"displacement_m="+str(round(displacement,4))
+                  +" stopped_dwell_s="+str(round(stop_dwell,3))
+                  +" max_interarrival="+json.dumps(periods,sort_keys=True)
+                  +" OWNER_L3_NOT_RUN CERTIFIED_ESTOP=false",flush=True)
+        return 0
+    except Exception as exc:
+        # Preserve all callback records before classifying earliest real
+        # Guard/CM/FSM timing failure; do not imply a buffered PASS.
+        obs.flush_events()
+        raw=obs.data()
+        first=raw["guard"].get("first_latch_trace")
+        report.update(status="BLOCKED",reason=type(exc).__name__+":"+str(exc)[:220],
+                      first_guard_latch=first)
+        # The full STOP oracle is never reached after an early Guard latch.
+        # Preserve the FIRST real post-Goal sensor/CM-observer delivery
+        # violation nonetheless; absence of STOP ACK remains explicit.
+        # This is diagnostics only: it neither overrides a Guard latch nor
+        # equates external /cmd_vel_pre_guard observation with Guard CM rx.
+        if report.get("goal_sent") is True:
+            try:
+                until=(first.get("tick_monotonic")
+                       if isinstance(first,dict) and
+                       isinstance(first.get("tick_monotonic"),(float,int))
+                       else time.monotonic())
+                rows=[json.loads(line) for line in
+                      (args.output/"actual_ros_events.jsonl").read_text().splitlines()]
+                early=first_pre_latch_delivery_timing(
+                    rows,goal_start=goal_sent_at,end=until)
+                report["pre_latch_delivery_diagnostics"]=early
+                if early["first_timing_violation"] is not None:
+                    print("AXIA_G07_FIRST_POST_GOAL_TIMING_VIOLATION_BEFORE_LATCH "+
+                          json.dumps(early["first_timing_violation"],
+                                     sort_keys=True),flush=True)
+                else:
+                    print("AXIA_G07_EARLY_LATCH_TIMING_DIAGNOSTIC_NO_BREACH_IN_OBSERVER "+
+                          "NOT_A_SAFETY_PASS",flush=True)
+            except (OSError,ValueError,TypeError) as diag_exc:
+                report["pre_latch_delivery_diagnostic_error"]=type(diag_exc).__name__
+                print("AXIA_G07_PRE_LATCH_TIMING_DIAGNOSTIC_UNVERIFIED "+
+                      type(diag_exc).__name__,flush=True)
+        # Minimal privacy-safe first-latch telemetry; do not publish raw bags,
+        # private source, complete process environment, or Goal authority.
+        if isinstance(first,dict):
+            # Independent Observer received a newer CM packet in the same
+            # monotonic clock while Guard had no corresponding callback.
+            # Report only timing metadata; never treat this as proof of a
+            # healthy CM or override the 150ms fail-closed safety latch.
+            skew=guard_cm_receive_skew(raw.get("pre",[]),first)
+            report["cm_guard_receive_skew"]=skew
+            print("AXIA_G07_PUBLIC_CI_FIRST_CM_GUARD_RECEIPT_SKEW "
+                  +json.dumps(skew,sort_keys=True),flush=True)
+            print("AXIA_G07_PUBLIC_CI_FIRST_GUARD_LATCH_INTERNAL "
+                  +json.dumps(first,sort_keys=True),flush=True)
+        # Supervisor publishes safety FSM state in the same 50ms tick as
+        # /cmd_vel_supervised. Inspect actual OBSERVED FSM and Action events
+        # relative to the first Guard latch; do not infer STOP cause from
+        # the Twist ZERO value alone. Only safe fields enter public logs.
+        try:
+            latch_at=first.get("tick_monotonic") if isinstance(first,dict) else None
+            entries=[]
+            for line in (args.output/"actual_ros_events.jsonl").read_text().splitlines():
+                item=json.loads(line)
+                if item.get("kind") not in ("supervisor","action","guard"):
+                    continue
+                t=item.get("t")
+                if not isinstance(t,(float,int)):
+                    continue
+                if latch_at is not None and not (latch_at-.40 <= t <= latch_at+.18):
+                    continue
+                row={"kind":item["kind"],"t":round(t,6)}
+                if item["kind"]=="supervisor":
+                    state=item.get("data",{})
+                    row.update(state=state.get("state"),
+                               reason=state.get("reason"),
+                               stop_reason=state.get("stop_reason"),
+                               healthy=all(state.get("health_diagnostics",{}).get(k)
+                                   for k in ("clock_ok","scan_ok","graph_ok",
+                                             "cm_lifecycle_ok","nav2_action_ready")))
+                elif item["kind"]=="action":
+                    row["status"]=item.get("status")
+                elif item["kind"]=="guard":
+                    row.update(reason=item.get("data",{}).get("reason"),
+                               latched=item.get("data",{}).get("latched"))
+                entries.append(row)
+            print("AXIA_G07_PUBLIC_CI_PRE_LATCH_FSM_ACTION_TIMELINE "+
+                  json.dumps(entries[-30:],sort_keys=True),flush=True)
+        except (OSError,ValueError,TypeError) as diag_exc:
+            print("AXIA_G07_PUBLIC_CI_FSM_TIMELINE_NOT_AVAILABLE "+
+                  type(diag_exc).__name__,flush=True)
+        for kind,rows in (("SUPERVISOR",raw.get("vin",[])),
+                          ("ACTUAL_CM",raw.get("pre",[])),
+                          ("FINAL",raw.get("cmd",[]))):
+            compact=[{k:round(z[k],6) for k in ("t","vx","wz")}
+                     for z in rows[-5:]]
+            print("AXIA_G07_PUBLIC_CI_PRE_LATCH_"+kind+" "
+                  +json.dumps(compact,sort_keys=True),flush=True)
+        print(("P2_L3_G07_OWNER_COMMON_BLOCKED " if owner_mode
+               else "AXIA_G07_PUBLIC_CI_MOVING_GOAL_BLOCKED ")+report["reason"],
+              flush=True)
+        return 2
+    finally:
+        save()
+        executor.shutdown(timeout_sec=2)
+        worker.join(timeout=2)
+        node.destroy_subscription(extra)
+        obs.close()
+        node.destroy_node()
+        if parity_trace is not None:
+            faulthandler.disable()
+            parity_trace.close()
+        rclpy.shutdown()
+
+def main():
+    p=argparse.ArgumentParser()
+    p.add_argument("--output",type=Path,required=True)
+    p.add_argument("--startup",type=Path,required=True)
+    p.add_argument("--pregoal",type=Path,required=True)
+    p.add_argument("--source-sha",required=True)
+    a=p.parse_args()
+    try:return run(a)
+    except Exception as exc:
+        print("AXIA_G07_PUBLIC_CI_MOVING_GOAL_PRECHECK_BLOCKED "
+              +type(exc).__name__+":"+str(exc),flush=True)
+        return 2
+
+if __name__=="__main__":
+    raise SystemExit(main())

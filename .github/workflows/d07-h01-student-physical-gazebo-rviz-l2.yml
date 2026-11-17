@@ -1,0 +1,144 @@
+name: D07 H01 student REAL physical Gazebo Waffle Nav2 Path RViz2 NO-GOAL
+on:
+  push:
+    branches: [feat/d07-h01-student-physical-gazebo-rviz-20261117, main]
+    paths:
+      - 'block_B/day07/**'
+      - 'block_B/tests/test_d07_h01_physical_student_live.py'
+      - '.github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml'
+  pull_request:
+    paths:
+      - 'block_B/day07/**'
+      - 'block_B/tests/test_d07_h01_physical_student_live.py'
+      - '.github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml'
+permissions:
+  contents: read
+jobs:
+  public-source-l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Public H01 real physical GUI runtime contract NO ROS
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s block_B/tests -p test_d07_h01_physical_student_live.py -v
+          python3 -m compileall -q block_B/day07/h01_runtime/tools
+          bash block_B/day07/run_d07_h01_gazebo_rviz_student_once.sh --self-check
+          echo AXIA_D07_H01_STUDENT_PHYSICAL_L0_PASS_NO_ROS_NO_GAZEBO_NO_GOAL
+
+  actual-gazebo-physical-rviz-l2:
+    needs: public-source-l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    container:
+      image: ghcr.io/silverbjin/axia-g07-runtime@sha256:861ae1df0560f991698d8967193380b1619589ba7770b5e2ca91ea4ef31f0c8e
+      options: --dns 1.1.1.1 --dns 8.8.8.8
+    env:
+      ROS_DOMAIN_ID: '95'
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      GZ_PARTITION: axia_p2_d07_student_h01_95
+      AXIA_D07_H01_CI_SOFTWARE_GUI: '1'
+      AXIA_D07_H01_GPU_GUI_TRIAL: '1'
+      AXIA_G07_CI_SIM_GOAL_ALLOWED: '0'
+      AXIA_D07_GUI_HOLD_S: '8'
+      AXIA_P0_SIM_ONLY: '1'
+      AXIA_D07_STUDENT_LIVE_EVIDENCE: results/d07-h01-student-l2
+      QT_QPA_PLATFORM: xcb
+      QT_X11_NO_MITSHM: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install only missing Xvfb and RViz2 frontend packages
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u; source /opt/ros/jazzy/setup.bash; set -u
+          missing=()
+          command -v Xvfb >/dev/null || missing+=(xvfb)
+          command -v xwininfo >/dev/null || missing+=(x11-utils)
+          command -v rviz2 >/dev/null || missing+=(ros-jazzy-rviz2)
+          if (( ${#missing[@]} )); then
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${missing[@]}"
+          fi
+          for x in Xvfb xwininfo rviz2 gz ros2 colcon; do command -v "$x" >/dev/null; done
+      - name: Same PUBLIC student launcher real Gazebo and RViz, physical obstacle 3 phases
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          export DISPLAY=:99
+          BASE=results/d07-h01-student-l2
+          mkdir -p "$BASE"
+          Xvfb :99 -screen 0 1600x900x24 -nolisten tcp > "$BASE/xvfb.log" 2>&1 &
+          XVPID=$!
+          trap 'kill "$XVPID" 2>/dev/null || true' EXIT
+          sleep 2
+          set +e
+          timeout --signal=TERM --kill-after=12s 900s \
+            bash block_B/day07/run_d07_h01_gazebo_rviz_student_once.sh --run \
+            > "$BASE/live_stdout.log" 2>&1 &
+          PID=$!
+          RVIZ=0; GAZEBO=0
+          for i in $(seq 1 390); do
+            windows="$(xwininfo -root -tree 2>/dev/null || true)"
+            grep -Eiq 'RViz' <<<"$windows" && RVIZ=1
+            grep -Eiq 'Gazebo' <<<"$windows" && GAZEBO=1
+            [[ "$RVIZ" == 1 && "$GAZEBO" == 1 ]] && break
+            kill -0 "$PID" 2>/dev/null || break
+            sleep 2
+          done
+          wait "$PID"; RC=$?
+          set -e
+          if [[ "$RC" != 0 || "$RVIZ" != 1 || "$GAZEBO" != 1 ]]; then
+            echo "D07_H01_STUDENT_PHYSICAL_L2_BLOCKED rc=$RC rviz=$RVIZ gazebo=$GAZEBO"
+            tail -n 125 "$BASE/live_stdout.log" || true
+            find "$BASE" -type f -name '*.log' -print | head -n 12
+            exit 3
+          fi
+          grep -Fq 'D07_H01_GUI_H01_GEOMETRY_RETURNED_NO_GOAL' "$BASE/live_stdout.log"
+          grep -Fq 'P2_L2_SMOKE_RC=0' "$BASE/live_stdout.log"
+          grep -Fq 'D07_H01_STUDENT_GAZEBO_RVIZ_L2_PASS' "$BASE/live_stdout.log"
+          # The outer CI stdout file is still open during the wrapper hash.
+          # Verify every CLOSED raw sensor/Nav2/Gazebo/GUI file, not that file.
+          (
+            cd "$BASE"
+            test -s SHA256SUMS
+            # Match the WHOLE relative path: student_live_stdout.log is
+            # closed, valid evidence and MUST stay covered.
+            if awk '$2 == "./live_stdout.log" {hit=1} END {exit !hit}' SHA256SUMS; then
+              echo D07_H01_ACTIVE_CI_LOG_IN_SHA_MANIFEST_DENIED
+              exit 3
+            fi
+            sha256sum -c SHA256SUMS
+          )
+          echo D07_H01_STUDENT_CLOSED_EVIDENCE_SHA256_PASS
+          grep -Fq 'D07_H01_GUI_SERVER_WORLD_DISCOVERED_NOT_GUI_RENDER_PROOF' \
+            "$BASE"/evidence/d07_gui_watcher.log
+          python3 - "$BASE/evidence/d07_h01_geometry/phase_evidence.jsonl" \
+                     "$BASE/evidence/d07_h01_geometry/d07_h01_geometry.json" <<'PY_VERIFY'
+          import json,sys
+          from pathlib import Path
+          phases=[json.loads(s) for s in Path(sys.argv[1]).read_text().splitlines() if s.strip()]
+          g=json.loads(Path(sys.argv[2]).read_text())
+          assert g["goal_sent"] is False and g["real_nav2"] is True
+          assert g["real_laser_scan"] is True
+          assert g["actual_costmap_obstacle_observed"] is True
+          assert g["obstacle_restored_away"] is True
+          assert g["certified_estop"] is False
+          assert {r.get("stage") for r in phases} >= {"before","intrusion","restored"}
+          print("D07_H01_STUDENT_REAL_PHYSICAL_SCAN_COSTMAP_PATH_3_PHASES_PASS")
+          PY_VERIFY
+          echo 'D07_H01_STUDENT_REAL_GAZEBO_RVIZ_XVFB_L2_PASS_NO_GOAL'
+          echo 'D07_H01_STUDENT_WSLG_GPU_L3_NOT_RUN'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: d07-h01-student-real-physical-gazebo-rviz-evidence
+          path: results/d07-h01-student-l2/
+          retention-days: 14
+          if-no-files-found: warn
