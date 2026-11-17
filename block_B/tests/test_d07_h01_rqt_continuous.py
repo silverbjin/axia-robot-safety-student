@@ -93,6 +93,34 @@ class D07H01RqtContinuous(unittest.TestCase):
                         cleanup.index('kill "$XVPID"'))
         self.assertIn('student_live_stdout.log',w)
 
+    def test_ctrl_c_shutdown_does_not_shutdown_an_already_shutdown_ros_context(self):
+        # Owner WSL2 L3 2026-11-17 first teardown fault:
+        # RCLError: rcl_shutdown already called on the given context.
+        # Verify the shutdown boundary without running real ROS in L0.
+        sys.path.insert(0,str(RUNTIME/"tools"))
+        spec=importlib.util.spec_from_file_location("teaching_loop_sigint",TOOL)
+        mod=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        class Stub:
+            def __init__(self,alive):
+                self.alive=alive
+                self.count=0
+            def ok(self): return self.alive
+            def shutdown(self):
+                if not self.alive: raise RuntimeError("rcl_shutdown already called")
+                self.alive=False
+                self.count+=1
+        already_dead=Stub(False)
+        self.assertFalse(mod.shutdown_rclpy_once(already_dead))
+        self.assertEqual(already_dead.count,0)
+        alive=Stub(True)
+        self.assertTrue(mod.shutdown_rclpy_once(alive))
+        self.assertEqual(alive.count,1)
+        self.assertFalse(mod.shutdown_rclpy_once(alive))
+        self.assertEqual(alive.count,1)
+        source=TOOL.read_text()
+        self.assertIn("shutdown_rclpy_once(rclpy)",source)
+
     def test_open_xvfb_log_is_not_hashed_while_display_is_alive(self):
         # ZIP rehash of actual L2 #44067733098: closed 61/61 raw files
         # matched, but OUTER Xvfb.log changed after wrapper SHA256SUMS.
