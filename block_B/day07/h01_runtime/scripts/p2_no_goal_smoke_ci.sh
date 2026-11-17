@@ -85,6 +85,16 @@ cleanup() {
      launch_grace_steps=$((G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2))
      echo 'G07_CI_MANAGED_LAUNCH_EXIT_26S Nav2_ACK_REQUIRED'
    fi
+   # Actual student H01 rqt loop L2 #44063399501: all 4 Gazebo physical
+   # stages and official Nav2 Path succeeded, but GUI+Nav2 teardown took
+   # >10s. Reuse the pre-existing 26s managed exit budget ONLY for this
+   # no-moving-Goal classroom run, including Ctrl+C. This is a PROCESS
+   # shutdown grace, NOT an extension of CM 150ms or Scan 300ms safety TTL.
+   if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
+      && "${AXIA_D07_H01_TEACHING_LOOP:-0}" == 1 ]]; then
+     launch_grace_steps=$((G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2))
+     echo 'D07_H01_TEACHING_MANAGED_LAUNCH_EXIT_26S_NO_GOAL'
+   fi
    for ((i=0;i<launch_grace_steps;i++)); do launch_active || break; sleep .4; done
    if launch_active; then
      ps -eo pid,pgid,stat,args | awk -v pgid="$LAUNCH_PID" 'NR==1 || $2==pgid' \
@@ -596,6 +606,45 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   }
   tail -n 100 "$OUT/d07_h01_geometry.log"
   echo 'D07_H01_GUI_H01_GEOMETRY_RETURNED_NO_GOAL'
+  # New classroom mode starts ONLY AFTER unchanged real 3-phase H01 L2
+  # evidence passes. It owns no motor authority and retains official Nav2.
+  # Original finite L2 remains the default for any non-teaching runner.
+  if [[ "${AXIA_D07_H01_TEACHING_LOOP:-0}" == 1 ]]; then
+    [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
+       && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0 ]] || {
+      echo D07_H01_TEACHING_MOVING_GOAL_SCOPE_DENIED >&2; exit 3;
+    }
+    max_cycles="${AXIA_D07_H01_TEACHING_MAX_CYCLES:-0}"
+    [[ "$max_cycles" == 0 || ( "$max_cycles" == 1
+       && "${GITHUB_ACTIONS:-}" == true ) ]] || {
+      echo D07_H01_TEACHING_MAX_CYCLES_SCOPE_DENIED >&2; exit 3;
+    }
+    # WSL2: intentionally NO timeout, Ctrl+C ends the session through
+    # this shell's existing owned-process cleanup and native Nav2 shutdown.
+    # CI: precisely ONE real physical 4-position cycle, then bounded exit.
+    if [[ "$max_cycles" == 1 ]]; then
+      timeout --signal=TERM --kill-after=10s 240s \
+        python3 tools/d07_h01_teaching_loop.py \
+          --evidence "$OUT/d07_h01_geometry" \
+          --source-sha "$PRIVATE_SHA" \
+          --hold-s "$AXIA_D07_GUI_HOLD_S" --max-cycles 1 \
+        > "$OUT/d07_h01_teaching_loop.log" 2>&1 || {
+          tail -n 65 "$OUT/d07_h01_teaching_loop.log" >&2
+          echo D07_H01_TEACHING_REAL_CYCLE_BLOCKED >&2;exit 3;
+        }
+    else
+      python3 tools/d07_h01_teaching_loop.py \
+        --evidence "$OUT/d07_h01_geometry" \
+        --source-sha "$PRIVATE_SHA" \
+        --hold-s "$AXIA_D07_GUI_HOLD_S" \
+        > "$OUT/d07_h01_teaching_loop.log" 2>&1 || {
+          tail -n 65 "$OUT/d07_h01_teaching_loop.log" >&2
+          echo D07_H01_TEACHING_REAL_CYCLE_BLOCKED >&2;exit 3;
+        }
+    fi
+    tail -n 14 "$OUT/d07_h01_teaching_loop.log"
+    echo 'D07_H01_TEACHING_LOOP_FINISHED_NO_MOVING_GOAL'
+  fi
   exit 0
 fi
 
