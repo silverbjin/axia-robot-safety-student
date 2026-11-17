@@ -20,7 +20,7 @@ case "$MODE" in
   *) echo D07_STUDENT_USAGE=--self-check\|--doctor\|--run >&2; exit 2 ;;
 esac
 
-for tool in bash git python3 timeout sha256sum mktemp ros2; do
+for tool in bash git python3 timeout sha256sum mktemp; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "D07_STUDENT_MISSING_COMMAND=$tool NO_GOAL" >&2
     exit 2
@@ -35,6 +35,9 @@ source /opt/ros/jazzy/setup.bash
 set -u
 [[ "${ROS_DISTRO:-}" == jazzy ]] || {
   echo D07_STUDENT_WRONG_ROS_DISTRO_NO_GOAL >&2; exit 2;
+}
+command -v ros2 >/dev/null 2>&1 || {
+  echo D07_STUDENT_ROS_CLI_MISSING_AFTER_SOURCE_NO_GOAL >&2; exit 2;
 }
 for package in nav2_planner nav2_navfn_planner nav2_costmap_2d nav2_msgs tf2_ros; do
   ros2 pkg prefix "$package" >/dev/null 2>&1 || {
