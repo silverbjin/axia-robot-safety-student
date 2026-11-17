@@ -27,6 +27,14 @@ export AXIA_D05_LIVE=1
 export AXIA_D05_SENSOR_ONLY=1
 export AXIA_D04_STUDENT_RVIZ=1
 export AXIA_D04_STUDENT_RVIZ_CONFIG="$RVIZ"
+export AXIA_D08_STAGED_GUI=1
+# Same D07-H01 staged GUI pattern. Xvfb CI uses software-only,
+# actual WSLg uses a scoped D3D12/NVIDIA GUI child (no global GPU settings).
+if [[ "${GITHUB_ACTIONS:-false}" == true ]]; then
+  export AXIA_D08_GUI_BACKEND="${AXIA_D08_GUI_BACKEND:-software}"
+else
+  export AXIA_D08_GUI_BACKEND="${AXIA_D08_GUI_BACKEND:-d3d12}"
+fi
 export AXIA_D04_STUDENT_GUI=1
 export AXIA_D04_STUDENT_DOMAIN_ID="${AXIA_D08_DOMAIN_ID:-49}"
 export AXIA_D04_STUDENT_GUI_HOLD_S="${AXIA_D08_HOLD_S:-300}"
