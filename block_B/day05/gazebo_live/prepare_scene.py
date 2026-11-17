@@ -30,6 +30,38 @@ PATH = [(0, 2.8), (5, 2.0), (10, 2.8)]
 CAMERA_UP_PITCH_RAD = -0.18
 
 
+
+def ensure_scene_broadcaster_visible(root: ET.Element) -> None:
+    """D07-H01 verified fix, scoped to this generated D05 world only.
+
+    The official Nav2 world wraps SceneBroadcaster in xacro:unless(headless).
+    GUI window presence and RGB-D camera sensor frames DO NOT prove that
+    the GUI received a Scene graph. Unwrap precisely one known broadcaster,
+    never mutate upstream installed world or robot physics/sensors.
+    """
+    world = root.find("world")
+    if world is None or world.get("name") != "default":
+        raise ValueError("D08_SCENE_WORLD_NOT_DEFAULT")
+    scene_name = "gz::sim::systems::SceneBroadcaster"
+    plugin_file = "gz-sim-scene-broadcaster-system"
+    ns = "{http://www.ros.org/wiki/xacro}"
+    wrapped = [
+        el for el in world.findall(ns + "unless")
+        if el.get("value") == "$(arg headless)"
+    ]
+    scenes = [p for p in world.iter("plugin") if p.get("name") == scene_name]
+    if len(scenes) != 1 or scenes[0].get("filename") != plugin_file:
+        raise ValueError("D08_SCENE_BROADCASTER_DUPLICATE_OR_MISSING")
+    if len(wrapped) != 1 or list(wrapped[0]) != scenes:
+        raise ValueError("D08_SCENE_BROADCASTER_NOT_EXACT_HEADLESS_WRAPPER")
+    old = wrapped[0]
+    idx = list(world).index(old)
+    world.remove(old)
+    world.insert(idx, scenes[0])
+    if sum(p.get("name") == scene_name for p in world.findall("plugin")) != 1:
+        raise ValueError("D08_SCENE_BROADCASTER_NOT_UNCONDITIONAL")
+
+
 def compose(waffle: Path, pi: Path, world: Path, actor: Path,
             model: Path, out: Path) -> dict:
     """Produce D05 demo variant only, with original D04 composition as baseline."""
@@ -68,6 +100,7 @@ def compose(waffle: Path, pi: Path, world: Path, actor: Path,
     bot.write(bot_path, encoding="unicode", xml_declaration=True)
 
     world_tree = ET.parse(world_path)
+    ensure_scene_broadcaster_visible(world_tree.getroot())
     waypoints = world_tree.findall(
         ".//actor[@name='axia_student_person']/script/trajectory/waypoint")
     if len(waypoints) != 4:
@@ -100,6 +133,8 @@ def compose(waffle: Path, pi: Path, world: Path, actor: Path,
         "optical_frame": FRAME,
         "actor_trajectory_x": [x for _, x in PATH],
         "camera_pitch_rad": CAMERA_UP_PITCH_RAD,
+        "scene_broadcaster_unconditional": True,
+        "scene_gui_pixels_verified": False,
         "d05_sensor_actual_execution": False,
         "d05_distance_actual_execution": False,
         "goal_sent": False,
