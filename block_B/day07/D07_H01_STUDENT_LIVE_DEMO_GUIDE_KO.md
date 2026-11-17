@@ -14,7 +14,7 @@ sudo apt-get install -y --no-install-recommends \
   git python3-colcon-common-extensions \
   ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
   ros-jazzy-nav2-minimal-tb3-sim ros-jazzy-ros-gz \
-  ros-jazzy-rviz2 ros-jazzy-xacro
+  ros-jazzy-rviz2 ros-jazzy-rqt-graph ros-jazzy-xacro
 ```
 
 **터미널 A — 학생 공개 `main`의 라이브 원샷** (복사하여 실행):
