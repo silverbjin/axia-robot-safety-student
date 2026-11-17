@@ -69,6 +69,19 @@ ros2 topic echo /axia/d07/h01/path_visual --field header
 
 ---
 
+## 학생 L0/L1/L2/L3 증거 분리 계약
+
+훈련생 독립 실행의 **우선순위는 물리 H01 Gazebo/RViz**입니다. `ROS_DOMAIN_ID=95`는 동일한 학생 WSL2의 읽기 전용 터미널과 공유하되 서로 다른 PC에서 같은 토픽이 자동으로 발견된다고 가정하지 않습니다.
+
+| 구분 | 실제 실행 | 합격 또는 미검증 범위 |
+|---|---|---|
+| L0 | 학생 TODO 테스트 | 실제 Gazebo/ROS 미실행 |
+| L1 | 공식 Nav2, **합성** LaserScan | `D07_STUDENT_NAV2_L1_REAL_PASS`는 *Gazebo 물리 시연 성공이 아님* |
+| L2 | **훈련생 독립 실행**, 실제 Gazebo Harmonic·Waffle·LaserScan·공식 Nav2 경로·RViz2 | `goal_sent=false`, 세 단계 실측과 창을 같은 세션에서 검증 |
+| L3 | 학생 WSL2/WSLg 화면 육안 인수 | 공개 CI의 Xvfb 렌더러와 다름. `VISUAL_HOLD` 상태로 남겨 학생 자신의 실제 화면을 확인 |
+
+H01의 `ComputePathToPose`는 경로 *계산*일 뿐 `NavigateToPose`는 보내지 않습니다. 학생 시연은 정지한 Waffle의 물리 장애물 이동·경로 재계획만 확인하며 실제 주행/충돌회피를 인수하지 않습니다. 안전 스캔 TTL·Supervisor·Collision Monitor·Guard의 통합 증거가 없으면 `AXIA_MVP_DEMO_ACCEPTED=HOLD`를 유지합니다.
+
 ## B. 대체 수업 — Gazebo가 없는 PC의 공식 Nav2 L1
 
 이 부분은 **실제 Gazebo/RViz2 H01을 대체하여 동등한 성공이라고 보고하는 시연이 아닙니다.** 수업 장비의 Gazebo·WSLg가 준비되지 않은 경우에만, 공식 ROS 2 Jazzy Nav2 PlannerServer와 Costmap을 실제 실행하고 **합성 LaserScan**으로 경로 재계획 알고리즘을 설명합니다.
