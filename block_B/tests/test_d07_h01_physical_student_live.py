@@ -119,7 +119,8 @@ class StudentPhysicalH01(unittest.TestCase):
         self.assertIn("! -name live_stdout.log", wrapper)
         self.assertIn("sha256sum -c SHA256SUMS", workflow)
         self.assertNotIn("grep -Fq 'live_stdout.log' SHA256SUMS",workflow)
-        self.assertIn("grep -Eq '[[:space:]]+\\./live_stdout\\.log
+        self.assertIn('awk \'$2 == "./live_stdout.log"', workflow)
+        self.assertNotIn("! -name student_live_stdout.log", wrapper)
 
     def test_guide_explains_same_actual_gazebo_rviz_and_holds(self):
         s=GUIDE.read_text()
