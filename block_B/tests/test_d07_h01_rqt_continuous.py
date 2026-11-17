@@ -59,8 +59,8 @@ class D07H01RqtContinuous(unittest.TestCase):
         # G07_MANAGED_LAUNCH_EXIT_GRACE_SEC=26 already exists; reuse it ONLY
         # in the H01 no-moving-Goal classroom lane, never change CM/Scan TTL.
         src=SMOKE.read_text()
-        start=src.index("    local launch_grace_steps=25")
-        end=src.index("    for ((i=0;i<launch_grace_steps;i++));",start)
+        start=src.index("   local launch_grace_steps=25")
+        end=src.index("   for ((i=0;i<launch_grace_steps;i++));",start)
         teardown=src[start:end]
         self.assertIn('AXIA_D07_H01_TEACHING_LOOP',teardown)
         self.assertIn('G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2',teardown)
