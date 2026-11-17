@@ -93,6 +93,18 @@ class D07H01RqtContinuous(unittest.TestCase):
                         cleanup.index('kill "$XVPID"'))
         self.assertIn('student_live_stdout.log',w)
 
+    def test_open_xvfb_log_is_not_hashed_while_display_is_alive(self):
+        # ZIP rehash of actual L2 #44067733098: closed 61/61 raw files
+        # matched, but OUTER Xvfb.log changed after wrapper SHA256SUMS.
+        # Only CI-owned still-open logs are exempt, not native evidence.
+        w=WRAPPER.read_text()
+        ci=CI.read_text()
+        self.assertIn('! -name xvfb.log',w)
+        self.assertIn('D07_H01_OPEN_XVFB_GUI_LOG_IN_SHA_MANIFEST_DENIED',ci)
+        self.assertIn('sha256sum -c SHA256SUMS',ci)
+        self.assertIn('! -name rqt_graph.log',w)
+        self.assertIn('student_live_stdout.log',w)
+
     def test_public_ci_runs_actual_rqt_window_and_one_bounded_loop(self):
         w=CI.read_text()
         for expected in ("ros-jazzy-rqt-graph",
