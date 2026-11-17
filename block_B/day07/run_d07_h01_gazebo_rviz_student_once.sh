@@ -163,8 +163,12 @@ print("D07_H01_STUDENT_PHYSICAL_SCAN_COSTMAP_PATH_RVIZ_PHASES_PASS")
 PY
 # Exclude only the OUTER CI redirect stdout: the parent shell is still
 # appending to live_stdout.log while this child generates its manifest.
+# rqt_graph.log and xvfb.log are OUTER CI-owned live GUI/display logs.
+# Their writers close during CI cleanup AFTER this wrapper's manifest.
+# Preserve their raw bytes for troubleshooting without prematurely claiming
+# immutable SHA custody. Native closed Gazebo/Nav2 evidence remains covered.
 # All CLOSED native Gazebo/Nav2/scene/raw ROS files remain SHA256-covered.
-( cd "$OUT" && find . -type f ! -name SHA256SUMS ! -name live_stdout.log -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS )
+( cd "$OUT" && find . -type f ! -name SHA256SUMS ! -name live_stdout.log ! -name rqt_graph.log ! -name xvfb.log -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS )
 echo "D07_H01_STUDENT_GAZEBO_RVIZ_L2_PASS NO_GOAL NO_CMD_VEL SOURCE_PINNED"
 echo 'D07_H01_STUDENT_WSLG_PIXELS_USER_OBSERVATION_REQUIRED'
 echo 'AXIA_MVP_DEMO_ACCEPTED=HOLD'

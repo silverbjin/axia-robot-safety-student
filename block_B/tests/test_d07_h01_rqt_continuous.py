@@ -78,6 +78,33 @@ class D07H01RqtContinuous(unittest.TestCase):
             self.assertIn(required,doc,required)
         self.assertIn("ros-jazzy-rqt-graph",doc)
 
+    def test_rqt_live_log_is_not_hashed_before_ci_gui_closes(self):
+        # Actual merged student main L2 #44066252082 was SUCCESS with native
+        # sensors/Path/62+ original hashes, but zip rqt_graph.log changed after
+        # wrapper manifest: Xvfb exited while rqt GUI process was still alive.
+        w=WRAPPER.read_text()
+        ci=CI.read_text()
+        self.assertIn('! -name rqt_graph.log',w)
+        self.assertIn('setsid bash -c',ci)
+        self.assertIn('kill -INT -- "-$RQT_PID"',ci)
+        self.assertIn('wait "$RQT_PID"',ci)
+        cleanup=ci[ci.index('cleanup_gui() {'):ci.index("trap cleanup_gui EXIT")]
+        self.assertLess(cleanup.index('kill -INT -- "-$RQT_PID"'),
+                        cleanup.index('kill "$XVPID"'))
+        self.assertIn('student_live_stdout.log',w)
+
+    def test_open_xvfb_log_is_not_hashed_while_display_is_alive(self):
+        # ZIP rehash of actual L2 #44067733098: closed 61/61 raw files
+        # matched, but OUTER Xvfb.log changed after wrapper SHA256SUMS.
+        # Only CI-owned still-open logs are exempt, not native evidence.
+        w=WRAPPER.read_text()
+        ci=CI.read_text()
+        self.assertIn('! -name xvfb.log',w)
+        self.assertIn('D07_H01_OPEN_XVFB_GUI_LOG_IN_SHA_MANIFEST_DENIED',ci)
+        self.assertIn('sha256sum -c SHA256SUMS',ci)
+        self.assertIn('! -name rqt_graph.log',w)
+        self.assertIn('student_live_stdout.log',w)
+
     def test_public_ci_runs_actual_rqt_window_and_one_bounded_loop(self):
         w=CI.read_text()
         for expected in ("ros-jazzy-rqt-graph",
