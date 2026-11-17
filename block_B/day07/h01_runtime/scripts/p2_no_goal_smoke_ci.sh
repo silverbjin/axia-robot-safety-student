@@ -671,6 +671,31 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 ]]; then
     exit 2
   fi
   echo 'AXIA_G07_CI_REAL_CM_STOP_ZERO_WINDOW_5S_GUARD_TTL_150MS_UNCHANGED'
+  # Task02 sim-only: active official CM must read back the only changed
+  # transform lookup wait, with Advanced base-shift and timeout unchanged.
+  if [[ "${AXIA_G07_TASK02_TF_WAIT_CANDIDATE:-0}" == 1 ]]; then
+    TF_READBACK="$(timeout 12s ros2 param get /collision_monitor transform_tolerance)" || {
+      echo 'AXIA_G07_TASK02_ACTIVE_CM_TF_PARAM_MISSING_NO_GOAL' >&2;exit 2;
+    }
+    TF_SHIFT="$(timeout 12s ros2 param get /collision_monitor base_shift_correction)" || {
+      echo 'AXIA_G07_TASK02_ACTIVE_CM_SHIFT_MISSING_NO_GOAL' >&2;exit 2;
+    }
+    TF_SOURCE="$(timeout 12s ros2 param get /collision_monitor source_timeout)" || {
+      echo 'AXIA_G07_TASK02_ACTIVE_CM_SOURCE_TIMEOUT_MISSING_NO_GOAL' >&2;exit 2;
+    }
+    if ! python3 - "$TF_READBACK" "$TF_SHIFT" "$TF_SOURCE" <<'PY'
+import sys
+tf,shift,source=(x.strip() for x in sys.argv[1:])
+assert tf.startswith('Double value') and abs(float(tf.rsplit(':',1)[-1])-0.02)<1e-9
+assert shift.startswith('Boolean value') and shift.rsplit(':',1)[-1].strip().lower()=='true'
+assert source.startswith('Double value') and abs(float(source.rsplit(':',1)[-1])-1.0)<1e-9
+PY
+    then
+      echo 'AXIA_G07_TASK02_ACTIVE_CM_TF_SAFETY_READBACK_MISMATCH_NO_GOAL' >&2
+      exit 2
+    fi
+    echo 'AXIA_G07_TASK02_CM_TF_WAIT_ACTUAL_READBACK_PASS 0.02S BASE_SHIFT_TRUE SOURCE_TIMEOUT_1S GUARD_TTL_150MS_UNCHANGED'
+  fi
   echo 'AXIA_G07_CI_MOVING_GOAL_PREG0AL_NATIVE_FIXTURE_BEGIN'
   timeout --signal=TERM --kill-after=5s 70s \
     python3 tools/p2_g07_owner_pregoal_l2.py --output "$OUT/g07_ci_pregoal" \
