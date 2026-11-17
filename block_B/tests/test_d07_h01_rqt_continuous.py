@@ -1,0 +1,77 @@
+"""RED→GREEN: student H01 rqt_graph classroom loop, no robot Goal.
+
+No ROS required in L0. Tests actual packaged source contracts and the pure
+four-stage placement policy; public Gazebo L2 verifies real messages separately.
+"""
+from pathlib import Path
+import importlib.util
+import subprocess
+import unittest
+
+ROOT=Path(__file__).resolve().parents[2]
+BASE=ROOT/"block_B/day07"
+RUNTIME=BASE/"h01_runtime"
+TOOL=RUNTIME/"tools/d07_h01_teaching_loop.py"
+WRAPPER=BASE/"run_d07_h01_gazebo_rviz_student_once.sh"
+SMOKE=RUNTIME/"scripts/p2_no_goal_smoke_ci.sh"
+GUIDE=BASE/"D07_H01_STUDENT_LIVE_DEMO_GUIDE_KO.md"
+CI=ROOT/".github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml"
+
+
+class D07H01RqtContinuous(unittest.TestCase):
+    def test_loop_exact_world_positions_and_stationary_scope(self):
+        spec=importlib.util.spec_from_file_location("teaching_loop",TOOL)
+        mod=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        p=mod.teaching_positions((-1.85,.15),(-1.1,.0))
+        self.assertEqual([x[0] for x in p],["free","intrusion","lateral","restored"])
+        self.assertEqual(p[0][1:],(-1.1,.0))
+        self.assertEqual(p[1][1:],(-1.85,.15))
+        self.assertEqual(p[-1][1:],(-1.1,.0))
+        self.assertNotEqual(p[1][1:],p[2][1:])
+        with self.assertRaises(ValueError):mod.teaching_positions((-3.7,2.0),(-1.1,0))
+        with self.assertRaises(ValueError):mod.teaching_positions((-1.85,.15),(5.0,0))
+        self.assertFalse(hasattr(mod,"send_navigate_to_pose"))
+
+    def test_cli_exposes_bounded_ci_cycle_but_unbounded_local_ctrl_c(self):
+        t=TOOL.read_text()
+        s=SMOKE.read_text()
+        w=WRAPPER.read_text()
+        self.assertIn("D07_H01_TEACHING_CYCLE",t)
+        self.assertIn("D07_H01_TEACHING_CTRL_C_STOP",t)
+        self.assertIn("signal.SIGINT",t)
+        self.assertIn("ComputePathToPose",t)
+        self.assertIn("D07_H01_TEACHING_MAX_CYCLES",s)
+        self.assertIn("AXIA_D07_H01_TEACHING_LOOP",w)
+        self.assertIn("GITHUB_ACTIONS",t)
+        self.assertIn("AXIA_G07_CI_SIM_GOAL_ALLOWED=0",w)
+        self.assertNotIn("NavigateToPose.Goal(",t)
+        self.assertNotIn("create_publisher(Twist",t)
+        for script in (WRAPPER,SMOKE):
+            p=subprocess.run(["bash","-n",str(script)],capture_output=True,text=True)
+            self.assertEqual(p.returncode,0,p.stderr)
+
+    def test_three_rqt_graph_filter_layers_are_explained_and_readonly(self):
+        doc=GUIDE.read_text()
+        for required in ("rqt_graph","인지·계획","네비게이션·제어",
+                         "안전·물리 증거","Nodes/Topics (all)","/scan",
+                         "/global_costmap/costmap","/axia/d07/h01/path_visual",
+                         "/cmd_vel_supervised","/cmd_vel_pre_guard",
+                         "/axia/p2/base_guard","/odom","/clock",
+                         "Ctrl+C","토픽 필터","노드 필터","GZ_PARTITION",
+                         "gazebo","ROS_DOMAIN_ID=95","NO_GOAL"):
+            self.assertIn(required,doc,required)
+        self.assertIn("ros-jazzy-rqt-graph",doc)
+
+    def test_public_ci_runs_actual_rqt_window_and_one_bounded_loop(self):
+        w=CI.read_text()
+        for expected in ("ros-jazzy-rqt-graph",
+                         "AXIA_D07_H01_TEACHING_LOOP",
+                         "AXIA_D07_H01_TEACHING_MAX_CYCLES",
+                         "D07_H01_TEACHING_CYCLE",
+                         "rqt_graph","D07_H01_STUDENT_REAL_GAZEBO_RVIZ_XVFB_L2_PASS_NO_GOAL"):
+            self.assertIn(expected,w,expected)
+
+
+if __name__=="__main__":
+    unittest.main()
