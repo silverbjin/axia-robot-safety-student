@@ -83,6 +83,27 @@ jobs:
               fi
               if ! kill -0 "$PID" 2>/dev/null; then break; fi
             done
+            # Probe same running Gazebo server/partition WHILE GUI is alive.
+            # A 3D window PID is not evidence of Gazebo scene propagation.
+            set +u
+            source /opt/ros/jazzy/setup.bash
+            set -u
+            PARTITION="$(sed -n 's/.*GZ_PARTITION=\\([^ ]*\\).*/\\1/p' "$LOG" | tail -n 1)"
+            if [[ -z "$PARTITION" ]]; then
+              echo "D08_GZ_SCENE_PARTITION_NOT_FOUND"; exit 1
+            fi
+            PROBE="$RUNNER_TEMP/d08-scene-topics.txt"
+            for attempt in 1 2 3 4 5; do
+              GZ_PARTITION="$PARTITION" timeout 12 gz topic -l > "$PROBE" 2>&1 || true
+              if grep -Fxq "/world/default/pose/info" "$PROBE"; then
+                echo D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS | tee -a "$LOG"
+                break
+              fi
+              sleep 2
+            done
+            grep -Fxq "/world/default/pose/info" "$PROBE" || {
+              echo "D08_GZ_SCENE_POSE_INFO_MISSING"; cat "$PROBE"; exit 1;
+            }
             xwininfo -root -tree > "$WINDOWS" 2>&1 || true
             wait "$PID"
             if [[ "$found" != 1 ]]; then
@@ -105,10 +126,20 @@ jobs:
             exit 1
           fi
           grep -F 'D08_STUDENT_LIVE_LAUNCH_REQUESTED' "$LOG"
+          grep -F 'D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS' "$LOG"
+          grep -F 'D08_RVIZ_OFFICIAL_MESH_VIEW_READY' "$LOG"
           grep -F 'D08_STUDENT_RELEASE_SOURCE_SHA=' "$LOG"
           grep -F 'D08_STUDENT_RVIZ_CONFIG=' "$LOG"
           if grep -Eiq 'rviz' "$WINDOWS"; then
             echo 'D08_RVIZ2_ACTUAL_X11_WINDOW_PASS'
+          EVIDENCE="$(sed -n 's/^D04_STUDENT_EVIDENCE=//p' "$LOG" | tail -n 1)"
+          if [[ -z "$EVIDENCE" || ! -f "$EVIDENCE/rviz2.log" ]]; then
+            echo D08_RVIZ_LOG_MISSING; exit 1
+          fi
+          if grep -E 'Could not load resource .*nav2_minimal_tb3_sim/models/' "$EVIDENCE/rviz2.log"; then
+            echo D08_RVIZ_UNRESOLVED_OFFICIAL_MESHES; exit 1
+          fi
+          echo D08_RVIZ_MESH_RESOURCE_ERRORS_NONE_PASS
           else
             echo 'D08_RVIZ2_X11_WINDOW_NOT_CONFIRMED'
             tail -n 120 "$WINDOWS" || true
