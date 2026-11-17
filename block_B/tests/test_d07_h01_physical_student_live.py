@@ -84,6 +84,17 @@ class StudentPhysicalH01(unittest.TestCase):
             if p.is_file():
                 self.assertNotIn("BEGIN OPENSSH PRIVATE KEY",p.read_text(errors="replace"))
 
+    def test_actual_l2_stage_ledger_schema_regression(self):
+        # Real public Gazebo L2 #44040221819: all 3 physical stages passed,
+        # but student wrapper misread the original 'stage' key as 'phase'.
+        # Keep original instructor evidence format unchanged.
+        source=ENTRY.read_text(encoding="utf-8")
+        workflow=(ROOT/".github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml").read_text()
+        self.assertIn('r.get("stage")',source)
+        self.assertIn('r.get("stage")',workflow)
+        self.assertNotIn('r.get("phase")',source)
+        self.assertNotIn('r.get("phase")',workflow)
+
     def test_guide_explains_same_actual_gazebo_rviz_and_holds(self):
         s=GUIDE.read_text()
         for x in ("Gazebo Harmonic", "RViz2", "실제 Waffle",
