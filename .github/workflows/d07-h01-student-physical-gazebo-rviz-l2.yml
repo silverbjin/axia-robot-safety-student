@@ -157,6 +157,12 @@ jobs:
               echo D07_H01_OPEN_RQT_GUI_LOG_IN_SHA_MANIFEST_DENIED
               exit 3
             fi
+            # Xvfb is still writing its outer debug log until EXIT cleanup.
+            # Fail closed if a future wrapper accidentally hashes it early.
+            if awk '$2 == "./xvfb.log" {hit=1} END {exit !hit}' SHA256SUMS; then
+              echo D07_H01_OPEN_XVFB_GUI_LOG_IN_SHA_MANIFEST_DENIED
+              exit 3
+            fi
             sha256sum -c SHA256SUMS
           )
           echo D07_H01_STUDENT_CLOSED_EVIDENCE_SHA256_PASS
