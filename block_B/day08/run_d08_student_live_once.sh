@@ -54,6 +54,28 @@ if [[ "$MODE" == --doctor ]]; then
   exec bash "$SOURCE" --doctor
 fi
 
+# Real WSL2 RViz logs show the installed Jazzy /robot_description has
+# upstream package://.../models/*.dae missing-path references (Nav2 issue #19).
+# Generate a PRIVATE read-only RViz file + official URDF mesh-path overlay.
+# Do not modify official URDF, Gazebo SDF, ROS robot_state_publisher or TF.
+MODEL_TOOL="$HERE/live/prepare_rviz_mesh_view.py"
+[[ -r "$MODEL_TOOL" ]] || {
+  echo "D08_RVIZ_OFFICIAL_MESH_TOOL_MISSING" >&2; exit 2;
+}
+NAV_PREFIX="$(ros2 pkg prefix nav2_minimal_tb3_sim)" || {
+  echo "D08_RVIZ_OFFICIAL_NAV2_PACKAGE_MISSING" >&2; exit 2;
+}
+URDF="$NAV_PREFIX/share/nav2_minimal_tb3_sim/urdf/turtlebot3_waffle.urdf"
+MODEL_CACHE="$HOME/.cache/axia/d08/rviz"
+mkdir -p "$MODEL_CACHE"
+MODEL_DIR="$(mktemp -d "$MODEL_CACHE/waffle-XXXXXXXX")"
+python3 "$MODEL_TOOL" --prefix "$NAV_PREFIX" --urdf "$URDF" \
+  --rviz "$RVIZ" --out "$MODEL_DIR" || {
+  echo "D08_RVIZ_OFFICIAL_MESH_FIX_BLOCKED" >&2; exit 2;
+}
+export AXIA_D04_STUDENT_RVIZ_CONFIG="$MODEL_DIR/d08_render_view.rviz"
+echo "D08_RVIZ_OFFICIAL_MESH_VIEW_READY config=$AXIA_D04_STUDENT_RVIZ_CONFIG"
+
 echo "D08_STUDENT_LIVE_LAUNCH_REQUESTED: Gazebo + moving visual-only person + RGB-D + YOLO + RViz2"
 echo "D08_STUDENT_LIVE_READONLY: NO_GOAL NO_CMD_VEL NO_PRIVATE_D05_RANGE NO_SAFETY_TTL"
 echo "D08_STUDENT_RVIZ_CONFIG=$RVIZ"
