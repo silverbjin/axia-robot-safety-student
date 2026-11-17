@@ -109,8 +109,12 @@ jobs:
           done
           # rqt_graph is only an independent read-only ROS graph client; the
           # actual public student H01 retains the SAME Gazebo/Planner session.
+          # The rqt process still writes to its stdout while student runner
+          # creates SHA256SUMS. Keep it OUTSIDE the student's active evidence
+          # directory; copy it in only after rqt has fully closed.
+          RQTLOG="${RUNNER_TEMP:-/tmp}/d07_h01_rqt_graph_${GITHUB_RUN_ID}_$.log"
           timeout --signal=TERM --kill-after=3s 120s \
-            ros2 run rqt_graph rqt_graph > "$BASE/rqt_graph.log" 2>&1 &
+            ros2 run rqt_graph rqt_graph > "$RQTLOG" 2>&1 &
           RQTPID=$!
           RQT=0
           for i in $(seq 1 30); do
@@ -122,7 +126,47 @@ jobs:
           # Capture the genuine ROS graph while the same physical simulation
           # is live. Gazebo native /world topics are separate transport.
           timeout 12s ros2 topic list -t --no-daemon > "$BASE/real_ros_topics.txt"
-          timeout 12s ros2 node list --no-daemon > "$BASE/real_ros_nodes.txt"
+          # ros2 node list --no-daemon can be empty despite a real topic
+          # graph in this container/RMW. Require native rclpy ROS node names
+          # AND verified publisher/subscriber endpoints in the SAME session.
+          python3 - "$BASE/rqt_graph_actual_nodes.json" <<'PY_GRAPH'
+          import json,sys,time
+          from pathlib import Path
+          import rclpy
+          rclpy.init()
+          n=rclpy.create_node("axia_d07_h01_rqt_public_graph_probe")
+          required={"planner_server","collision_monitor",
+                    "axia_base_command_guard","ros_gz_bridge"}
+          evidence={}
+          try:
+              limit=time.monotonic()+25
+              while time.monotonic()<limit:
+                  rclpy.spin_once(n,timeout_sec=.3)
+                  nodes={name for name,namespace in n.get_node_names_and_namespaces()}
+                  endpoints={}
+                  for topic in ("/scan","/cmd_vel_supervised",
+                                "/axia/d07/h01/path_visual"):
+                      pubs=n.get_publishers_info_by_topic(topic)
+                      subs=n.get_subscriptions_info_by_topic(topic)
+                      endpoints[topic]={"publishers":[x.node_name for x in pubs],
+                                        "subscribers":[x.node_name for x in subs]}
+                  evidence={"nodes":sorted(nodes),"endpoints":endpoints,
+                            "source":"real_rclpy_graph_introspection",
+                            "goal_sent":False,"certified_estop":False}
+                  Path(sys.argv[1]).write_text(json.dumps(evidence,indent=2,
+                                                          sort_keys=True)+"\n")
+                  if (required<=nodes
+                          and all(v["publishers"] and v["subscribers"]
+                                  for v in endpoints.values())):
+                      print("D07_H01_RQT_NODE_ENDPOINT_GRAPH_REAL_PASS "
+                            "nodes="+str(len(nodes))+" edges=3 NO_GOAL")
+                      break
+              else:
+                  raise RuntimeError("D07_H01_RQT_REAL_NODE_EDGE_GRAPH_NOT_PROVEN")
+          finally:
+              n.destroy_node()
+              rclpy.shutdown()
+          PY_GRAPH
           grep -Fq '/scan ' "$BASE/real_ros_topics.txt"
           grep -Fq '/global_costmap/costmap ' "$BASE/real_ros_topics.txt"
           grep -Fq '/axia/d07/h01/path_visual ' "$BASE/real_ros_topics.txt"
@@ -131,6 +175,13 @@ jobs:
           [[ "$RQT" == 1 ]] || { echo D07_H01_RQT_GRAPH_GUI_WINDOW_ABSENT; exit 3; }
           echo D07_H01_RQT_GRAPH_XVFB_WINDOW_WITH_REAL_ROS_TOPICS_PASS
           wait "$PID"; RC=$?
+          # Close the read-only GUI before storing a verifiable, immutable
+          # rqt_graph console log. Preserve its bytes and SHA256 in artifact.
+          kill "$RQTPID" 2>/dev/null || true
+          wait "$RQTPID" 2>/dev/null || true
+          RQTPID=''
+          cp "$RQTLOG" "$BASE/rqt_graph_closed.log"
+          ( cd "$BASE"; sha256sum rqt_graph_closed.log >> SHA256SUMS )
           set -e
           if [[ "$RC" != 0 || "$RVIZ" != 1 || "$GAZEBO" != 1 ]]; then
             echo "D07_H01_STUDENT_PHYSICAL_L2_BLOCKED rc=$RC rviz=$RVIZ gazebo=$GAZEBO"
