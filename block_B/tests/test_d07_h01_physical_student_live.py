@@ -132,21 +132,3 @@ class StudentPhysicalH01(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
-",workflow)
-        self.assertIn("student_live_stdout.log", wrapper)
-        # Real #44043432203: broad grep 'live_stdout.log' falsely matches
-        # student_live_stdout.log even when ./live_stdout.log was excluded.
-        self.assertIn('awk \'$2 == "./live_stdout.log"\'', workflow)
-        self.assertNotIn("grep -Fq 'live_stdout.log' SHA256SUMS", workflow)
-        self.assertNotIn("! -name student_live_stdout.log", wrapper)
-
-    def test_guide_explains_same_actual_gazebo_rviz_and_holds(self):
-        s=GUIDE.read_text()
-        for x in ("Gazebo Harmonic", "RViz2", "실제 Waffle",
-                  "Before", "Intrusion", "Restored", "ComputePathToPose",
-                  "NO_GOAL", "AXIA_MVP_DEMO_ACCEPTED=HOLD",
-                  "run_d07_h01_gazebo_rviz_student_once.sh"):
-            self.assertIn(x,s,x)
-
-if __name__=="__main__":
-    unittest.main()
