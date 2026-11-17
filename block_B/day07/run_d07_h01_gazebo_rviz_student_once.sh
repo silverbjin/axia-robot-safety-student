@@ -59,7 +59,7 @@ for bin in ros2 gz colcon rviz2 xacro python3 git setsid timeout;do
     echo "D07_H01_STUDENT_MISSING_TOOL=$bin NO_GOAL" >&2;exit 2;
   }
 done
-for pkg in nav2_bringup nav2_minimal_tb3_sim nav2_planner ros_gz_sim;do
+for pkg in nav2_bringup nav2_minimal_tb3_sim nav2_planner ros_gz_sim rqt_graph;do
   ros2 pkg prefix "$pkg" >/dev/null 2>&1 || {
     echo "D07_H01_STUDENT_MISSING_OFFICIAL_PACKAGE=$pkg NO_GOAL" >&2;exit 2;
   }
@@ -87,6 +87,18 @@ done
 export AXIA_G07_CI_SIM_GOAL_ALLOWED=0
 export AXIA_P0_SIM_ONLY=1
 export AXIA_D07_H01_GUI_NO_GOAL=1
+# Classroom default: keep the live Gazebo/Nav2/RViz nodes after original
+# 3-stage proof, repeat physical object positions until Ctrl+C.
+export AXIA_D07_H01_TEACHING_LOOP=1
+if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
+  [[ "${AXIA_D07_H01_TEACHING_MAX_CYCLES:-}" == 1 ]] || {
+    echo D07_H01_TEACHING_CI_MUST_BOUND_ONE_CYCLE_NO_GOAL >&2; exit 3;
+  }
+else
+  [[ "${AXIA_D07_H01_TEACHING_MAX_CYCLES:-0}" == 0 ]] || {
+    echo D07_H01_TEACHING_WSL2_AUTOSTOP_DENIED_CTRL_C_ONLY >&2; exit 3;
+  }
+fi
 export AXIA_D07_H01_GPU_GUI_TRIAL=1
 export AXIA_D07_H01_GEOMETRY_ONLY=0
 export AXIA_P2_G07_PHYSICAL_PREFLIGHT=1
