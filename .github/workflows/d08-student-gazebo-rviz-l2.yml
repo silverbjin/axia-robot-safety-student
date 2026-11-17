@@ -2,14 +2,18 @@ name: D08 student real Gazebo RGBD YOLO and RViz 3-window NO-GOAL L2
 on:
   pull_request:
     paths:
-      - 'block_B/day08/**'
+      - 'block_B/day08/run_d08_student_live_bootstrap.sh'
+      - 'block_B/day08/run_d08_student_live_once.sh'
+      - 'block_B/day08/live/**'
       - 'block_B/day04/run_student_gazebo_yolo_once.sh'
       - 'block_B/day05/gazebo_live/**'
       - '.github/workflows/d08-student-gazebo-rviz-l2.yml'
   push:
     branches: ['feat/d08-live-gazebo-rviz-no-goal-20261115']
     paths:
-      - 'block_B/day08/**'
+      - 'block_B/day08/run_d08_student_live_bootstrap.sh'
+      - 'block_B/day08/run_d08_student_live_once.sh'
+      - 'block_B/day08/live/**'
       - 'block_B/day04/run_student_gazebo_yolo_once.sh'
       - '.github/workflows/d08-student-gazebo-rviz-l2.yml'
 permissions:
