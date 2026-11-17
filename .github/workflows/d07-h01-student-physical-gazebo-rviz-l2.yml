@@ -1,15 +1,17 @@
 name: D07 H01 student REAL physical Gazebo Waffle Nav2 Path RViz2 NO-GOAL
 on:
   push:
-    branches: [feat/d07-h01-student-physical-gazebo-rviz-20261117, main]
+    branches: [feat/d07-h01-student-physical-gazebo-rviz-20261117, feat/d07-h01-rqt-classroom-loop-20261117, main]
     paths:
       - 'block_B/day07/**'
       - 'block_B/tests/test_d07_h01_physical_student_live.py'
+      - 'block_B/tests/test_d07_h01_rqt_classroom_loop.py'
       - '.github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml'
   pull_request:
     paths:
       - 'block_B/day07/**'
       - 'block_B/tests/test_d07_h01_physical_student_live.py'
+      - 'block_B/tests/test_d07_h01_rqt_classroom_loop.py'
       - '.github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml'
 permissions:
   contents: read
@@ -26,6 +28,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 -m unittest discover -s block_B/tests -p test_d07_h01_physical_student_live.py -v
+          python3 -m unittest discover -s block_B/tests -p test_d07_h01_rqt_classroom_loop.py -v
           python3 -m compileall -q block_B/day07/h01_runtime/tools
           bash block_B/day07/run_d07_h01_gazebo_rviz_student_once.sh --self-check
           echo AXIA_D07_H01_STUDENT_PHYSICAL_L0_PASS_NO_ROS_NO_GAZEBO_NO_GOAL
@@ -47,6 +50,8 @@ jobs:
       AXIA_D07_GUI_HOLD_S: '8'
       AXIA_P0_SIM_ONLY: '1'
       AXIA_D07_STUDENT_LIVE_EVIDENCE: results/d07-h01-student-l2
+      AXIA_D07_H01_CLASSROOM_LOOP: '1'
+      AXIA_D07_H01_CLASSROOM_MAX_CYCLES: '2'
       QT_QPA_PLATFORM: xcb
       QT_X11_NO_MITSHM: '1'
     steps:
@@ -62,21 +67,31 @@ jobs:
           command -v Xvfb >/dev/null || missing+=(xvfb)
           command -v xwininfo >/dev/null || missing+=(x11-utils)
           command -v rviz2 >/dev/null || missing+=(ros-jazzy-rviz2)
+          ros2 pkg prefix rqt_graph >/dev/null 2>&1 || missing+=(ros-jazzy-rqt-graph)
           if (( ${#missing[@]} )); then
             apt-get update -qq
             DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${missing[@]}"
           fi
           for x in Xvfb xwininfo rviz2 gz ros2 colcon; do command -v "$x" >/dev/null; done
+          ros2 pkg prefix rqt_graph >/dev/null
       - name: Same PUBLIC student launcher real Gazebo and RViz, physical obstacle 3 phases
         shell: bash
         run: |
           set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
           export DISPLAY=:99
           BASE=results/d07-h01-student-l2
           mkdir -p "$BASE"
           Xvfb :99 -screen 0 1600x900x24 -nolisten tcp > "$BASE/xvfb.log" 2>&1 &
           XVPID=$!
-          trap 'kill "$XVPID" 2>/dev/null || true' EXIT
+          RQTPID=''
+          cleanup_graph_windows() {
+            if [[ -n "$RQTPID" ]]; then kill "$RQTPID" 2>/dev/null || true; wait "$RQTPID" 2>/dev/null || true; fi
+            kill "$XVPID" 2>/dev/null || true
+          }
+          trap cleanup_graph_windows EXIT
           sleep 2
           set +e
           timeout --signal=TERM --kill-after=12s 900s \
@@ -92,7 +107,81 @@ jobs:
             kill -0 "$PID" 2>/dev/null || break
             sleep 2
           done
+          # rqt_graph is only an independent read-only ROS graph client; the
+          # actual public student H01 retains the SAME Gazebo/Planner session.
+          # The rqt process still writes to its stdout while student runner
+          # creates SHA256SUMS. Keep it OUTSIDE the student's active evidence
+          # directory; copy it in only after rqt has fully closed.
+          RQTLOG="${RUNNER_TEMP:-/tmp}/d07_h01_rqt_graph_${GITHUB_RUN_ID}_$.log"
+          timeout --signal=TERM --kill-after=3s 120s \
+            ros2 run rqt_graph rqt_graph > "$RQTLOG" 2>&1 &
+          RQTPID=$!
+          RQT=0
+          for i in $(seq 1 30); do
+            windows="$(xwininfo -root -tree 2>/dev/null || true)"
+            grep -Eiq 'rqt_graph|rqt_gui_py_node|RosGraph' <<<"$windows" && RQT=1 && break
+            kill -0 "$RQTPID" 2>/dev/null || break
+            sleep 1
+          done
+          # Capture the genuine ROS graph while the same physical simulation
+          # is live. Gazebo native /world topics are separate transport.
+          timeout 12s ros2 topic list -t --no-daemon > "$BASE/real_ros_topics.txt"
+          # ros2 node list --no-daemon can be empty despite a real topic
+          # graph in this container/RMW. Require native rclpy ROS node names
+          # AND verified publisher/subscriber endpoints in the SAME session.
+          python3 - "$BASE/rqt_graph_actual_nodes.json" <<'PY_GRAPH'
+          import json,sys,time
+          from pathlib import Path
+          import rclpy
+          rclpy.init()
+          n=rclpy.create_node("axia_d07_h01_rqt_public_graph_probe")
+          required={"planner_server","collision_monitor",
+                    "axia_base_command_guard","ros_gz_bridge"}
+          evidence={}
+          try:
+              limit=time.monotonic()+25
+              while time.monotonic()<limit:
+                  rclpy.spin_once(n,timeout_sec=.3)
+                  nodes={name for name,namespace in n.get_node_names_and_namespaces()}
+                  endpoints={}
+                  for topic in ("/scan","/cmd_vel_supervised",
+                                "/axia/d07/h01/path_visual"):
+                      pubs=n.get_publishers_info_by_topic(topic)
+                      subs=n.get_subscriptions_info_by_topic(topic)
+                      endpoints[topic]={"publishers":[x.node_name for x in pubs],
+                                        "subscribers":[x.node_name for x in subs]}
+                  evidence={"nodes":sorted(nodes),"endpoints":endpoints,
+                            "source":"real_rclpy_graph_introspection",
+                            "goal_sent":False,"certified_estop":False}
+                  Path(sys.argv[1]).write_text(json.dumps(evidence,indent=2,
+                                                          sort_keys=True)+"\n")
+                  if (required<=nodes
+                          and all(v["publishers"] and v["subscribers"]
+                                  for v in endpoints.values())):
+                      print("D07_H01_RQT_NODE_ENDPOINT_GRAPH_REAL_PASS "
+                            "nodes="+str(len(nodes))+" edges=3 NO_GOAL")
+                      break
+              else:
+                  raise RuntimeError("D07_H01_RQT_REAL_NODE_EDGE_GRAPH_NOT_PROVEN")
+          finally:
+              n.destroy_node()
+              rclpy.shutdown()
+          PY_GRAPH
+          grep -Fq '/scan ' "$BASE/real_ros_topics.txt"
+          grep -Fq '/global_costmap/costmap ' "$BASE/real_ros_topics.txt"
+          grep -Fq '/axia/d07/h01/path_visual ' "$BASE/real_ros_topics.txt"
+          grep -Fq '/cmd_vel_supervised ' "$BASE/real_ros_topics.txt"
+          grep -Fq '/cmd_vel_pre_guard ' "$BASE/real_ros_topics.txt"
+          [[ "$RQT" == 1 ]] || { echo D07_H01_RQT_GRAPH_GUI_WINDOW_ABSENT; exit 3; }
+          echo D07_H01_RQT_GRAPH_XVFB_WINDOW_WITH_REAL_ROS_TOPICS_PASS
           wait "$PID"; RC=$?
+          # Close the read-only GUI before storing a verifiable, immutable
+          # rqt_graph console log. Preserve its bytes and SHA256 in artifact.
+          kill "$RQTPID" 2>/dev/null || true
+          wait "$RQTPID" 2>/dev/null || true
+          RQTPID=''
+          cp "$RQTLOG" "$BASE/rqt_graph_closed.log"
+          ( cd "$BASE"; sha256sum rqt_graph_closed.log >> SHA256SUMS )
           set -e
           if [[ "$RC" != 0 || "$RVIZ" != 1 || "$GAZEBO" != 1 ]]; then
             echo "D07_H01_STUDENT_PHYSICAL_L2_BLOCKED rc=$RC rviz=$RVIZ gazebo=$GAZEBO"
@@ -103,6 +192,21 @@ jobs:
           grep -Fq 'D07_H01_GUI_H01_GEOMETRY_RETURNED_NO_GOAL' "$BASE/live_stdout.log"
           grep -Fq 'P2_L2_SMOKE_RC=0' "$BASE/live_stdout.log"
           grep -Fq 'D07_H01_STUDENT_GAZEBO_RVIZ_L2_PASS' "$BASE/live_stdout.log"
+          grep -Fq 'D07_H01_CLASSROOM_BOUNDED_CI_CYCLES_PASS count=2 NO_GOAL' \
+            "$BASE/evidence/d07_h01_classroom_replan.log"
+          python3 - "$BASE/evidence/d07_h01_geometry/classroom_replan_cycles.jsonl" <<'PY_LOOP'
+          import json,sys
+          from pathlib import Path
+          records=[json.loads(x) for x in Path(sys.argv[1]).read_text().splitlines() if x.strip()]
+          assert len(records)==6,(len(records),records)
+          for cycle in (1,2):
+              sub=[x for x in records if x["cycle"]==cycle]
+              assert [x["stage"] for x in sub]==["before","intrusion","restored"]
+              assert all(x["rviz_subscription_count"]>=1 for x in sub)
+              assert all(x["goal_sent"] is False and x["robot_moved"] is False for x in sub)
+              assert all(x["source"]=="official_compute_path_to_pose" for x in sub)
+          print("D07_H01_CLASSROOM_REAL_GAZEBO_2_CYCLES_6_OFFICIAL_PLANS_RVIZ_PASS_NO_GOAL")
+          PY_LOOP
           # The outer CI stdout file is still open during the wrapper hash.
           # Verify every CLOSED raw sensor/Nav2/Gazebo/GUI file, not that file.
           (

@@ -148,7 +148,17 @@ PY
  exit "$rc"
 }
 trap cleanup EXIT
-trap 'exit 130' INT
+# A Classroom Ctrl+C ends only the run-owned simulation after the verified
+# original three-phase real Gazebo proof. Pre-ready Ctrl+C remains HOLD (130).
+d07_classroom_interrupt() {
+  if [[ "${AXIA_D07_H01_CLASSROOM_LOOP:-0}" == 1
+        && -s "$OUT/d07_h01_geometry/classroom_loop.ready" ]]; then
+    echo D07_H01_CLASSROOM_CTRL_C_OWNED_TEARDOWN_NO_GOAL
+    exit 0
+  fi
+  exit 130
+}
+trap d07_classroom_interrupt INT
 trap 'exit 143' TERM
 [[ -f /opt/ros/jazzy/setup.bash ]] || { echo 'ROS_JAZZY_REQUIRED' >&2; exit 2; }
 set +u; source /opt/ros/jazzy/setup.bash; set -u
@@ -596,6 +606,31 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   }
   tail -n 100 "$OUT/d07_h01_geometry.log"
   echo 'D07_H01_GUI_H01_GEOMETRY_RETURNED_NO_GOAL'
+  # Classroom only: preserve this SAME real Jazzy Gazebo/Nav2/RViz graph after
+  # original strict BEFORE/INTRUSION/RESTORED L2 passed. No relaunch, no Goal.
+  # 0 repeats until user Ctrl+C; CI pins 2 complete real physical cycles.
+  if [[ "${AXIA_D07_H01_CLASSROOM_LOOP:-0}" == 1 ]]; then
+    CLASSROOM_MAX="${AXIA_D07_H01_CLASSROOM_MAX_CYCLES:-0}"
+    [[ "$CLASSROOM_MAX" =~ ^(0|[1-9]|1[0-2])$ ]] || {
+      echo D07_H01_CLASSROOM_CYCLE_LIMIT_INVALID_NO_GOAL >&2; exit 2;
+    }
+    echo "D07_H01_CLASSROOM_LOOP_START SAME_GAZEBO_NAV2_RVIZ max_cycles=$CLASSROOM_MAX CTRL_C_ENDS NO_GOAL"
+    if ! python3 tools/d07_h01_classroom_replan_loop.py \
+        --output "$OUT/d07_h01_geometry" \
+        --source-sha "$EXPECTED_CI_SHA" \
+        --max-cycles "$CLASSROOM_MAX" \
+        --hold-sec "${AXIA_D07_GUI_HOLD_S:-10}" \
+        > "$OUT/d07_h01_classroom_replan.log" 2>&1;then
+      tail -n 100 "$OUT/d07_h01_classroom_replan.log" >&2 || true
+      echo D07_H01_CLASSROOM_REPLAN_FIRST_BOUNDARY_BLOCKED_NO_GOAL >&2
+      exit 2
+    fi
+    cat "$OUT/d07_h01_classroom_replan.log"
+    test -s "$OUT/d07_h01_geometry/classroom_loop.ready" || {
+      echo D07_H01_CLASSROOM_READY_NOT_PROVEN_NO_GOAL >&2; exit 2;
+    }
+    echo D07_H01_CLASSROOM_LOOP_VERIFIED_COMPLETION_NO_GOAL
+  fi
   exit 0
 fi
 
