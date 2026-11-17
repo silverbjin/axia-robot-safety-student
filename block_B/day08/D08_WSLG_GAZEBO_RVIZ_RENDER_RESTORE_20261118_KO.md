@@ -65,11 +65,13 @@ D04_STUDENT_EXIT_CODE=0
 
 D07-H01과 동일한 기본 D3D12 렌더링이 WSLg 장치에서 지원되지 않는 경우에만 다음 환경변수로 **GUI 자식에 한정한 소프트웨어 렌더링 프로파일**을 시도할 수 있다. 이는 GPU 하드웨어 경로의 검증이 아니며 성능·전달 주기가 달라질 수 있다. 동일 오류를 무한 재실행하지 않고 최초 GUI 에러 로그를 보존한다.
 
+**별도 셸에서 `bash "$BOOT"`만 실행하지 않는다.** 첫 번째 원샷 코드 전체를 다시 복사하고 맨 마지막 명령만 다음과 같이 바꿔 실행한다. 임시 `BOOT` 경로는 해당 코드 블록 안에서만 유효하다.
+
 ```bash
-AXIA_D08_GUI_BACKEND=software AXIA_D08_DOMAIN_ID=49 AXIA_D08_HOLD_S=300 bash "$BOOT" --run
+  AXIA_D08_GUI_BACKEND=software AXIA_D08_DOMAIN_ID=49 AXIA_D08_HOLD_S=300 bash "$BOOT" --run
 ```
 
-이 옵션은 위 코드 블록의 `BOOT`가 살아있는 동일 셸에서만 유효하다. 단일 명령으로 실행하려면 첫 번째 실행 블록의 `AXIA_D08_DOMAIN_ID=49` 앞에 `AXIA_D08_GUI_BACKEND=software`를 한 번 추가하면 된다. 정상 시연에는 기본 GPU 프로파일을 우선한다.
+즉, 마지막 행만 교체하고 나머지 `curl` 다운로드와 `trap`을 포함한 동일한 괄호 블록 안에서 실행한다. 기본 GPU 프로파일이 정상일 때는 이 옵션을 사용하지 않는다.
 
 ## 4. 장면/GUI/안전 검증 구분
 
