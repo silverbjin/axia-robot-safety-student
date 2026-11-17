@@ -6,15 +6,14 @@
 
 **환경:** Windows WSL2 Ubuntu 24.04 / ROS 2 Jazzy / Gazebo Harmonic / 공식 Nav2 / WSLg DISPLAY / RViz2 / colcon. 학생은 화면에 **실제 Waffle(TurtleBot3), Gazebo 물리 원통 장애물, RViz2 LaserScan·Global Costmap·공식 Nav2 Path**를 함께 확인합니다. **Before → Intrusion → Restored**: 로봇은 정지, 기존 실행기가 Gazebo 원통 장애물을 이동·제거합니다. Nav2 `ComputePathToPose`는 계획 경로만 계산합니다. `NavigateToPose`, `FollowPath`, `/cmd_vel` 주행 Goal, fault injection, 인증 E-Stop은 수행하지 않습니다. `NO_GOAL`.
 
-**준비(최초 1회, 필요한 경우에만):**
+**준비(최초 1회, 필요한 경우에만):** 공식 Jazzy Nav2의 현대 Gazebo(Harmonic) 배포 패키지를 사용하며, 이전 Gazebo Classic 전용 `turtlebot3_gazebo` 패키지는 이 H01의 필수 의존성이 아닙니다.
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   git python3-colcon-common-extensions \
-  ros-jazzy-nav2-bringup ros-jazzy-nav2-minimal-tb3-sim \
-  ros-jazzy-nav2-planner ros-jazzy-nav2-navfn-planner \
-  ros-jazzy-turtlebot3-gazebo ros-jazzy-ros-gz \
+  ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+  ros-jazzy-nav2-minimal-tb3-sim ros-jazzy-ros-gz \
   ros-jazzy-rviz2 ros-jazzy-xacro
 ```
 
