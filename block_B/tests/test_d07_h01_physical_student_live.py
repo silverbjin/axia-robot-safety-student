@@ -133,6 +133,11 @@ if __name__=="__main__":
     unittest.main()
 ",workflow)
         self.assertIn("student_live_stdout.log", wrapper)
+        # Real #44043432203: broad grep 'live_stdout.log' falsely matches
+        # student_live_stdout.log even when ./live_stdout.log was excluded.
+        self.assertIn('awk \'$2 == "./live_stdout.log"\'', workflow)
+        self.assertNotIn("grep -Fq 'live_stdout.log' SHA256SUMS", workflow)
+        self.assertNotIn("! -name student_live_stdout.log", wrapper)
 
     def test_guide_explains_same_actual_gazebo_rviz_and_holds(self):
         s=GUIDE.read_text()
