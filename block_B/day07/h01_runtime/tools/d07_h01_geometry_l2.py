@@ -1581,15 +1581,27 @@ def run(args):
                 print("AXIA_D07_H01_EMERGENCY_NO_GOAL_MODEL_RESTORED",flush=True)
             except Exception as err:
                 print("AXIA_D07_H01_MODEL_RESTORE_NOT_PROVEN "+str(err),flush=True)
+        # C36: genuine public student H01 L2 #44040942877 completed
+        # real before/intrusion/restored then intermittently SIGABRT-ed while
+        # destroying rclpy objects with the separate executor.spin daemon
+        # still active. Quiesce it BEFORE ROS entity teardown; never treat
+        # an unjoined worker as a successful live session.
+        print("D07_H01_GEOMETRY_EXECUTOR_SHUTDOWN_BEGIN", flush=True)
+        stopped=executor.shutdown(timeout_sec=8.0)
+        th.join(timeout=8.0)
+        if not stopped or th.is_alive():
+            print("D07_H01_GEOMETRY_EXECUTOR_QUIESCENCE_BLOCKED",flush=True)
+            raise RuntimeError("D07_H01_GEOMETRY_EXECUTOR_NOT_QUIESCENT")
+        print("D07_H01_GEOMETRY_EXECUTOR_QUIESCENT",flush=True)
         observer.flush_events()
         node.destroy_subscription(scan_sub)
         node.destroy_subscription(map_sub)
         if visual_publisher is not None:
             node.destroy_publisher(visual_publisher)
-        executor.shutdown(timeout_sec=4.)
         observer.close()
         node.destroy_node()
         rclpy.shutdown()
+        print("D07_H01_GEOMETRY_ROS_CONTEXT_CLEAN_EXIT",flush=True)
 
 
 def main():
