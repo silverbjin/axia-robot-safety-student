@@ -147,8 +147,9 @@ class D07H01RqtContinuous(unittest.TestCase):
         self.assertIn("on_exit=[gazebo_server]",src)
         self.assertIn("RegisterEventHandler",src)
         self.assertIn("D07_H01_OFFICIAL_WORLD_PROCESS_SHAPE_CHANGED",src)
-        self.assertLess(src.index("RegisterEventHandler(OnProcessExit"),
-                        src.index("world_xacro)") if "world_xacro)" in src else 10**6)
+        self.assertIn("d.entities.insert(d.entities.index(world_xacro),",src)
+        self.assertLess(src.index("d.entities.insert(d.entities.index(world_xacro),"),
+                        src.index("RegisterEventHandler(OnProcessExit"))
         self.assertNotIn("time.sleep(",src)
 
     def test_public_ci_runs_actual_rqt_window_and_one_bounded_loop(self):
