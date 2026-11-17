@@ -1,5 +1,8 @@
 # D07 학생용 데모 가이드 — 사람 회피 구조와 주행제어 증거 읽기
 
+> **2026-11-17 실제 Owner WSL2 갱신:** 정지 TurtleBot3 Waffle에서 실제 Gazebo 장애물→LaserScan→공식 Nav2 Costmap→`ComputePathToPose`가 Before/Intrusion/Restored **52/52/52 poses**로 관찰됐다. 경로 차이 **0.3659m**, intrusion 신규 lethal **92**, 제거 후 Costmap 원본과 일치(차이 **0**). 원본 아카이브 해시 78/78·59/59 PASS, 실행기 rc=0. 다만 **자동 GUI 픽셀 검토는 `D07_H01_OWNER_GUI_VISUAL_HOLD`**, 종료 과정의 Supervisor 예외와 전체 센서 안전 TTL은 미검증이다. **`NavigateToPose` 실제 로봇 이동은 NOT_RUN**, `AXIA_MVP_DEMO_ACCEPTED=HOLD`. 학생 TODO 두 함수와 시험 범위는 변경하지 않는다.
+
+
 > 수업: 2026-11-17(화) 19:00~22:00 · 이론 60분 + 실습 120분 · **읽기 전용 데모 및 Python TDD**  
 > 수업용 PPT: AXIA D07 V3 학생용 24장(강사가 제공). 단계별 전체 절차는 [D07 3시간 가이드](D07_STUDENT_3H_CLASSROOM_GUIDE_20261117_KO.md)를 따른다.  
 > **안전 범위:** 학생은 ROS Goal, 최종 속도 `/cmd_vel`, Gazebo 물리 모델을 직접 조작하지 않는다. H01 실제 회피 주행 성공이 아님.
@@ -15,10 +18,10 @@
 |---|---|---|---|
 | **L0** 학생 `routes.json` | 합성 2D 경로와 사람 proxy | 구현 전 RED, 구현 후 경로 판정 | 실제 ROS, 센서, 로봇 이동 |
 | **L1** 공식 Nav2 | ROS 2 Jazzy, 합성 LaserScan, 실제 PlannerServer | Costmap lethal **0→101→0**, Path **58→74→58** | Gazebo 물리·Controller 이동 |
-| **L2** D07-**H01** | Gazebo Harmonic 물리 장애물, 실제 Waffle LaserScan, 공식 Nav2 경로 질의 | 장애물 침입에 따른 **계획 경로 변경 약 0.573m** | Controller가 경로를 실제 추종한 결과, Contact·TTL 인수 |
-| **L3** Owner WSL2 | 강사 PC 실제 통합 주행 | **NOT_RUN** (H01 범위) | H01 최종 인수 완료 |
+| **L2** D07-**H01** | Gazebo Harmonic 물리 장애물, 실제 Waffle LaserScan, 공식 Nav2 경로 질의 | 최신 검증된 경로 변화 **0.3659m**, 신규 lethal cell 92→0, Before/Intrusion/Restored Path 52점씩 | Controller 경로 추종, Contact·안전 TTL 인수 |
+| **L3** Owner WSL2 GUI | WSLg의 Gazebo 3D·Entity Tree / RViz2 실제 화면 | 사용자 육안 + 무결성 검증 XWD에서 **화면 복원 확인** | 자동 Owner L3 수락은 **VISUAL_HOLD**, 실제 주행 인수 아님 |
 
-H01 최신 실제 물리 경로 시험은 **전체 인수 BLOCKED**이다. Costmap lethal *개수* `41→121→41`만 복원되었으며, 공간 비용 차이와 최초 `POST_RESTORE_COSTMAP_DRIFT` 차단이 남았다. **H01 NavigateToPose 실제 이동 Goal은 NOT_RUN**이다.
+**이전 강사 시연 기준선(2026-11-16, 역사적 사례):** `D07_H01_GUI_SCENE_RESTORED_OWNER_20261116`. 실제 공개 Gazebo L2 [#43866354976](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43866354976)는 성공했고, Owner `d07-h01-owner-SFvdvtvH`에서는 3D 월드·로봇과 RViz2 경로가 화면에서 확인되었다. **그러나 자동 Owner L3는 `D07_H01_OWNER_GUI_VISUAL_HOLD`, 전체 AXIA는 `AXIA_MVP_DEMO_ACCEPTED=HOLD`이다.** `NavigateToPose` 이동 Goal 및 실제 회피 주행은 **NOT_RUN**이다. 과거 `POST_RESTORE_COSTMAP_DRIFT` 실패는 아래에서 학습용 사례로만 보존한다.
 
 ## 1단계 — 학생 터미널 S: 합성 경로만 관찰 (5분)
 
@@ -67,24 +70,27 @@ PY
 
 **ComputePathToPose는 계획 질의, NavigateToPose는 이동 요청**이다. L1에서는 `actual_robot_cmd_publishers=0`이었다. `/odom` 주행 궤적도 없으므로 경로 변경은 실제 이동의 증거가 아니다.
 
-## 3단계 — 실제 H01 물리 경로 증거 분석 (5~7분)
+## 3단계 — 실제 H01 공식 경로 시연 및 과거 실패 비교 (5~7분)
 
-**원본 공개 CI:** https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43581522872
+**현재 공개 L2:** https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43866354976
 
-강사가 해당 실행의 실제 로그에서 `D07_H01`, `ROUTE_CANDIDATE_NOT_MOTION`, `FIRST_DRIFT_BOUNDARY` 또는 `POST_RESTORE_COSTMAP_DRIFT`를 검색해 보여 준다.
+강사가 준비한 화면 또는 검증된 증거에서 Gazebo 물리 원통 장애물의 Before → Intrusion → Restored 시퀀스를 본다. 실제 Waffle `/scan` → Nav2 Costmap → 공식 `ComputePathToPose` → RViz2 Path(읽기 전용) 흐름을 확인한다.
 
-- Gazebo Harmonic의 실제 충돌체를 정지 상태에서 침입시키고 Waffle LaserScan으로 관측했다.
-- 기존 공식 Nav2 경로와 침입 후 경로의 편차는 **약 0.5732m**였다.
-- 경로 최소 이격 약 **0.55m**는 *계획 경로* 측정이며 실제 로봇 주행 이격이 아니다.
-- 복원 단계의 lethal 개수 `41→121→41`은 전체 Costmap 복원과 다르다. 비용 값에 설명되지 않은 **323개 셀**이 남은 것으로 분류됐다.
-- **H01 상태: BLOCKED / 실제 NavigateToPose 주행 NOT_RUN / Contact Ground Truth 미검증 / 안전 TTL 미검증.** 시연 성공으로 발표하지 않는다.
+- 공식 Path는 세 단계에서 각각 **52 poses**이고, RViz DDS subscriber 수는 매 단계 **1**이었다.
+- Intrusion에서 신규 lethal cells **92개**, Restored에서 신규 lethal cells **0개**, 경로 차이 `path_delta_m=0.3659`로 기록되었다.
+- Owner 화면에서 Gazebo 3D 월드·로봇·Entity Tree와 RViz2 Costmap/Path가 확인되었다. 자동 Owner L3는 정책상 `VISUAL_HOLD`를 유지한다.
+- **무주행:** `robot_moved=false`, `goal_sent=false`. 경로 변화만으로 Controller 주행·안전 정지·접촉 회피 성공을 증명하지 않는다.
+
+**과거 실패 사례(현재 최신 판정 아님):** 공개 CI https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43581522872 에서는 `POST_RESTORE_COSTMAP_DRIFT`로 차단되었고 당시 경로 변화 약 0.5732m, Costmap lethal 개수 41→121→41만 복원되었다. 최초 실패와 이후 복원 성공을 비교하는 교육용 증거다.
 
 ```text
-Gazebo 물리 장애물 → 실제 /scan → 실제 Costmap → Nav2 Planner Path
-                      [실제로 증명된 단계]
-                                             ×
-         Controller → Guard /cmd_vel → /odom → Goal SUCCEEDED
-                      [H01에서 아직 증명하지 못한 단계]
+실제 Gazebo 장애물 → Waffle LaserScan → 공식 Costmap → ComputePathToPose
+                                       ↓
+                               RViz2 계획 경로 표시
+                 (Planner 경로 질의: 실제 주행 명령 아님)
+
+ Controller → /cmd_vel → /odom → Contact / 안전 TTL
+                 (H01에서 증명하지 않은 별도 계층)
 ```
 
 ## 4단계 — 학생이 수행하는 주행제어 판단 (5분)
@@ -95,7 +101,7 @@ Gazebo 물리 장애물 → 실제 /scan → 실제 Costmap → Nav2 Planner Pat
 |---|---|---|---|
 | 합성 `path_before`와 `path_detour` 비교 | 학생 판정 후보 | X | Controller 입력/출력 |
 | 공식 L1 `58→74→58` | O | X | `NavigateToPose`, 실제 `/odom` |
-| 물리 H01 경로 편차 0.5732m | O | X | Controller, 최종 `/cmd_vel`, `/odom`, Contact |
+| 최신 물리 H01 경로 편차 0.3659m | O | X | Controller, 최종 `/cmd_vel`, `/odom`, Contact |
 | 실제 근접 보호 정지 | 계획과 별개 | 성공 주행 아님 | Collision Monitor/Guard 안전 상태 |
 
 **토의 질문:** “Nav2 Planner에서 경로가 바뀌었는데 로봇의 `/odom`이 변하지 않았다면, 어떤 주행제어 증거가 빠진 것인가?” **답은 학생이 증거표를 통해 설명한다.**

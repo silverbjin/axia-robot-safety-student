@@ -186,21 +186,19 @@ student 제출 폴더: ~/axia_d07_student_evidence/. 개인 route_todo.py, sourc
 다음은 공식 Nav2의 계획/추종과 AXIA 보호 체인을 설명하기 위한 **개념도**다. 이번 D07 L1에서 ControllerServer와 BT Navigator를 모두 기동한 것이 아니다.
 
 ~~~mermaid
-flowchart TD
- H[사람/장애물] --> S[LiDAR /scan]
- S --> G[Global Costmap - ObstacleLayer + InflationLayer]
- G --> P[PlannerServer - NavfnPlanner]
- N[BT Navigator - NavigateToPose] -->|ComputePathToPose| P
- P -->|Path 계획 결과| N
- S --> L[Local Costmap]
- L --> C[ControllerServer - FollowPath]
- N -->|경로 추종 요청| C
- C --> SUP[AXIA Safety Supervisor]
- SUP --> CM[공식 Collision Monitor]
- S --> CM
- CM -->|/cmd_vel_pre_guard| GUARD[AXIA Base Guard]
- GUARD -->|/cmd_vel| BASE[Robot Base]
- BASE --> O[/odom]
+flowchart TB
+    H["사람/장애물"] --> S["LiDAR /scan"]
+    S --> G["Global Costmap - ObstacleLayer + InflationLayer"] & L["Local Costmap"] & CM["공식 Collision Monitor"]
+    G --> P["PlannerServer - NavfnPlanner"]
+    N["BT Navigator - NavigateToPose"] -- ComputePathToPose --> P
+    P -- Path 계획 결과 --> N
+    L --> C["ControllerServer - FollowPath"]
+    N -- 경로 추종 요청 --> C
+    C --> SUP["AXIA Safety Supervisor"]
+    SUP --> CM
+    CM -- /cmd_vel_pre_guard --> GUARD["AXIA Base Guard"]
+    GUARD -- /cmd_vel --> BASE[/"Robot Base"/]
+    BASE --> O[/"odom"/]
 ~~~
 
 PlannerServer는 경로를 계획하지만 속도 명령을 직접 구동하지 않는다. ControllerServer가 경로를 추종할 때 속도 명령을 계산하고, Collision Monitor는 근접 물체를 독립적으로 검사해 감속·소프트웨어 정지할 수 있다. 기존 G07의 /cmd_vel_pre_guard는 CM 이후/Guard 이전 관측 토픽이다. D04 YOLO 및 D05 RGB-D 실제 데이터는 아래 D07 L1 합성 LaserScan과 연결되지 않았다.
