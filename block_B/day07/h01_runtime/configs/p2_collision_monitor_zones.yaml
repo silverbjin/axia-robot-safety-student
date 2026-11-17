@@ -1,0 +1,19 @@
+# P2 G07 teaching candidate, NOT a certified stopping distance.
+# 0.40m stop, 0.75m slowdown and ratio 0.30 are Baseline proposal values.
+# Verify footprint, laser origin, Nav2 TF, scan density, RTF and odometry
+# before any real Gazebo G07 acceptance. Additive to official approach zone.
+AXIA_StopFront:
+  type: polygon
+  points: "[[0.40, 0.32], [0.40, -0.32], [-0.10, -0.32], [-0.10, 0.32]]"
+  action_type: stop
+  min_points: 4
+  enabled: true
+  visualize: false
+AXIA_SlowFront:
+  type: polygon
+  points: "[[0.75, 0.40], [0.75, -0.40], [-0.10, -0.40], [-0.10, 0.40]]"
+  action_type: slowdown
+  slowdown_ratio: 0.30
+  min_points: 4
+  enabled: true
+  visualize: false
