@@ -1,6 +1,6 @@
 # D07 학생용 데모 가이드 — 사람 회피 구조와 주행제어 증거 읽기
 
-**새 훈련생 독립 ROS 라이브 + 강사 Gazebo H01 화면 관찰:** [D07-H01 훈련생용 라이브 시연 가이드](D07_H01_STUDENT_LIVE_DEMO_GUIDE_KO.md). 기존 합성 TODO와 강사용 물리 H01은 분리된다. 공식 Nav2 L1 실행은 실제 ROS이나 Gazebo 실제 물리 시연은 아니다.
+**최우선: 훈련생 독립 Gazebo Harmonic + RViz2 물리 H01 라이브:** [D07-H01 훈련생용 실제 GUI 시연 가이드](D07_H01_STUDENT_LIVE_DEMO_GUIDE_KO.md). 학생 각자의 WSL2에서 Waffle·실제 물리 장애물·공식 Nav2 경로를 읽기 전용으로 직접 시연한다. 이 문서의 합성 ROS L1과 Python TODO는 별도 보조 실습이다.
 
 > **2026-11-17 실제 Owner WSL2 갱신:** 정지 TurtleBot3 Waffle에서 실제 Gazebo 장애물→LaserScan→공식 Nav2 Costmap→`ComputePathToPose`가 Before/Intrusion/Restored **52/52/52 poses**로 관찰됐다. 경로 차이 **0.3659m**, intrusion 신규 lethal **92**, 제거 후 Costmap 원본과 일치(차이 **0**). 원본 아카이브 해시 78/78·59/59 PASS, 실행기 rc=0. 다만 **자동 GUI 픽셀 검토는 `D07_H01_OWNER_GUI_VISUAL_HOLD`**, 종료 과정의 Supervisor 예외와 전체 센서 안전 TTL은 미검증이다. **`NavigateToPose` 실제 로봇 이동은 NOT_RUN**, `AXIA_MVP_DEMO_ACCEPTED=HOLD`. 학생 TODO 두 함수와 시험 범위는 변경하지 않는다.
 
