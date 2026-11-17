@@ -52,7 +52,7 @@ class D07H01RqtClassroomLoop(unittest.TestCase):
 
     def test_student_one_shot_no_goal_same_process_session(self):
         s=ENTRY.read_text()
-        self.assertIn("AXIA_D07_H01_CLASSROOM_LOOP=1",s)
+        self.assertIn('export AXIA_D07_H01_CLASSROOM_LOOP="${AXIA_D07_H01_CLASSROOM_LOOP:-1}"',s)
         self.assertIn("AXIA_D07_H01_CLASSROOM_MAX_CYCLES",s)
         self.assertIn("Ctrl+C",s)
         self.assertNotIn("YES-P2-G07-GOAL",s)
