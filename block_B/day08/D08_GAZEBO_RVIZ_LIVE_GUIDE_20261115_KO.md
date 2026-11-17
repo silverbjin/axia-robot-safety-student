@@ -1,5 +1,7 @@
 # AXIA D08 — 학생용 Gazebo + YOLO + RViz2 Live Demo (연구 관측판)
 
+> **2026-11-18 WSLg 3D 렌더 보정 후보:** 기존 센서 Live는 성공했지만 Owner가 확인한 **Gazebo 흰 화면·RViz 검은 3D 화면**은 별도의 실패다. D07-H01의 SceneBroadcaster·서버 후 GUI 기동 복원과 공식 Nav2 메시 경로를 재사용한 [D08 GUI 복원 후보 실행 가이드](D08_WSLG_GAZEBO_RVIZ_RENDER_RESTORE_20261118_KO.md)를 우선 확인한다. 공개 실 Gazebo L2는 PASS지만, Owner WSLg 화면의 픽셀 인수는 아직 **NOT_VERIFIED**다. 기존 성공 데모와 결과 폴더는 보존한다.
+
 **기준:** ROS 2 Jazzy / Gazebo Harmonic / 공식 Nav2·TurtleBot3 Waffle / Ubuntu 24.04 WSL2 + WSLg. **학습 시간:** D08(2026-11-18) 첫 시간 중 15~20분 관찰, 이후 6개 Python 합성 사례 TDD·통합 설명에 연결한다.
 
 > **학습 목표**: (1) Visionㆍ거리정보 기반 Human-aware Safety 제어 흐름 구성, (2) 사람 인식ㆍ거리계산ㆍ회피제어 통합 실습. 이 Live는 **관측 센서 계층**, 별도 D08 Python 실습은 **판단 계층**이다. 실제 회피제어/Goal은 인수되지 않았으며 자동 실행하지 않는다.
