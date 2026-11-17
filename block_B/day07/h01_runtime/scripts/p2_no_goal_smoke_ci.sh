@@ -671,6 +671,31 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 ]]; then
     exit 2
   fi
   echo 'AXIA_G07_CI_REAL_CM_STOP_ZERO_WINDOW_5S_GUARD_TTL_150MS_UNCHANGED'
+  # Task02 CI-only: read back the active official CM simple-TF option.
+  # Reject any missing runtime override BEFORE publishing a real Goal.
+  if [[ "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1 ]]; then
+    TF_SHIFT="$(timeout 12s ros2 param get /collision_monitor base_shift_correction)" || {
+      echo 'AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_PARAM_MISSING_NO_GOAL' >&2;exit 2;
+    }
+    TF_TIMEOUT="$(timeout 12s ros2 param get /collision_monitor transform_tolerance)" || {
+      echo 'AXIA_G07_TASK02_SIMPLE_TF_TIMEOUT_READBACK_MISSING_NO_GOAL' >&2;exit 2;
+    }
+    TF_SOURCE="$(timeout 12s ros2 param get /collision_monitor source_timeout)" || {
+      echo 'AXIA_G07_TASK02_SIMPLE_TF_SOURCE_TIMEOUT_MISSING_NO_GOAL' >&2;exit 2;
+    }
+    if ! python3 - "$TF_SHIFT" "$TF_TIMEOUT" "$TF_SOURCE" <<'PY'
+import sys
+shift,tol,source=(x.strip() for x in sys.argv[1:])
+assert shift.startswith('Boolean value') and shift.rsplit(':',1)[-1].strip().lower()=='false'
+assert tol.startswith('Double value') and abs(float(tol.rsplit(':',1)[-1])-0.2)<1e-9
+assert source.startswith('Double value') and abs(float(source.rsplit(':',1)[-1])-1.0)<1e-9
+PY
+    then
+      echo 'AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_SAFETY_READBACK_MISMATCH_NO_GOAL' >&2
+      exit 2
+    fi
+    echo 'AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_READBACK_PASS SHIFT_FALSE TF_TOL_0.2 SOURCE_TIMEOUT_1.0 GUARD_150MS_UNCHANGED'
+  fi
   echo 'AXIA_G07_CI_MOVING_GOAL_PREG0AL_NATIVE_FIXTURE_BEGIN'
   timeout --signal=TERM --kill-after=5s 70s \
     python3 tools/p2_g07_owner_pregoal_l2.py --output "$OUT/g07_ci_pregoal" \
