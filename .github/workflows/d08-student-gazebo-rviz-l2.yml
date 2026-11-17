@@ -89,7 +89,7 @@ jobs:
             set +u
             source /opt/ros/jazzy/setup.bash
             set -u
-            PARTITION="$(sed -n 's/.*GZ_PARTITION=\\([^ ]*\\).*/\\1/p' "$LOG" | tail -n 1)"
+            PARTITION="$(grep -oE "GZ_PARTITION=[^ ]+" "$LOG" | tail -n 1 | cut -d= -f2)"
             if [[ -z "$PARTITION" ]]; then
               echo "D08_GZ_SCENE_PARTITION_NOT_FOUND"; exit 1
             fi
