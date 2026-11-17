@@ -46,6 +46,7 @@ jobs:
       AXIA_G07_CI_SIM_GOAL_ALLOWED: '0'
       AXIA_D07_GUI_HOLD_S: '8'
       AXIA_P0_SIM_ONLY: '1'
+      AXIA_D07_STUDENT_LIVE_EVIDENCE: results/d07-h01-student-l2
       QT_QPA_PLATFORM: xcb
       QT_X11_NO_MITSHM: '1'
     steps:
