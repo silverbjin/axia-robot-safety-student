@@ -13,6 +13,19 @@ case "$MODE" in --self-check|--doctor|--run) ;; *)
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 RUNTIME="$HERE/h01_runtime"
+# GitHub container checkout can be owned by a different UID. The original
+# H01 runner does several git -C subdirectory source checks. Trust only this
+# exact checkout for this ONE process tree, never mutate user's ~/.gitconfig.
+REPO_ROOT="$(cd "$HERE/../.." && pwd -P)"
+export GIT_CONFIG_COUNT=1
+export GIT_CONFIG_KEY_0=safe.directory
+export GIT_CONFIG_VALUE_0="$REPO_ROOT"
+STUDENT_SOURCE_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD)" || {
+  echo D07_H01_STUDENT_GIT_SOURCE_PIN_BLOCKED_NO_GOAL >&2;exit 3;
+}
+[[ "$STUDENT_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]] || {
+  echo D07_H01_STUDENT_GIT_SOURCE_SHA_INVALID_NO_GOAL >&2;exit 3;
+}
 SOURCE="$RUNTIME/scripts/d07_h01_gui_no_goal_once.sh"
 SMOKE="$RUNTIME/scripts/p2_no_goal_smoke_ci.sh"
 RVIZ="$RUNTIME/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz"
@@ -104,9 +117,9 @@ chmod 700 "$OUT"
 export AXIA_P2_SMOKE_RESULTS="$OUT/evidence"
 export AXIA_D07_GUI_EVIDENCE_DIR="$OUT"
 printf 'student_source_sha=%s\norigin_instructor_scope=%s\n' \
-  "$(git -C "$HERE" rev-parse HEAD)" \
+  "$STUDENT_SOURCE_SHA" \
   'H01_STATIONARY_PHYSICAL_GAZEBO_READONLY_NO_GOAL' > "$OUT/source.txt"
-echo "D07_H01_STUDENT_GAZEBO_RVIZ_L2_BEGIN source=$(git -C "$HERE" rev-parse HEAD)"
+echo "D07_H01_STUDENT_GAZEBO_RVIZ_L2_BEGIN source=$STUDENT_SOURCE_SHA"
 echo "D07_H01_STUDENT_EVIDENCE=$OUT"
 echo 'D07_H01_STUDENT_SCOPE NO_GOAL NO_CMD_VEL NO_ESTOP_NO_MOTION'
 # Smoke owns its own Gazebo/Nav2/RViz child groups; exit code is retained.
