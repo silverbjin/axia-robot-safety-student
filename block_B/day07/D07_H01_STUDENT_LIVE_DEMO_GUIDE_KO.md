@@ -4,7 +4,7 @@
 
 ## A. 학생 PC에서 실제 Gazebo·RViz2를 동시에 실행 (최우선)
 
-**환경:** Windows WSL2 Ubuntu 24.04 / ROS 2 Jazzy / Gazebo Harmonic / 공식 Nav2 / WSLg DISPLAY / RViz2 / colcon. 학생은 화면에 **실제 TurtleBot3 Waffle, Gazebo 물리 원통 장애물, RViz2 LaserScan·Global Costmap·공식 Nav2 Path**를 함께 확인합니다. **Before → Intrusion → Restored**: 로봇은 정지, 기존 실행기가 Gazebo 원통 장애물을 이동·제거합니다. Nav2 `ComputePathToPose`는 계획 경로만 계산합니다. `NavigateToPose`, `FollowPath`, `/cmd_vel` 주행 Goal, fault injection, 인증 E-Stop은 수행하지 않습니다. `NO_GOAL`.
+**환경:** Windows WSL2 Ubuntu 24.04 / ROS 2 Jazzy / Gazebo Harmonic / 공식 Nav2 / WSLg DISPLAY / RViz2 / colcon. 학생은 화면에 **실제 Waffle(TurtleBot3), Gazebo 물리 원통 장애물, RViz2 LaserScan·Global Costmap·공식 Nav2 Path**를 함께 확인합니다. **Before → Intrusion → Restored**: 로봇은 정지, 기존 실행기가 Gazebo 원통 장애물을 이동·제거합니다. Nav2 `ComputePathToPose`는 계획 경로만 계산합니다. `NavigateToPose`, `FollowPath`, `/cmd_vel` 주행 Goal, fault injection, 인증 E-Stop은 수행하지 않습니다. `NO_GOAL`.
 
 **준비(최초 1회, 필요한 경우에만):**
 
