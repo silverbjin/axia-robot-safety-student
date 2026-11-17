@@ -27,7 +27,14 @@ jobs:
           set -Eeuo pipefail
           python3 -m unittest discover -s block_B/tests -p test_d07_h01_student_readonly_live_release.py -v
           python3 -m compileall -q block_B/day07
-          python3 -m pytest -q block_B/day07/tests/test_d07_public.py::test_fixture_schema
+          python3 -m json.tool block_B/day07/fixtures/routes.json >/dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("block_B/day07/fixtures/routes.json").read_text())
+          assert "person_xy" in data and "path_before" in data and "path_detour" in data
+          print("D07_STUDENT_PUBLIC_FIXTURE_SCHEMA_STATIC_PASS")
+          PY
           echo D07_STUDENT_LIVE_RELEASE_L0_PASS_NO_ROS_NO_GAZEBO_NO_GOAL
 
   l1-actual-official-nav2:
