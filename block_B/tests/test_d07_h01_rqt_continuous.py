@@ -133,6 +133,24 @@ class D07H01RqtContinuous(unittest.TestCase):
         self.assertIn('! -name rqt_graph.log',w)
         self.assertIn('student_live_stdout.log',w)
 
+    def test_h01_official_world_xacro_finishes_before_gazebo_server_starts(self):
+        # Public student MAIN L2 #44084070517: first native failure was
+        # [gz] unable to find /tmp/nav2_*.sdf exit255; CLOCK_MISSING secondary.
+        # Official Jazzy launches xacro/gz as independent ExecuteProcess.
+        # Scope serialized startup ONLY to H01 physical NO_GOAL sim.
+        src=(RUNTIME/"ros2_ws/src/axia_safety_bringup/launch/axia_tb3_p2.launch.py").read_text()
+        self.assertIn("AXIA_D07_H01_GUI_NO_GOAL",src)
+        self.assertIn("AXIA_G07_CI_SIM_GOAL_ALLOWED",src)
+        self.assertIn("AXIA_P0_SIM_ONLY",src)
+        self.assertIn("OnProcessExit",src)
+        self.assertIn("target_action=world_xacro",src)
+        self.assertIn("on_exit=[gazebo_server]",src)
+        self.assertIn("RegisterEventHandler",src)
+        self.assertIn("D07_H01_OFFICIAL_WORLD_PROCESS_SHAPE_CHANGED",src)
+        self.assertLess(src.index("RegisterEventHandler(OnProcessExit"),
+                        src.index("world_xacro)") if "world_xacro)" in src else 10**6)
+        self.assertNotIn("time.sleep(",src)
+
     def test_public_ci_runs_actual_rqt_window_and_one_bounded_loop(self):
         w=CI.read_text()
         for expected in ("ros-jazzy-rqt-graph",
