@@ -32,6 +32,7 @@ CI_HEADLESS="${AXIA_D04_STUDENT_CI_HEADLESS:-0}"
 GUI="${AXIA_D04_STUDENT_GUI:-1}"
 SHOW_RVIZ="${AXIA_D04_STUDENT_RVIZ:-0}"
 HOLD="${AXIA_D04_STUDENT_GUI_HOLD_S:-180}"
+D08_STAGED_GUI="${AXIA_D08_STAGED_GUI:-0}"
 export ROS_DOMAIN_ID="${AXIA_D04_STUDENT_DOMAIN_ID:-40}"
 export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 export GZ_PARTITION="axia_d04_student_$$_${ROS_DOMAIN_ID}"
@@ -72,6 +73,18 @@ fi
 [[ "$D05_SENSOR_ONLY" == 0 || "$D05_LIVE" == 1 ]] || { echo "D05_SENSOR_ONLY_REQUIRES_LIVE"; exit 2; }
 [[ "$SHOW_RVIZ" == 0 || "$SHOW_RVIZ" == 1 ]] || { echo "D04_STUDENT_RVIZ_INVALID"; exit 2; }
 [[ "$HOLD" =~ ^[0-9]{1,4}$ ]] || { echo "D04_STUDENT_HOLD_INVALID"; exit 2; }
+if [[ "$D08_STAGED_GUI" == 1 ]]; then
+  [[ "$GUI" == 1 && "$D05_LIVE" == 1 && "$D05_SENSOR_ONLY" == 1 &&
+     "$SHOW_RVIZ" == 1 ]] || {
+    echo "D08_STAGED_GUI_REQUIRES_PUBLIC_SENSOR_ONLY_AND_RVIZ" >&2; exit 2;
+  }
+  [[ "${AXIA_D08_GUI_BACKEND:-}" == software ||
+     "${AXIA_D08_GUI_BACKEND:-}" == d3d12 ]] || {
+    echo "D08_GUI_BACKEND_MUST_BE_SOFTWARE_OR_D3D12" >&2; exit 2;
+  }
+elif [[ "$D08_STAGED_GUI" != 0 ]]; then
+  echo "D08_STAGED_GUI_INVALID" >&2; exit 2
+fi
 
 set +u
 source "$ROS_SETUP"
@@ -204,7 +217,11 @@ start_group() {
   PIDS+=("$pid")
   echo "D04_STUDENT_PROCESS_STARTED name=$name pid=$pid"
 }
-if [[ "$GUI" == 1 ]]; then
+if [[ "$D08_STAGED_GUI" == 1 ]]; then
+  # D07-H01 Owner recovery: launch only ONE real Gazebo server first.
+  # The D05 temporary world always includes SceneBroadcaster for the later GUI.
+  HEADLESS="headless:=True"
+elif [[ "$GUI" == 1 ]]; then
   HEADLESS="headless:=False"
 else
   HEADLESS="headless:=True"
@@ -234,12 +251,45 @@ else
 fi
 start_group yolo_ros ros2 launch yolo_bringup yolo.launch.py \
   "params_file:=$SCENE_DIR/student_yolo.yaml" namespace:=yolo
+if [[ "$D08_STAGED_GUI" == 1 ]]; then
+  # D07-H01 GUI startup pattern: wait for actual server world topics,
+  # THEN attach standalone Gazebo GUI; avoid blank concurrent client startup.
+  SCENE_READY=0
+  for _ in $(seq 1 75); do
+    WORLD_TOPICS="$(timeout 6 gz topic -l 2>/dev/null || true)"
+    if grep -Fxq "/world/default/clock" <<< "$WORLD_TOPICS" &&
+       grep -Fxq "/world/default/stats" <<< "$WORLD_TOPICS"; then
+      SCENE_READY=1; break
+    fi
+    sleep 1
+  done
+  [[ "$SCENE_READY" == 1 ]] || {
+    echo "D08_GAZEBO_WORLD_TOPICS_NOT_READY_GUI_BLOCKED" >&2; exit 3;
+  }
+  echo "D08_GAZEBO_WORLD_READY_BEFORE_GUI partition=$GZ_PARTITION"
+  if [[ "${AXIA_D08_GUI_BACKEND}" == software ]]; then
+    D08_RENDER_ENV=(env -u GALLIUM_DRIVER -u MESA_D3D12_DEFAULT_ADAPTER_NAME
+                    LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb)
+    echo "D08_GAZEBO_GUI_BACKEND=SOFTWARE_CI_OR_OPT_IN"
+  else
+    D08_RENDER_ENV=(env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12
+                    MESA_D3D12_DEFAULT_ADAPTER_NAME="${AXIA_D08_GPU_ADAPTER:-NVIDIA}"
+                    QT_QPA_PLATFORM=xcb)
+    echo "D08_GAZEBO_GUI_BACKEND=D3D12_OWNER_TRIAL_NOT_VISUAL_PROOF"
+  fi
+  start_group gazebo_gui "${D08_RENDER_ENV[@]}" gz sim -g -v 4
+fi
 if [[ "$GUI" == 1 ]]; then
   start_group image_view ros2 run image_view image_view \
     --ros-args -r image:=/yolo/cam0/debug_image
   if [[ "$SHOW_RVIZ" == 1 ]]; then
     if command -v rviz2 >/dev/null; then
-      start_group rviz2 rviz2 -d "$RVIZ" --ros-args -p use_sim_time:=true
+      if [[ "$D08_STAGED_GUI" == 1 ]]; then
+        start_group rviz2 "${D08_RENDER_ENV[@]}" rviz2 -d "$RVIZ" \
+          --ros-args -p use_sim_time:=true
+      else
+        start_group rviz2 rviz2 -d "$RVIZ" --ros-args -p use_sim_time:=true
+      fi
     else
       echo "D04_STUDENT_RVIZ_UNAVAILABLE: optional; Gazebo+YOLO still launched"
     fi
