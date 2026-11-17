@@ -95,6 +95,21 @@ class StudentPhysicalH01(unittest.TestCase):
         self.assertNotIn('r.get("phase")',source)
         self.assertNotIn('r.get("phase")',workflow)
 
+    def test_real_l2_native_teardown_stops_executor_before_ros_destroy(self):
+        # Actual public L2 #44040942877 completed all physical H01 stages,
+        # then sporadically SIGABRT ("terminate called without an active
+        # exception") on interpreter teardown after reporter printed READY.
+        # Static contract keeps async worker quiesced before destroying ROS.
+        src=(RUNTIME/"tools/d07_h01_geometry_l2.py").read_text()
+        tail=src[src.rfind("    finally:\n        if moved:"):]
+        self.assertIn("D07_H01_GEOMETRY_EXECUTOR_QUIESCENT",tail)
+        self.assertIn("th.join(",tail)
+        self.assertIn("th.is_alive()",tail)
+        self.assertLess(tail.index("executor.shutdown("),
+                        tail.index("node.destroy_subscription(scan_sub)"))
+        self.assertLess(tail.index("th.join("),
+                        tail.index("node.destroy_subscription(scan_sub)"))
+
     def test_guide_explains_same_actual_gazebo_rviz_and_holds(self):
         s=GUIDE.read_text()
         for x in ("Gazebo Harmonic", "RViz2", "실제 Waffle",
