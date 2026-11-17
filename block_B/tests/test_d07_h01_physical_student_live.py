@@ -110,6 +110,16 @@ class StudentPhysicalH01(unittest.TestCase):
         self.assertLess(tail.index("th.join("),
                         tail.index("node.destroy_subscription(scan_sub)"))
 
+    def test_checksum_manifest_excludes_live_ci_stdout_and_is_verified(self):
+        # CI artifact #44042258675: 62/63 SHA matched, only live_stdout.log
+        # was still growing in the workflow stdout redirect during hashing.
+        # The successful, CLOSED runtime log remains hash-covered.
+        wrapper=ENTRY.read_text(encoding="utf-8")
+        workflow=(ROOT/".github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml").read_text()
+        self.assertIn("! -name live_stdout.log", wrapper)
+        self.assertIn("sha256sum -c SHA256SUMS", workflow)
+        self.assertIn("student_live_stdout.log", wrapper)
+
     def test_guide_explains_same_actual_gazebo_rviz_and_holds(self):
         s=GUIDE.read_text()
         for x in ("Gazebo Harmonic", "RViz2", "실제 Waffle",
