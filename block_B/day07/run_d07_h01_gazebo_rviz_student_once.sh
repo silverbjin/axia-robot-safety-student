@@ -93,6 +93,17 @@ export AXIA_P2_G07_PHYSICAL_PREFLIGHT=1
 export AXIA_G07_OWNER_STARTUP_PARITY=1
 export AXIA_G07_CI_OWNER_BAG_PARITY=0
 export AXIA_D07_GUI_HOLD_S="${AXIA_D07_STUDENT_PHASE_HOLD_S:-10}"
+# Real classroom now stays inside ONE session, repeated physical obstacle
+# placements and official Nav2 paths until the running terminal gets Ctrl+C.
+# CI sets 2 cycles; 0 means unbounded classroom observation, NOT a safety pass.
+export AXIA_D07_H01_CLASSROOM_LOOP="${AXIA_D07_H01_CLASSROOM_LOOP:-1}"
+export AXIA_D07_H01_CLASSROOM_MAX_CYCLES="${AXIA_D07_H01_CLASSROOM_MAX_CYCLES:-0}"
+[[ "$AXIA_D07_H01_CLASSROOM_LOOP" == 1 ]] || {
+  echo D07_H01_CLASSROOM_LOOP_REQUIRED_NO_GOAL >&2; exit 3;
+}
+[[ "$AXIA_D07_H01_CLASSROOM_MAX_CYCLES" =~ ^(0|[1-9]|1[0-2])$ ]] || {
+  echo D07_H01_CLASSROOM_MAX_CYCLES_INVALID_NO_GOAL >&2; exit 3;
+}
 export ROS_DOMAIN_ID="${AXIA_D07_STUDENT_DOMAIN_ID:-95}"
 export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 export GZ_PARTITION="${GZ_PARTITION:-axia_p2_d07_student_${ROS_DOMAIN_ID}_$$_$(date +%s)}"
