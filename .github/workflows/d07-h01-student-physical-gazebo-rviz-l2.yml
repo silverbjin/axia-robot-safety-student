@@ -116,7 +116,7 @@ jobs:
           assert g["actual_costmap_obstacle_observed"] is True
           assert g["obstacle_restored_away"] is True
           assert g["certified_estop"] is False
-          assert len(phases)>=3
+          assert {r.get("stage") for r in phases} >= {"before","intrusion","restored"}
           print("D07_H01_STUDENT_REAL_PHYSICAL_SCAN_COSTMAP_PATH_3_PHASES_PASS")
           PY_VERIFY
           echo 'D07_H01_STUDENT_REAL_GAZEBO_RVIZ_XVFB_L2_PASS_NO_GOAL'
