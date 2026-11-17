@@ -1,5 +1,8 @@
 # D07 학생용 데모 가이드 — 사람 회피 구조와 주행제어 증거 읽기
 
+> **2026-11-17 실제 Owner WSL2 갱신:** 정지 TurtleBot3 Waffle에서 실제 Gazebo 장애물→LaserScan→공식 Nav2 Costmap→`ComputePathToPose`가 Before/Intrusion/Restored **52/52/52 poses**로 관찰됐다. 경로 차이 **0.3659m**, intrusion 신규 lethal **92**, 제거 후 Costmap 원본과 일치(차이 **0**). 원본 아카이브 해시 78/78·59/59 PASS, 실행기 rc=0. 다만 **자동 GUI 픽셀 검토는 `D07_H01_OWNER_GUI_VISUAL_HOLD`**, 종료 과정의 Supervisor 예외와 전체 센서 안전 TTL은 미검증이다. **`NavigateToPose` 실제 로봇 이동은 NOT_RUN**, `AXIA_MVP_DEMO_ACCEPTED=HOLD`. 학생 TODO 두 함수와 시험 범위는 변경하지 않는다.
+
+
 > 수업: 2026-11-17(화) 19:00~22:00 · 이론 60분 + 실습 120분 · **읽기 전용 데모 및 Python TDD**  
 > 수업용 PPT: AXIA D07 V3 학생용 24장(강사가 제공). 단계별 전체 절차는 [D07 3시간 가이드](D07_STUDENT_3H_CLASSROOM_GUIDE_20261117_KO.md)를 따른다.  
 > **안전 범위:** 학생은 ROS Goal, 최종 속도 `/cmd_vel`, Gazebo 물리 모델을 직접 조작하지 않는다. H01 실제 회피 주행 성공이 아님.
@@ -18,7 +21,7 @@
 | **L2** D07-**H01** | Gazebo Harmonic 물리 장애물, 실제 Waffle LaserScan, 공식 Nav2 경로 질의 | 최신 검증된 경로 변화 **0.3659m**, 신규 lethal cell 92→0, Before/Intrusion/Restored Path 52점씩 | Controller 경로 추종, Contact·안전 TTL 인수 |
 | **L3** Owner WSL2 GUI | WSLg의 Gazebo 3D·Entity Tree / RViz2 실제 화면 | 사용자 육안 + 무결성 검증 XWD에서 **화면 복원 확인** | 자동 Owner L3 수락은 **VISUAL_HOLD**, 실제 주행 인수 아님 |
 
-**현재 강사 시연 기준선(2026-11-16):** `D07_H01_GUI_SCENE_RESTORED_OWNER_20261116`. 실제 공개 Gazebo L2 [#43866354976](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43866354976)는 성공했고, Owner `d07-h01-owner-SFvdvtvH`에서는 3D 월드·로봇과 RViz2 경로가 화면에서 확인되었다. **그러나 자동 Owner L3는 `D07_H01_OWNER_GUI_VISUAL_HOLD`, 전체 AXIA는 `AXIA_MVP_DEMO_ACCEPTED=HOLD`이다.** `NavigateToPose` 이동 Goal 및 실제 회피 주행은 **NOT_RUN**이다. 과거 `POST_RESTORE_COSTMAP_DRIFT` 실패는 아래에서 학습용 사례로만 보존한다.
+**이전 강사 시연 기준선(2026-11-16, 역사적 사례):** `D07_H01_GUI_SCENE_RESTORED_OWNER_20261116`. 실제 공개 Gazebo L2 [#43866354976](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/43866354976)는 성공했고, Owner `d07-h01-owner-SFvdvtvH`에서는 3D 월드·로봇과 RViz2 경로가 화면에서 확인되었다. **그러나 자동 Owner L3는 `D07_H01_OWNER_GUI_VISUAL_HOLD`, 전체 AXIA는 `AXIA_MVP_DEMO_ACCEPTED=HOLD`이다.** `NavigateToPose` 이동 Goal 및 실제 회피 주행은 **NOT_RUN**이다. 과거 `POST_RESTORE_COSTMAP_DRIFT` 실패는 아래에서 학습용 사례로만 보존한다.
 
 ## 1단계 — 학생 터미널 S: 합성 경로만 관찰 (5분)
 
