@@ -108,7 +108,9 @@ jobs:
           (
             cd "$BASE"
             test -s SHA256SUMS
-            if grep -Fq 'live_stdout.log' SHA256SUMS; then
+            # Match the WHOLE relative path: student_live_stdout.log is
+            # closed, valid evidence and MUST stay covered.
+            if awk '$2 == "./live_stdout.log" {hit=1} END {exit !hit}' SHA256SUMS; then
               echo D07_H01_ACTIVE_CI_LOG_IN_SHA_MANIFEST_DENIED
               exit 3
             fi
