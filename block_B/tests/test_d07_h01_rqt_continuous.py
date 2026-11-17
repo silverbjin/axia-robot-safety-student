@@ -78,6 +78,21 @@ class D07H01RqtContinuous(unittest.TestCase):
             self.assertIn(required,doc,required)
         self.assertIn("ros-jazzy-rqt-graph",doc)
 
+    def test_rqt_live_log_is_not_hashed_before_ci_gui_closes(self):
+        # Actual merged student main L2 #44066252082 was SUCCESS with native
+        # sensors/Path/62+ original hashes, but zip rqt_graph.log changed after
+        # wrapper manifest: Xvfb exited while rqt GUI process was still alive.
+        w=WRAPPER.read_text()
+        ci=CI.read_text()
+        self.assertIn('! -name rqt_graph.log',w)
+        self.assertIn('setsid bash -c',ci)
+        self.assertIn('kill -INT -- "-$RQT_PID"',ci)
+        self.assertIn('wait "$RQT_PID"',ci)
+        cleanup=ci[ci.index('cleanup_gui() {'):ci.index("trap cleanup_gui EXIT")]
+        self.assertLess(cleanup.index('kill -INT -- "-$RQT_PID"'),
+                        cleanup.index('kill "$XVPID"'))
+        self.assertIn('student_live_stdout.log',w)
+
     def test_public_ci_runs_actual_rqt_window_and_one_bounded_loop(self):
         w=CI.read_text()
         for expected in ("ros-jazzy-rqt-graph",
