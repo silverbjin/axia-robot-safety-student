@@ -58,6 +58,19 @@ class D07H01RqtClassroomLoop(unittest.TestCase):
         self.assertNotIn("YES-P2-G07-GOAL",s)
         self.assertEqual(subprocess.run(["bash","-n",str(ENTRY)]).returncode,0)
 
+    def test_rqt_actual_node_discovery_and_closed_artifact_log(self):
+        # Real L2 #44049945195: ROS topics lived but ros2 node list
+        # --no-daemon was empty; rqt_graph.log was STILL being written
+        # during SHA256 manifest generation. Do not call window=graph proof.
+        workflow=(ROOT/".github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml").read_text()
+        self.assertIn("get_node_names_and_namespaces",workflow)
+        self.assertIn("get_publishers_info_by_topic",workflow)
+        self.assertIn("get_subscriptions_info_by_topic",workflow)
+        self.assertIn("D07_H01_RQT_NODE_ENDPOINT_GRAPH_REAL_PASS",workflow)
+        self.assertIn("RUNNER_TEMP",workflow)
+        self.assertIn("rqt_graph_closed.log",workflow)
+        self.assertNotIn('> "$BASE/rqt_graph.log"',workflow)
+
     def test_rqt_three_layer_filter_guide_and_boundaries(self):
         t=GUIDE.read_text()
         for word in (
