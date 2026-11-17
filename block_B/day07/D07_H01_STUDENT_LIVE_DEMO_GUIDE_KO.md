@@ -108,7 +108,7 @@ rqt_graph 상단에서 먼저 **Nodes/Topics (all)** 또는 **Nodes/Topics (acti
 /scan,/global_costmap/costmap,/axia/d07/h01/path_visual,/compute_path_to_pose/.*
 ```
 
-<text>**관찰·해설:** Gazebo Harmonic의 물리 LiDAR는 `ros_gz_bridge`를 통해 ROS `/scan`을 발행하고, 공식 Nav2 `global_costmap`의 ObstacleLayer가 이를 사용합니다. 경로 계획 요청은 `/compute_path_to_pose` 액션으로 `planner_server`에 전달됩니다. `/axia/d07/h01/path_visual`은 **공식 액션의 실제 결과 Path를 RViz로 전달하는 표시용 토픽**이지 직접 로봇을 제어하는 명령이 아닙니다. 장애물 진입·제거를 반복할 때 `Path`의 메시지 타임스탬프와 장면이 변하는지 확인합니다. `rqt_graph`는 데이터 연결을 보여주지만 그 메시지의 숫자 값이나 장애물 회피의 충돌 안전성을 보증하지 않습니다.</text>
+**관찰·해설:** Gazebo Harmonic의 물리 LiDAR는 `ros_gz_bridge`를 통해 ROS `/scan`을 발행하고, 공식 Nav2 `global_costmap`의 ObstacleLayer가 이를 사용합니다. 경로 계획 요청은 `/compute_path_to_pose` 액션으로 `planner_server`에 전달됩니다. `/axia/d07/h01/path_visual`은 **공식 액션의 실제 결과 Path를 RViz로 전달하는 표시용 토픽**이지 직접 로봇을 제어하는 명령이 아닙니다. 장애물 진입·제거를 반복할 때 `Path`의 메시지 타임스탬프와 장면이 변하는지 확인합니다. `rqt_graph`는 데이터 연결을 보여주지만 그 메시지의 숫자 값이나 장애물 회피의 충돌 안전성을 보증하지 않습니다.
 
 ### 관찰 2 — 내비게이션과 제어 계층: Planner/Controller/Smoother → 안전 명령 체인
 
