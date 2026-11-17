@@ -74,7 +74,8 @@ jobs:
           export QT_QPA_PLATFORM=xcb
           LOG="$RUNNER_TEMP/d05-mounted-gazebo-real.log"
           WINDOWS="$RUNNER_TEMP/d05-x11-windows.txt"
-          export LOG WINDOWS
+          SCENE_GATE="$RUNNER_TEMP/d08-scene-pass.txt"
+          export LOG WINDOWS SCENE_GATE
           xvfb-run -a -s '-screen 0 1530x900x24' bash -c '
             set -eo pipefail
             timeout --signal=TERM --kill-after=20s 1100s \
@@ -102,7 +103,8 @@ jobs:
             for attempt in 1 2 3 4 5; do
               GZ_PARTITION="$PARTITION" timeout 12 gz topic -l > "$PROBE" 2>&1 || true
               if grep -Fxq "/world/default/pose/info" "$PROBE"; then
-                echo D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS | tee -a "$LOG"
+                echo D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS > "$SCENE_GATE"
+                echo D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS
                 break
               fi
               sleep 2
@@ -132,7 +134,10 @@ jobs:
             exit 1
           fi
           grep -F 'D08_STUDENT_LIVE_LAUNCH_REQUESTED' "$LOG"
-          grep -F 'D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS' "$LOG"
+          [[ -s "$SCENE_GATE" ]] || {
+            echo D08_GZ_SCENE_GATE_ARTIFACT_MISSING; exit 1;
+          }
+          grep -F 'D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS' "$SCENE_GATE"
           grep -F 'D08_RVIZ_OFFICIAL_MESH_VIEW_READY' "$LOG"
           grep -F "D08_STUDENT_RELEASE_SOURCE_SHA=$EXPECTED_SOURCE_SHA" "$LOG"
           grep -F 'D08_STUDENT_RVIZ_CONFIG=' "$LOG"
