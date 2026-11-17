@@ -118,6 +118,20 @@ class StudentPhysicalH01(unittest.TestCase):
         workflow=(ROOT/".github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml").read_text()
         self.assertIn("! -name live_stdout.log", wrapper)
         self.assertIn("sha256sum -c SHA256SUMS", workflow)
+        self.assertNotIn("grep -Fq 'live_stdout.log' SHA256SUMS",workflow)
+        self.assertIn("grep -Eq '[[:space:]]+\\./live_stdout\\.log
+
+    def test_guide_explains_same_actual_gazebo_rviz_and_holds(self):
+        s=GUIDE.read_text()
+        for x in ("Gazebo Harmonic", "RViz2", "실제 Waffle",
+                  "Before", "Intrusion", "Restored", "ComputePathToPose",
+                  "NO_GOAL", "AXIA_MVP_DEMO_ACCEPTED=HOLD",
+                  "run_d07_h01_gazebo_rviz_student_once.sh"):
+            self.assertIn(x,s,x)
+
+if __name__=="__main__":
+    unittest.main()
+",workflow)
         self.assertIn("student_live_stdout.log", wrapper)
 
     def test_guide_explains_same_actual_gazebo_rviz_and_holds(self):
