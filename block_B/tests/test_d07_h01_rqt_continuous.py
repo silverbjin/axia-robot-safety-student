@@ -53,6 +53,19 @@ class D07H01RqtContinuous(unittest.TestCase):
             p=subprocess.run(["bash","-n",str(script)],capture_output=True,text=True)
             self.assertEqual(p.returncode,0,p.stderr)
 
+    def test_classroom_stop_uses_existing_managed_26s_shutdown_budget(self):
+        # Actual public L2 #44063399501: all 4 real physical positions and
+        # official Nav2 paths PASSED; only 10s launch exit budget timed out.
+        # G07_MANAGED_LAUNCH_EXIT_GRACE_SEC=26 already exists; reuse it ONLY
+        # in the H01 no-moving-Goal classroom lane, never change CM/Scan TTL.
+        src=SMOKE.read_text()
+        start=src.index("    local launch_grace_steps=25")
+        end=src.index("    for ((i=0;i<launch_grace_steps;i++));",start)
+        teardown=src[start:end]
+        self.assertIn('AXIA_D07_H01_TEACHING_LOOP',teardown)
+        self.assertIn('G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2',teardown)
+        self.assertIn('AXIA_D07_H01_GUI_NO_GOAL',teardown)
+
     def test_three_rqt_graph_filter_layers_are_explained_and_readonly(self):
         doc=GUIDE.read_text()
         for required in ("rqt_graph","인지·계획","네비게이션·제어",
