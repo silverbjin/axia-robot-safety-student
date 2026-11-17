@@ -5,11 +5,13 @@ on:
     paths:
       - 'block_B/day07/**'
       - 'block_B/tests/test_d07_h01_physical_student_live.py'
+      - 'block_B/tests/test_d07_h01_rqt_continuous.py'
       - '.github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml'
   pull_request:
     paths:
       - 'block_B/day07/**'
       - 'block_B/tests/test_d07_h01_physical_student_live.py'
+      - 'block_B/tests/test_d07_h01_rqt_continuous.py'
       - '.github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml'
 permissions:
   contents: read
