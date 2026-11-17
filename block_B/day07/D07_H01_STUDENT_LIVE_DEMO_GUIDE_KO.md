@@ -68,6 +68,99 @@ ros2 topic echo /axia/d07/h01/path_visual --field header
 
 ---
 
+## A-2. rqt_graph 아키텍처 분석 — Ctrl+C 전까지 반복되는 실제 물리 시연
+
+이제 `--run`은 **기존 물리 H01의 Before/Intrusion/Restored 세 단계가 실측 PASS한 다음**, Gazebo와 Nav2와 RViz2를 **종료하지 않고** 물체의 위치를 `Free → Intrusion → Lateral(+0.12m) → Restored`로 순환한다. 각 물리 위치에서는 **새 Gazebo set_pose ACK, 실제 /scan·/global_costmap/costmap 신선도, 공식 ComputePathToPose 액션 응답**을 얻어 `/axia/d07/h01/path_visual`에 원본 Path를 새로 게시한다. 이는 학생의 ROS graph 관찰 시간을 확보하는 **교육용 반복**이며 이전 3단계 인수 증거와 별도 로그로 저장한다. 경로가 위치마다 반드시 달라진다고 가정하지 말고, 실제 Path와 Costmap을 비교한다.
+
+- **실행 순서:** 터미널 A에서 `bash .../run_d07_h01_gazebo_rviz_student_once.sh --run` → Gazebo+RViz가 실제 준비되면 터미널 B에서 `rqt_graph` 실행 → 필터를 단계별로 바꾼다 → **종료는 터미널 A에서 Ctrl+C**. 임의의 초·회수만큼 진행했다고 자동 종료되지 않는다. 공개 CI만 동일 런타임을 1회 물리 반복 후 종료해 검증한다.
+- **화면 유지:** 기본 각 위치 10초(`AXIA_D07_STUDENT_PHASE_HOLD_S=15`로 단계당 15초 설정 가능). 분석 도중 다른 단계로 넘어가더라도 rqt_graph의 **노드와 토픽 연결 구조 자체는 유지**된다. 창이 닫히면 최초 로그 원인을 확인한다.
+- **사전 설치:** `sudo apt-get install -y ros-jazzy-rqt-graph`. 여러 버전이 있다면 `ros2 pkg prefix rqt_graph`로 Jazzy 패키지를 확인한다. `rqt_graph`는 로봇을 조종하지 않는 ROS 그래프 조회 툴이다.
+
+### 터미널 B — rqt_graph 공통 시작 명령 (터미널 A가 실행 중일 때)
+
+```bash
+set +u
+source /opt/ros/jazzy/setup.bash
+set -u
+export ROS_DOMAIN_ID=95
+export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+ros2 node list --no-daemon | head -n 50
+ros2 topic list -t | grep -E '(/scan|/odom|/clock|/cmd_vel|/costmap|/axia/d07/h01/path_visual)' || true
+ros2 run rqt_graph rqt_graph
+# rqt_graph 종료는 이 터미널의 Ctrl+C 또는 창 닫기
+# 실제 H01 전체 종료는 터미널 A의 Ctrl+C
+```
+
+rqt_graph 상단에서 **`Nodes/Topics (all)`** 을 선택하고 새로 고침(Refresh)을 누른다. 첫 번째 텍스트 입력창이 **노드 필터**, 두 번째가 **토픽 필터**다. 기본값 `/`은 전체를 표시한다. **쉼표로 여러 이름 패턴을 나열**하고 앞에 `-`를 붙이면 해당 패턴을 제외할 수 있다(예: `-/rosout,-/parameter_events`). `Hide Debug`를 켜서 노이즈를 줄이되, 단독 퍼블리셔·안전 증거가 안 보일 때는 `Hide Leaf topics`, `Hide Dead sinks`를 **해제**한다. `Actions`와 `tf` 묶음 표시 여부에 따라 다이어그램의 이름·간선 수가 달라진다. 텍스트 입력 후 Enter/Refresh를 누르고 화면이 비면 필터를 `/`로 되돌려 실제 토픽을 확인한다.
+
+### 1단계: 인지·계획 계층 (Perception → Planning)
+
+| rqt_graph 설정 | 입력 |
+|---|---|
+| 노드 필터 | `/` (ROS 퍼블리셔와 구독자 양 끝을 유지), 이후 필요한 경우 `/planner_server,/global_costmap` |
+| 토픽 필터 | `/scan,/safety/scan,/global_costmap/costmap,/axia/d07/h01/path_visual` |
+| 표시 | `Nodes/Topics (all)`, `Hide Debug` 켬, `Hide Leaf topics` 해제 |
+
+**해설:** Gazebo Waffle LiDAR → ROS `/scan` (실제 센서) → Nav2 ObstacleLayer·InflationLayer가 갱신하는 `/global_costmap/costmap` → 공식 `/compute_path_to_pose` 액션으로 얻은 Path → 별도 `/axia/d07/h01/path_visual` 게시 → RViz 구독. **Costmap 업데이트와 Planner Path 게시가 동일 ROS 토픽 연결은 아니다.** Costmap은 PlannerServer가 내부적으로 참조하고, Planner 결과는 Action 응답 뒤 시연 노드가 읽기 전용 Path 토픽에 전달한다.
+
+```bash
+ros2 topic info /scan --verbose
+ros2 topic info /global_costmap/costmap --verbose
+ros2 topic info /axia/d07/h01/path_visual --verbose
+ros2 action info /compute_path_to_pose
+```
+
+**관찰 과제:** Intrusion 때 원통에 대응하는 costmap 표시가 바뀌는지, Lateral에서는 이전과 다른 위치의 장애물이 인식되는지, restored에서 clearing되는지 구분한다. 경로가 같은 52 poses여도 **좌표는 달라질 수 있으므로 개수만으로 우회 여부를 판정하지 않는다**.
+
+### 2단계: 네비게이션·제어 계층 (Navigation → Control)
+
+| rqt_graph 설정 | 입력 |
+|---|---|
+| 노드 필터 | `/`, 필요한 노드만 강조할 때 `/planner_server,/controller_server,/collision_monitor` |
+| 토픽 필터 | `/compute_path_to_pose,/plan,/cmd_vel_supervised,/cmd_vel_pre_guard,/cmd_vel,/odom` |
+| 표시 | `Nodes/Topics (all)`; Action 연결을 보려면 `Actions` 묶음 켬/끔 비교 |
+
+**해설:** `ComputePathToPose`는 **계획 요청과 응답**이며 `NavigateToPose`는 경로 추종을 실제로 개시할 수 있는 **이동 Goal**이다. 이 시연에서는 이동 Goal을 보내지 않아 `controller_server`·`collision_monitor`·`base_guard` 노드가 존재하더라도 **주행 제어 성공의 증거가 아니다**. `/cmd_vel_supervised` → `/cmd_vel_pre_guard` → `/cmd_vel`은 안전 출력 체인의 *배선*이며 실제 속도·모터 명령 활성화로 오해하지 않는다. 표시가 안 되는 Action은 `ros2 action list -t`·`ros2 action info /compute_path_to_pose`로 교차 검증한다.
+
+```bash
+ros2 action list -t
+ros2 node list | grep -E 'planner|controller|collision_monitor|guard|supervisor' || true
+ros2 topic info /cmd_vel --verbose
+ros2 topic info /odom --verbose
+```
+
+**관찰 과제:** Planner Path가 수차례 갱신되어도 로봇의 `/odom` 위치와 `/cmd_vel`을 별도로 확인해야 한다. `rqt_graph`의 간선은 데이터 통신 관계이지 명령 발행 빈도나 로봇 이동량을 보증하지 않는다.
+
+### 3단계: 안전·물리 증거 계층 (Safety → Physics)
+
+| rqt_graph 설정 | 입력 |
+|---|---|
+| 노드 필터 | `/`, 비교용 `/collision_monitor,/p2_base_guard` 등은 실제 `ros2 node list` 출력에 따라 선택 |
+| 토픽 필터 | `/safety/scan,/axia/safety/state,/axia/p2/base_guard,/cmd_vel_supervised,/cmd_vel_pre_guard,/cmd_vel,/odom,/clock` |
+| 표시 | `Nodes/Topics (all)`, `Hide Debug` 켬, **`Hide Leaf topics` 해제**, `tf`는 필요할 때만 표시 |
+
+**해설:** Supervisor의 `/axia/safety/state`, Collision Monitor 출력 `/cmd_vel_pre_guard`, Base Guard 최종 `/cmd_vel`, Gazebo/ROS `/odom`·`/clock`을 각기 독립적인 증거로 해석한다. 무주행 H01에서는 **SW Stop ≠ 인증된 E-Stop**, 이 그래프만으로 150ms CM TTL·300ms Scan TTL이나 비상정지 지연을 판정할 수 없다.
+
+**Gazebo 물리 세계는 별개의 Transport 그래프다.** `/world/default/set_pose`, `/world/default/scene/info`, `/world/default/pose/info` 등 Gazebo native 서비스·토픽은 ROS 2 `rqt_graph`에 직접 나타나지 않을 수 있다. 다음 CLI로 **같은 `GZ_PARTITION`**을 설정하여 Gazebo 측을 따로 확인한다. (`/world/default/set_pose`는 관찰하지 호출하지 않는다.)
+
+```bash
+# 같은 학생 WSL2의 실제 시연 환경과 GZ_PARTITION을 맞춘 경우에만
+gz topic -l | grep -E '/world/default/(scene|pose)/info|/clock' || true
+gz service -l | grep '/world/default/set_pose' || true
+ros2 topic info /axia/p2/base_guard --verbose
+ros2 topic info /clock --verbose
+```
+
+**필터로 숨긴 노드는 종료된 것이 아니다.** rqt_graph의 필터링은 화면 편집일 뿐 ROS Safety Supervisor·Nav2·CM의 실행 설정이나 TTL을 바꾸지 않는다. `/rosout`·`/parameter_events` 노이즈를 제외하고 다시 전체 그래프로 돌아가 토픽 연결·미연결을 비교한다.
+
+### 수업 증거·안전 범위
+
+학생 시연 `~/axia_d07_h01_student_evidence/session-*/evidence/d07_h01_geometry/teaching_cycle_evidence.jsonl`에 반복마다 `cycle`, `stage`, 실제 native pose ACK, LaserScan/Costmap stamps, 공식 Path 좌표 개수, RViz 구독 수, `goal_sent=false`가 기록된다. 정상 수업 종료는 **터미널 A Ctrl+C**, 종료 후 실측 로그·원본 해시를 보존한다. CI는 테스트용으로만 정확히 1회 반복 후 종료하지만, WSL2 실행에는 반복 횟수 제한이 없다.
+
+제출물은 **계층별 필터 화면 3장**, 세 장면의 토픽 및 노드/Action 관계 해설, 순환 장애물 위치에 따른 실제 Path 변화/불변 원인, `/cmd_vel` 무주행과 `/odom` 증거, 미검증 안전 TTL 목록이다. rqt_graph 창이 뜬 것만으로 WSLg GUI 픽셀 검증이나 AXIA MVP 전체 인수를 선언하지 않는다. `AXIA_MVP_DEMO_ACCEPTED=HOLD`.
+
+---
+
 ## 학생 L0/L1/L2/L3 증거 분리 계약
 
 훈련생 독립 실행의 **우선순위는 물리 H01 Gazebo/RViz**입니다. `ROS_DOMAIN_ID=95`는 동일한 학생 WSL2의 읽기 전용 터미널과 공유하되 서로 다른 PC에서 같은 토픽이 자동으로 발견된다고 가정하지 않습니다.
