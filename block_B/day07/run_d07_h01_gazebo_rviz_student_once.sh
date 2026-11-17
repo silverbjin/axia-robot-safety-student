@@ -145,7 +145,7 @@ assert j["real_nav2"] is True and j["real_laser_scan"] is True
 assert j["actual_costmap_obstacle_observed"] is True
 assert j["obstacle_restored_away"] is True
 assert j["certified_estop"] is False
-assert {r.get("phase") for r in rows} >= {"before","intrusion","restored"}
+assert {r.get("stage") for r in rows} >= {"before","intrusion","restored"}
 assert all(r.get("rviz_subscription_count",0)>=1 for r in rows)
 print("D07_H01_STUDENT_PHYSICAL_SCAN_COSTMAP_PATH_RVIZ_PHASES_PASS")
 PY
