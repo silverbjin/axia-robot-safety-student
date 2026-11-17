@@ -103,6 +103,18 @@ jobs:
           grep -Fq 'D07_H01_GUI_H01_GEOMETRY_RETURNED_NO_GOAL' "$BASE/live_stdout.log"
           grep -Fq 'P2_L2_SMOKE_RC=0' "$BASE/live_stdout.log"
           grep -Fq 'D07_H01_STUDENT_GAZEBO_RVIZ_L2_PASS' "$BASE/live_stdout.log"
+          # The outer CI stdout file is still open during the wrapper hash.
+          # Verify every CLOSED raw sensor/Nav2/Gazebo/GUI file, not that file.
+          (
+            cd "$BASE"
+            test -s SHA256SUMS
+            if grep -Fq 'live_stdout.log' SHA256SUMS; then
+              echo D07_H01_ACTIVE_CI_LOG_IN_SHA_MANIFEST_DENIED
+              exit 3
+            fi
+            sha256sum -c SHA256SUMS
+          )
+          echo D07_H01_STUDENT_CLOSED_EVIDENCE_SHA256_PASS
           grep -Fq 'D07_H01_GUI_SERVER_WORLD_DISCOVERED_NOT_GUI_RENDER_PROOF' \
             "$BASE"/evidence/d07_gui_watcher.log
           python3 - "$BASE/evidence/d07_h01_geometry/phase_evidence.jsonl" \
