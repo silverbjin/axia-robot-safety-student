@@ -49,6 +49,31 @@ class StudentPhysicalH01(unittest.TestCase):
         self.assertIn("ComputePathToPose",text)
         self.assertIn("path_visual",text)
 
+    def test_all_private_runtime_python_dependencies_are_present_publicly(self):
+        # Actual PUBLIC L2 #44039481753: official launch could not import
+        # p2_zone_overlay. Catch ALL same-tree H01 modules BEFORE real Gazebo.
+        import ast
+        module_paths=(
+            list((RUNTIME/"tools").glob("*.py"))+
+            list((RUNTIME/"ros2_ws/src/axia_safety_bringup/launch").glob("*.py"))
+        )
+        names={p.stem for p in module_paths}
+        missing={}
+        for path in module_paths:
+            refs=set()
+            for n in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(n,ast.Import):
+                    refs.update(x.name.split(".")[0] for x in n.names)
+                if isinstance(n,ast.ImportFrom) and n.module:
+                    refs.add(n.module.split(".")[0])
+            # Standard and ROS package imports are outside this copied tree;
+            # these exact prefixes name local H01/P0/P1/P2 helper modules.
+            required={x for x in refs if x.startswith(
+                ("p0_","p1_","p2_","d07_h01_","axia_p0_","axia_p1_","axia_p2_"))}
+            diff=required-names
+            if diff: missing[path.name]=sorted(diff)
+        self.assertFalse(missing,missing)
+
     def test_no_private_answers_or_secret_material(self):
         forbidden=("training/block_B/instructor/d07_route_reference.py",
                    "training/block_B/instructor/hidden_tests",
