@@ -1,0 +1,76 @@
+name: D07 H01 student public live guide and actual Nav2 L1
+on:
+  push:
+    branches: [main, feat/d07-h01-student-readonly-live-guide-20261117]
+    paths:
+      - 'block_B/day07/**'
+      - 'block_B/tests/test_d07_h01_student_readonly_live_release.py'
+      - '.github/workflows/d07-h01-student-readonly-live-nav2-l1.yml'
+  pull_request:
+    paths:
+      - 'block_B/day07/**'
+      - 'block_B/tests/test_d07_h01_student_readonly_live_release.py'
+      - '.github/workflows/d07-h01-student-readonly-live-nav2-l1.yml'
+permissions:
+  contents: read
+
+jobs:
+  l0-public-student-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify independent student release, existing TODO preserved
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s block_B/tests -p test_d07_h01_student_readonly_live_release.py -v
+          python3 -m compileall -q block_B/day07
+          python3 -m json.tool block_B/day07/fixtures/routes.json >/dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("block_B/day07/fixtures/routes.json").read_text())
+          assert "person_xy" in data and "path_before" in data and "path_detour" in data
+          print("D07_STUDENT_PUBLIC_FIXTURE_SCHEMA_STATIC_PASS")
+          PY
+          echo D07_STUDENT_LIVE_RELEASE_L0_PASS_NO_ROS_NO_GAZEBO_NO_GOAL
+
+  l1-actual-official-nav2:
+    needs: l0-public-student-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      AXIA_D07_STUDENT_LIVE_EVIDENCE: ${{ github.workspace }}/results/d07-student-live
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install official Jazzy Nav2 PlannerServer and Costmap plugins
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            ros-jazzy-nav2-planner ros-jazzy-nav2-navfn-planner \
+            ros-jazzy-nav2-costmap-2d ros-jazzy-nav2-msgs \
+            ros-jazzy-tf2-ros ros-jazzy-rclpy ros-jazzy-nav-msgs \
+            ros-jazzy-geometry-msgs ros-jazzy-sensor-msgs \
+            ros-jazzy-action-msgs ros-jazzy-ros2lifecycle
+      - name: Run identical public student live launcher with actual ROS Planner
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash block_B/day07/run_d07_student_live_once.sh --self-check
+          bash block_B/day07/run_d07_student_live_once.sh --run
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: d07-student-real-official-nav2-l1-no-gazebo
+          path: results/d07-student-live/
+          retention-days: 14
+          if-no-files-found: warn
