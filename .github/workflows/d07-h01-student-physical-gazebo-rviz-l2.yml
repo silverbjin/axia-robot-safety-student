@@ -1,7 +1,7 @@
 name: D07 H01 student REAL physical Gazebo Waffle Nav2 Path RViz2 NO-GOAL
 on:
   push:
-    branches: [feat/d07-h01-student-physical-gazebo-rviz-20261117, main]
+    branches: [feat/d07-h01-student-physical-gazebo-rviz-20261117, feat/d07-h01-rqt-graph-teaching-loop-20261117, main]
     paths:
       - 'block_B/day07/**'
       - 'block_B/tests/test_d07_h01_physical_student_live.py'
