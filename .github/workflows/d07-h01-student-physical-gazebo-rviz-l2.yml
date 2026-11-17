@@ -117,7 +117,7 @@ jobs:
           grep -Fq 'D07_H01_GUI_H01_GEOMETRY_RETURNED_NO_GOAL' "$BASE/live_stdout.log"
           grep -Fq 'P2_L2_SMOKE_RC=0' "$BASE/live_stdout.log"
           grep -Fq 'D07_H01_STUDENT_GAZEBO_RVIZ_L2_PASS' "$BASE/live_stdout.log"
-          grep -Fq 'D07_H01_TEACHING_LOOP_FINISHED_NO_MOVING_GOAL' "$BASE/evidence/d07_h01_teaching_loop.log"
+          grep -Fq 'D07_H01_TEACHING_CTRL_C_STOP PUBLIC_CI_BOUNDED_CYCLE' "$BASE/evidence/d07_h01_teaching_loop.log"
           test -s "$BASE/evidence/d07_h01_geometry/teaching_cycle_evidence.jsonl"
           # The outer CI stdout file is still open during the wrapper hash.
           # Verify every CLOSED raw sensor/Nav2/Gazebo/GUI file, not that file.
