@@ -65,6 +65,7 @@ jobs:
           export AXIA_D04_STUDENT_GUI=1
           export AXIA_D04_STUDENT_GUI_HOLD_S=35
           export AXIA_D08_HOLD_S=35
+          export AXIA_D08_GUI_BACKEND=software
           export AXIA_D04_STUDENT_MONITOR_TIMEOUT_S=175
           export QT_QPA_PLATFORM=xcb
           LOG="$RUNNER_TEMP/d05-mounted-gazebo-real.log"
