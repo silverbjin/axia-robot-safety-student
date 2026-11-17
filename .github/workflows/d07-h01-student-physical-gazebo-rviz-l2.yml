@@ -26,6 +26,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 -m unittest discover -s block_B/tests -p test_d07_h01_physical_student_live.py -v
+          python3 -m unittest discover -s block_B/tests -p test_d07_h01_rqt_continuous.py -v
           python3 -m compileall -q block_B/day07/h01_runtime/tools
           bash block_B/day07/run_d07_h01_gazebo_rviz_student_once.sh --self-check
           echo AXIA_D07_H01_STUDENT_PHYSICAL_L0_PASS_NO_ROS_NO_GAZEBO_NO_GOAL
@@ -45,6 +46,8 @@ jobs:
       AXIA_D07_H01_GPU_GUI_TRIAL: '1'
       AXIA_G07_CI_SIM_GOAL_ALLOWED: '0'
       AXIA_D07_GUI_HOLD_S: '8'
+      AXIA_D07_H01_TEACHING_LOOP: '1'
+      AXIA_D07_H01_TEACHING_MAX_CYCLES: '1'
       AXIA_P0_SIM_ONLY: '1'
       AXIA_D07_STUDENT_LIVE_EVIDENCE: results/d07-h01-student-l2
       QT_QPA_PLATFORM: xcb
@@ -62,11 +65,13 @@ jobs:
           command -v Xvfb >/dev/null || missing+=(xvfb)
           command -v xwininfo >/dev/null || missing+=(x11-utils)
           command -v rviz2 >/dev/null || missing+=(ros-jazzy-rviz2)
+          ros2 pkg prefix rqt_graph >/dev/null 2>&1 || missing+=(ros-jazzy-rqt-graph)
           if (( ${#missing[@]} )); then
             apt-get update -qq
             DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${missing[@]}"
           fi
           for x in Xvfb xwininfo rviz2 gz ros2 colcon; do command -v "$x" >/dev/null; done
+          ros2 pkg prefix rqt_graph >/dev/null
       - name: Same PUBLIC student launcher real Gazebo and RViz, physical obstacle 3 phases
         shell: bash
         run: |
@@ -76,26 +81,35 @@ jobs:
           mkdir -p "$BASE"
           Xvfb :99 -screen 0 1600x900x24 -nolisten tcp > "$BASE/xvfb.log" 2>&1 &
           XVPID=$!
-          trap 'kill "$XVPID" 2>/dev/null || true' EXIT
+          RQT_PID=''
+          trap '[[ -z "$RQT_PID" ]] || kill "$RQT_PID" 2>/dev/null || true; kill "$XVPID" 2>/dev/null || true' EXIT
           sleep 2
+          # Actual rqt_graph GUI must coexist with Gazebo+RViz, reading
+          # the SAME ROS_DOMAIN_ID=95. The program adds NO robot Goal.
+          (
+            set +u; source /opt/ros/jazzy/setup.bash; set -u
+            ros2 run rqt_graph rqt_graph
+          ) > "$BASE/rqt_graph.log" 2>&1 &
+          RQT_PID=$!
           set +e
           timeout --signal=TERM --kill-after=12s 900s \
             bash block_B/day07/run_d07_h01_gazebo_rviz_student_once.sh --run \
             > "$BASE/live_stdout.log" 2>&1 &
           PID=$!
-          RVIZ=0; GAZEBO=0
+          RVIZ=0; GAZEBO=0; RQT=0
           for i in $(seq 1 390); do
             windows="$(xwininfo -root -tree 2>/dev/null || true)"
             grep -Eiq 'RViz' <<<"$windows" && RVIZ=1
             grep -Eiq 'Gazebo' <<<"$windows" && GAZEBO=1
-            [[ "$RVIZ" == 1 && "$GAZEBO" == 1 ]] && break
+            grep -Eiq 'rqt_graph|RosGraph' <<<"$windows" && RQT=1
+            [[ "$RVIZ" == 1 && "$GAZEBO" == 1 && "$RQT" == 1 ]] && break
             kill -0 "$PID" 2>/dev/null || break
             sleep 2
           done
           wait "$PID"; RC=$?
           set -e
-          if [[ "$RC" != 0 || "$RVIZ" != 1 || "$GAZEBO" != 1 ]]; then
-            echo "D07_H01_STUDENT_PHYSICAL_L2_BLOCKED rc=$RC rviz=$RVIZ gazebo=$GAZEBO"
+          if [[ "$RC" != 0 || "$RVIZ" != 1 || "$GAZEBO" != 1 || "$RQT" != 1 ]]; then
+            echo "D07_H01_STUDENT_PHYSICAL_L2_BLOCKED rc=$RC rviz=$RVIZ gazebo=$GAZEBO rqt=$RQT"
             tail -n 125 "$BASE/live_stdout.log" || true
             find "$BASE" -type f -name '*.log' -print | head -n 12
             exit 3
@@ -103,6 +117,8 @@ jobs:
           grep -Fq 'D07_H01_GUI_H01_GEOMETRY_RETURNED_NO_GOAL' "$BASE/live_stdout.log"
           grep -Fq 'P2_L2_SMOKE_RC=0' "$BASE/live_stdout.log"
           grep -Fq 'D07_H01_STUDENT_GAZEBO_RVIZ_L2_PASS' "$BASE/live_stdout.log"
+          grep -Fq 'D07_H01_TEACHING_LOOP_FINISHED_NO_MOVING_GOAL' "$BASE/evidence/d07_h01_teaching_loop.log"
+          test -s "$BASE/evidence/d07_h01_geometry/teaching_cycle_evidence.jsonl"
           # The outer CI stdout file is still open during the wrapper hash.
           # Verify every CLOSED raw sensor/Nav2/Gazebo/GUI file, not that file.
           (
@@ -133,6 +149,21 @@ jobs:
           assert {r.get("stage") for r in phases} >= {"before","intrusion","restored"}
           print("D07_H01_STUDENT_REAL_PHYSICAL_SCAN_COSTMAP_PATH_3_PHASES_PASS")
           PY_VERIFY
+          python3 - "$BASE/evidence/d07_h01_geometry/teaching_cycle_evidence.jsonl" <<'PY_TEACH'
+          import json,sys
+          from pathlib import Path
+          lines=[json.loads(x) for x in Path(sys.argv[1]).read_text().splitlines()]
+          assert len(lines)==4
+          assert [x["stage"] for x in lines]==["free","intrusion","lateral","restored"]
+          assert all(x["real_native_gazebo_pose_ack"] is True
+                     and x["real_scan_stamp"]>0 and x["real_costmap_stamp"]>0
+                     and x["path_pose_count"]>=3 and x["rviz_path_subscribers"]>=1
+                     and x["goal_sent"] is False and x["cmd_vel_sent"] is False
+                     for x in lines)
+          assert lines[1]["world_xy"]!=lines[2]["world_xy"]
+          assert lines[0]["world_xy"]==lines[3]["world_xy"]
+          print("D07_H01_TEACHING_CYCLE_ACTUAL_GAZEBO_SCAN_COSTMAP_PATH_NO_GOAL_PASS")
+          PY_TEACH
           echo 'D07_H01_STUDENT_REAL_GAZEBO_RVIZ_XVFB_L2_PASS_NO_GOAL'
           echo 'D07_H01_STUDENT_WSLG_GPU_L3_NOT_RUN'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
