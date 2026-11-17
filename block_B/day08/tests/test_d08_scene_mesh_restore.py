@@ -98,3 +98,21 @@ def test_actual_d08_gui_uses_only_d08_readonly_mesh_source_and_scene_gate():
     assert "D08_RVIZ_MESH_RESOURCE_ERRORS_NONE_PASS" in workflow
     for forbidden in ("send_goal(", "cmd_vel pub", "create_publisher("):
         assert forbidden not in code
+
+def test_gui_starts_after_server_and_ci_nested_shell_parses():
+    import subprocess
+    source=(ROOT/"block_B/day04/run_student_gazebo_yolo_once.sh").read_text()
+    wrapper=LAUNCH.read_text()
+    assert "AXIA_D08_STAGED_GUI=1" in wrapper
+    assert "AXIA_D08_STAGED_GUI" in source
+    assert 'headless:=True' in source
+    assert "D08_GAZEBO_WORLD_READY_BEFORE_GUI" in source
+    assert "start_group gazebo_gui" in source
+    assert source.index("D08_GAZEBO_WORLD_READY_BEFORE_GUI") < source.index("start_group gazebo_gui")
+    workflow=CI.read_text()
+    start=workflow.index("          xvfb-run -a")
+    end=workflow.index("          ' || {",start)
+    nested=workflow[start:end]+"          '\n"
+    parsed=subprocess.run(["bash","-n"],input=nested,text=True,capture_output=True)
+    assert parsed.returncode==0, parsed.stderr
+    assert "AXIA_D08_GUI_BACKEND=software" in workflow
