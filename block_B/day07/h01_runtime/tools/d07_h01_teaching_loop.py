@@ -19,6 +19,19 @@ import threading
 import time
 
 
+def shutdown_rclpy_once(rclpy):
+    """Avoid SIGINT double-shutdown after ROS signal handlers close context.
+
+    Owner WSL2 L3 2026-11-17: ROS context was already invalid at teardown.
+    This only protects the final lifecycle call; the executor must still
+    quiesce first and any active-context shutdown error must still surface.
+    """
+    if not rclpy.ok():
+        return False
+    rclpy.shutdown()
+    return True
+
+
 def teaching_positions(intrusion, away):
     """Four positions; only the original approved G07 physical corridor."""
     from p2_l3_gz_fixture import _valid_xy
@@ -204,7 +217,7 @@ def run(args):
         for sub in subs:node.destroy_subscription(sub)
         node.destroy_publisher(pub)
         node.destroy_node()
-        rclpy.shutdown()
+        shutdown_rclpy_once(rclpy)
 
 
 def main():
