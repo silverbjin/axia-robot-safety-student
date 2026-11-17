@@ -6,6 +6,7 @@ four-stage placement policy; public Gazebo L2 verifies real messages separately.
 from pathlib import Path
 import importlib.util
 import subprocess
+import sys
 import unittest
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -20,6 +21,7 @@ CI=ROOT/".github/workflows/d07-h01-student-physical-gazebo-rviz-l2.yml"
 
 class D07H01RqtContinuous(unittest.TestCase):
     def test_loop_exact_world_positions_and_stationary_scope(self):
+        sys.path.insert(0,str(RUNTIME/"tools"))
         spec=importlib.util.spec_from_file_location("teaching_loop",TOOL)
         mod=importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
