@@ -24,6 +24,7 @@ jobs:
       DEBIAN_FRONTEND: noninteractive
       MAKEFLAGS: -j2
       CMAKE_BUILD_PARALLEL_LEVEL: '2'
+      EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -128,7 +129,7 @@ jobs:
           grep -F 'D08_STUDENT_LIVE_LAUNCH_REQUESTED' "$LOG"
           grep -F 'D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS' "$LOG"
           grep -F 'D08_RVIZ_OFFICIAL_MESH_VIEW_READY' "$LOG"
-          grep -F 'D08_STUDENT_RELEASE_SOURCE_SHA=' "$LOG"
+          grep -F "D08_STUDENT_RELEASE_SOURCE_SHA=$EXPECTED_SOURCE_SHA" "$LOG"
           grep -F 'D08_STUDENT_RVIZ_CONFIG=' "$LOG"
           if grep -Eiq 'rviz' "$WINDOWS"; then
             echo 'D08_RVIZ2_ACTUAL_X11_WINDOW_PASS'
