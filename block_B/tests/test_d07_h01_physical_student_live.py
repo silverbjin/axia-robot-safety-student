@@ -26,6 +26,15 @@ class StudentPhysicalH01(unittest.TestCase):
         x=subprocess.run(["bash","-n",str(ENTRY)],capture_output=True,text=True)
         self.assertEqual(x.returncode,0,x.stderr)
 
+    def test_container_git_source_sha_uses_process_scoped_safe_directory(self):
+        # Actual public L2 #44039011558: git -C nested runtime returned rc128
+        # before launching Gazebo (GitHub runner mount ownership mismatch).
+        s=ENTRY.read_text()
+        self.assertIn("GIT_CONFIG_COUNT=1",s)
+        self.assertIn("GIT_CONFIG_KEY_0=safe.directory",s)
+        self.assertIn("GIT_CONFIG_VALUE_0",s)
+        self.assertNotIn("git config --global",s)
+
     def test_public_runtime_has_real_gazebo_rviz_path_oracle(self):
         for p in ("scripts/p2_no_goal_smoke_ci.sh",
                   "scripts/p2_g07_shared_staged_startup.sh",
