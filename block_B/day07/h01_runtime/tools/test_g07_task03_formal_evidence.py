@@ -67,6 +67,35 @@ class FormalEvidenceContract(unittest.TestCase):
         self.assertNotEqual(audit_guard_internal_cm_age(events,goal_start=1.0,window_end=2.01)["status"],
                             "GUARD_NATIVE_CM_AGE_TTL150_PASS")
 
+    def test_guard_30s_premotion_idle_does_not_mask_postmotion_150ms_ttl(self):
+        # Exact failure class public Gazebo #44212258824: 30.129s
+        # age in Guard-status audit despite no Guard latch, a measured
+        # original CM publisher max53.582ms, and native movement PASS.
+        # We must attribute to ACTUAL Guard policy ever_moved flag,
+        # NOT blindly drop high-age samples from a real moving interval.
+        events=[{"kind":"owner_goal_published","t":10.0}]
+        events.extend({"kind":"guard","t":10.01+i*.05,
+            "data":{"latched":False,"guard_ever_moved":False,
+                    "reason":"NO_FRESH_PAIR","cm_age_sec":30.12873827,
+                    "supervisor_age_sec":.045}}
+            for i in range(15))
+        events.extend({"kind":"guard","t":10.76+i*.05,
+            "data":{"latched":False,"guard_ever_moved":True,
+                    "reason":"NORMAL","cm_age_sec":.049,
+                    "supervisor_age_sec":.045}}
+            for i in range(20))
+        v=audit_guard_internal_cm_age(events,goal_start=10.0,window_end=11.76)
+        self.assertEqual(v["status"],"GUARD_NATIVE_CM_AGE_TTL150_PASS")
+        self.assertEqual(v["excluded_pre_motion_ticks"],15)
+        self.assertEqual(v["samples"],20)
+        events[28]["data"]["cm_age_sec"]=.151
+        v=audit_guard_internal_cm_age(events,goal_start=10.0,window_end=11.76)
+        self.assertEqual(v["status"],"GUARD_INTERNAL_CM_AGE_GT150_HOLD")
+        events[28]["data"]["cm_age_sec"]=.049
+        del events[28]["data"]["guard_ever_moved"]
+        self.assertNotEqual(audit_guard_internal_cm_age(events,goal_start=10.0,window_end=11.76)["status"],
+                            "GUARD_NATIVE_CM_AGE_TTL150_PASS")
+
     def test_native_contact_witness_is_exact_gazebo_collision_component_opt_in(self):
         from p2_l3_world_overlay import patch_world
         sdf='<world name="default"><plugin name="gz::sim::systems::UserCommands"/></world>'
