@@ -216,6 +216,21 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
 else
   export QT_QPA_PLATFORM=offscreen LIBGL_ALWAYS_SOFTWARE=1 AXIA_P0_SIM_ONLY=1
 fi
+# D06 CI-only teacher demonstration: use the SAME real G07 Goal and guard,
+# but render the official in-process Gazebo GUI on Xvfb. Never admit this
+# profile on Owner WSL2, and never skip actual CM120/Guard150 review.
+if [[ "${AXIA_D06_G07_CI_MOVING_GUI:-0}" == 1 ]];then
+  [[ "${GITHUB_ACTIONS:-}" == true
+     && "${AXIA_P0_SIM_ONLY:-0}" == 1
+     && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+     && "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1
+     && "${AXIA_G07_TASK03_FORMAL_CI:-0}" == 1
+     && -n "${DISPLAY:-}" ]] || {
+    echo 'D06_G07_CI_GUI_SCOPE_DENIED_NO_GOAL' >&2;exit 3;
+  }
+  export QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1
+  echo 'D06_G07_CI_MOVING_GUI_XVFB_ONLY OFFICIAL_NAV2_NO_SAFETY_CHANGES'
+fi
 # Owner-matched Jazzy/Harmonic core package and official-file parity.
 # Bounded read-only check, only for the changed G07 no-Goal validation workflow.
 if [[ "${AXIA_P2_G07_OWNER_PARITY_CHECK:-0}" == 1 ]]; then
@@ -253,6 +268,10 @@ if [[ "${AXIA_P3_S03_CI_COMPOUND_ALLOWED:-0}" == 1 ]]; then
 fi
 LAUNCH_ARGS=(headless:=True use_rviz:=False autostart:=false
    use_composition:=False use_respawn:=False allow_fault_injection:="$AXIA_FAULT_LAUNCH_ALLOWED")
+if [[ "${AXIA_D06_G07_CI_MOVING_GUI:-0}" == 1 ]];then
+  LAUNCH_ARGS[0]='headless:=False'
+  echo 'D06_G07_CI_MOVING_GUI_SINGLE_OFFICIAL_GAZEBO_RENDER_WINDOW'
+fi
 # GUI H01 stays headless throughout the original LifecycleManager startup.
 # The client is connected AFTER staged Nav2 readiness; never a 2nd server.
 # S04 fixture P/N/U is a PUBLIC-SIM-ONLY default-disabled Supervisor adapter;
