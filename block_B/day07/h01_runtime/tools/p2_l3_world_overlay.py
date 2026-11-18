@@ -6,6 +6,7 @@ Only this exact registered plugin is added; all other world content intact.
 """
 import argparse
 import hashlib
+import os
 import json
 from pathlib import Path
 import re
@@ -16,7 +17,7 @@ CONTACT_PLUGIN = '''    <plugin filename="gz-sim-contact-system"
             name="gz::sim::systems::Contact"/>\n'''
 
 
-def patch_world(source):
+def patch_world(source, *, task03_ecm=False):
     if not isinstance(source,str) or source.count('<world name="default">')!=1:
         raise ValueError('EXPECTED_ONE_OFFICIAL_DEFAULT_WORLD')
     if source.count('</world>')!=1:
@@ -40,7 +41,9 @@ def patch_world(source):
     fixture=ET.tostring(model,encoding='unicode')
     # The existing UserCommands plugin comes first; Contact follows it,
     # then the physical sensor-bearing model in the world SDF.
-    return source.replace('</world>',CONTACT_PLUGIN+'    '+fixture+'\n  </world>')
+    plugin = ('''    <plugin filename="libaxia_g07_s02_ecm_witness.so"
+            name="axia::G07S02Witness"/>\n''' if task03_ecm else '')
+    return source.replace('</world>',CONTACT_PLUGIN+plugin+'    '+fixture+'\n  </world>')
 
 
 def main(argv=None):
@@ -51,12 +54,22 @@ def main(argv=None):
     a=p.parse_args(argv)
     try:
         raw=a.source.read_bytes()
-        new=patch_world(raw.decode('utf-8'))
+        task03=os.environ.get('AXIA_G07_TASK03_ECM_WITNESS')=='1'
+        if task03:
+            required={'GITHUB_ACTIONS':'true','AXIA_P0_SIM_ONLY':'1',
+                      'AXIA_P2_G07_PHYSICAL_PREFLIGHT':'1'}
+            if any(os.environ.get(k)!=v for k,v in required.items()):
+                raise ValueError('TASK03_PUBLIC_SIM_ONLY_ECM_DENIED')
+            if not (os.environ.get('AXIA_G07_CI_SIM_GOAL_ALLOWED')=='1' or
+                    os.environ.get('AXIA_D07_H01_CONTACT_CALIBRATION_ONLY')=='1'):
+                raise ValueError('TASK03_NO_GOAL_OR_CALIBRATION_AUTHORITY')
+        new=patch_world(raw.decode('utf-8'), task03_ecm=task03)
         with a.output.open('x',encoding='utf-8') as f:f.write(new)
         with a.manifest.open('x',encoding='utf-8') as f:
             f.write(json.dumps({'original_sha256':hashlib.sha256(raw).hexdigest(),
               'overlay_sha256':hashlib.sha256(new.encode()).hexdigest(),
               'added_plugin':'gz::sim::systems::Contact',
+              'task03_native_read_only_witness':task03,
               'raw_review_required':True,'gate_accepted':False},indent=2)+'\n')
         print('P2_G07_CONTACT_WORLD_OVERLAY_STATIC_ONLY')
         return 0
