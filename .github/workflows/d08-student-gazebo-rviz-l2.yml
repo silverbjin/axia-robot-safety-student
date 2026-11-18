@@ -1,15 +1,19 @@
-name: D08 student real Gazebo RGBD YOLO and RViz 3-window NO-GOAL L2
+name: D08 Gazebo RViz two-window YOLO-in-RViz NO-GOAL L2
 on:
   pull_request:
     paths:
-      - 'block_B/day08/**'
+      - 'block_B/day08/run_d08_student_live_bootstrap.sh'
+      - 'block_B/day08/run_d08_student_live_once.sh'
+      - 'block_B/day08/live/**'
       - 'block_B/day04/run_student_gazebo_yolo_once.sh'
       - 'block_B/day05/gazebo_live/**'
       - '.github/workflows/d08-student-gazebo-rviz-l2.yml'
   push:
     branches: ['feat/d08-live-gazebo-rviz-no-goal-20261115']
     paths:
-      - 'block_B/day08/**'
+      - 'block_B/day08/run_d08_student_live_bootstrap.sh'
+      - 'block_B/day08/run_d08_student_live_once.sh'
+      - 'block_B/day08/live/**'
       - 'block_B/day04/run_student_gazebo_yolo_once.sh'
       - '.github/workflows/d08-student-gazebo-rviz-l2.yml'
 permissions:
@@ -24,6 +28,7 @@ jobs:
       DEBIAN_FRONTEND: noninteractive
       MAKEFLAGS: -j2
       CMAKE_BUILD_PARALLEL_LEVEL: '2'
+      EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -64,11 +69,13 @@ jobs:
           export AXIA_D04_STUDENT_GUI=1
           export AXIA_D04_STUDENT_GUI_HOLD_S=35
           export AXIA_D08_HOLD_S=35
+          export AXIA_D08_GUI_BACKEND=software
           export AXIA_D04_STUDENT_MONITOR_TIMEOUT_S=175
           export QT_QPA_PLATFORM=xcb
           LOG="$RUNNER_TEMP/d05-mounted-gazebo-real.log"
           WINDOWS="$RUNNER_TEMP/d05-x11-windows.txt"
-          export LOG WINDOWS
+          SCENE_GATE="$RUNNER_TEMP/d08-scene-pass.txt"
+          export LOG WINDOWS SCENE_GATE
           xvfb-run -a -s '-screen 0 1530x900x24' bash -c '
             set -eo pipefail
             timeout --signal=TERM --kill-after=20s 1100s \
@@ -83,6 +90,28 @@ jobs:
               fi
               if ! kill -0 "$PID" 2>/dev/null; then break; fi
             done
+            # Probe same running Gazebo server/partition WHILE GUI is alive.
+            # A 3D window PID is not evidence of Gazebo scene propagation.
+            set +u
+            source /opt/ros/jazzy/setup.bash
+            set -u
+            PARTITION="$(grep -oE "GZ_PARTITION=[^ ]+" "$LOG" | tail -n 1 | cut -d= -f2)"
+            if [[ -z "$PARTITION" ]]; then
+              echo "D08_GZ_SCENE_PARTITION_NOT_FOUND"; exit 1
+            fi
+            PROBE="$RUNNER_TEMP/d08-scene-topics.txt"
+            for attempt in 1 2 3 4 5; do
+              GZ_PARTITION="$PARTITION" timeout 12 gz topic -l > "$PROBE" 2>&1 || true
+              if grep -Fxq "/world/default/pose/info" "$PROBE"; then
+                echo D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS > "$SCENE_GATE"
+                echo D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS
+                break
+              fi
+              sleep 2
+            done
+            grep -Fxq "/world/default/pose/info" "$PROBE" || {
+              echo "D08_GZ_SCENE_POSE_INFO_MISSING"; cat "$PROBE"; exit 1;
+            }
             xwininfo -root -tree > "$WINDOWS" 2>&1 || true
             wait "$PID"
             if [[ "$found" != 1 ]]; then
@@ -96,19 +125,42 @@ jobs:
           }
           tail -n 95 "$LOG"
           grep -F 'D05_PUBLIC_SENSOR_ONLY_PASS' "$LOG"
+          # D08 does NOT require image_view: YOLO image is observed
+          # through the existing read-only RViz panel. Verify both 3D windows.
           if grep -Eiq 'Gazebo|gz sim' "$WINDOWS" &&
-             grep -Eiq 'image_view|yolo|debug_image' "$WINDOWS"; then
-            echo 'D08_REAL_GAZEBO_RGBD_YOLO_GUI_WINDOWS_PASS'
+             grep -Eiq 'rviz' "$WINDOWS"; then
+            echo 'D08_GAZEBO_RVIZ_TWO_WINDOWS_PASS'
           else
-            echo 'D08_PUBLIC_GUI_WINDOW_NOT_CONFIRMED'
-            grep -Ei 'Gazebo|gz sim|image_view|yolo' "$WINDOWS" || true
+            echo 'D08_PUBLIC_TWO_GUI_WINDOWS_NOT_CONFIRMED'
+            grep -Ei 'Gazebo|gz sim|rviz' "$WINDOWS" || true
             exit 1
           fi
+          grep -F 'D08_DEBUG_IMAGE_WINDOW_SKIPPED RVIZ_YOLO_DEBUG_IMAGE_ENABLED' "$LOG"
+          if grep -Fq 'D04_STUDENT_PROCESS_STARTED name=image_view ' "$LOG" ||
+             grep -Eiq 'image_view' "$WINDOWS"; then
+            echo 'D08_IMAGE_VIEW_PROCESS_FORBIDDEN'
+            exit 1
+          fi
+          echo 'D08_IMAGE_VIEW_PROCESS_FORBIDDEN_CHECK_PASS'
+          echo 'D08_RTF_PERFORMANCE_NOT_VERIFIED'
           grep -F 'D08_STUDENT_LIVE_LAUNCH_REQUESTED' "$LOG"
-          grep -F 'D08_STUDENT_RELEASE_SOURCE_SHA=' "$LOG"
+          [[ -s "$SCENE_GATE" ]] || {
+            echo D08_GZ_SCENE_GATE_ARTIFACT_MISSING; exit 1;
+          }
+          grep -F 'D08_GZ_SCENE_BROADCASTER_POSE_GATE_PASS' "$SCENE_GATE"
+          grep -F 'D08_RVIZ_OFFICIAL_MESH_VIEW_READY' "$LOG"
+          grep -F "D08_STUDENT_RELEASE_SOURCE_SHA=$EXPECTED_SOURCE_SHA" "$LOG"
           grep -F 'D08_STUDENT_RVIZ_CONFIG=' "$LOG"
           if grep -Eiq 'rviz' "$WINDOWS"; then
             echo 'D08_RVIZ2_ACTUAL_X11_WINDOW_PASS'
+          EVIDENCE="$(sed -n 's/^D04_STUDENT_EVIDENCE=//p' "$LOG" | tail -n 1)"
+          if [[ -z "$EVIDENCE" || ! -f "$EVIDENCE/rviz2.log" ]]; then
+            echo D08_RVIZ_LOG_MISSING; exit 1
+          fi
+          if grep -E 'Could not load resource .*nav2_minimal_tb3_sim/models/' "$EVIDENCE/rviz2.log"; then
+            echo D08_RVIZ_UNRESOLVED_OFFICIAL_MESHES; exit 1
+          fi
+          echo D08_RVIZ_MESH_RESOURCE_ERRORS_NONE_PASS
           else
             echo 'D08_RVIZ2_X11_WINDOW_NOT_CONFIRMED'
             tail -n 120 "$WINDOWS" || true

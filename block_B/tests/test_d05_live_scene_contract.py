@@ -17,7 +17,21 @@ def test_live_variant_mounts_one_registered_rgbd_on_waffle(tmp_path):
     pi=tmp_path/"pi.sdf"
     pi.write_text('<sdf><model><link><sensor name="camera" type="camera"><topic>camera/image_raw</topic><camera><image><width>640</width><height>480</height><format>R8G8B8</format></image></camera></sensor></link></model></sdf>')
     world=tmp_path/"world.sdf.xacro"
-    world.write_text('<sdf><world name="default"><plugin filename="gz-sim-sensors-system"><render_engine>ogre2</render_engine></plugin></world></sdf>')
+    # Match the actual official Nav2 world, including the headless-conditional
+    # broadcaster that made WSLg Gazebo blank despite healthy RGB-D / YOLO.
+    world.write_text(
+        '<sdf xmlns:xacro="http://www.ros.org/wiki/xacro">'
+        '<xacro:arg name="headless" default="true"/>'
+        '<world name="default">'
+        '<plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>'
+        '<xacro:unless value="$(arg headless)">'
+        '<plugin filename="gz-sim-scene-broadcaster-system"'
+        ' name="gz::sim::systems::SceneBroadcaster"/>'
+        '</xacro:unless>'
+        '<plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">'
+        '<render_engine>ogre2</render_engine></plugin>'
+        '</world></sdf>'
+    )
     actor=tmp_path/"walk.dae";actor.write_text("fixture only")
     model=tmp_path/"yolo26n.onnx";model.write_text("fixture only")
     out=tmp_path/"d05"
@@ -38,6 +52,12 @@ def test_live_variant_mounts_one_registered_rgbd_on_waffle(tmp_path):
 
     assert tree.find(".//model[@name='axia_d05_rgbd_rig']") is None
     world_tree=ET.parse(out/"student_human_world.sdf.xacro")
+    world_default = world_tree.find("world")
+    scene = [p for p in world_default.findall("plugin")
+             if p.get("name") == "gz::sim::systems::SceneBroadcaster"]
+    assert len(scene) == 1, "D08 restored Gazebo scene broadcaster required"
+    assert not any("SceneBroadcaster" in ET.tostring(n, encoding="unicode")
+                   for n in world_default.findall("{http://www.ros.org/wiki/xacro}unless"))
     waypoints=world_tree.findall(".//actor[@name='axia_student_person']/script/trajectory/waypoint")
     assert len(waypoints)>=3
     poses=[list(map(float,w.findtext("pose").split())) for w in waypoints]

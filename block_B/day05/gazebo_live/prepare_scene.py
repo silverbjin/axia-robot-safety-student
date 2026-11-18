@@ -30,9 +30,43 @@ PATH = [(0, 2.8), (5, 2.0), (10, 2.8)]
 CAMERA_UP_PITCH_RAD = -0.18
 
 
+
+def ensure_scene_broadcaster_visible(root: ET.Element) -> None:
+    """D07-H01 verified fix, scoped to this generated D05 world only.
+
+    The official Nav2 world wraps SceneBroadcaster in xacro:unless(headless).
+    GUI window presence and RGB-D camera sensor frames DO NOT prove that
+    the GUI received a Scene graph. Unwrap precisely one known broadcaster,
+    never mutate upstream installed world or robot physics/sensors.
+    """
+    world = root.find("world")
+    if world is None or world.get("name") != "default":
+        raise ValueError("D08_SCENE_WORLD_NOT_DEFAULT")
+    scene_name = "gz::sim::systems::SceneBroadcaster"
+    plugin_file = "gz-sim-scene-broadcaster-system"
+    ns = "{http://www.ros.org/wiki/xacro}"
+    wrapped = [
+        el for el in world.findall(ns + "unless")
+        if el.get("value") == "$(arg headless)"
+    ]
+    scenes = [p for p in world.iter("plugin") if p.get("name") == scene_name]
+    if len(scenes) != 1 or scenes[0].get("filename") != plugin_file:
+        raise ValueError("D08_SCENE_BROADCASTER_DUPLICATE_OR_MISSING")
+    if len(wrapped) != 1 or list(wrapped[0]) != scenes:
+        raise ValueError("D08_SCENE_BROADCASTER_NOT_EXACT_HEADLESS_WRAPPER")
+    old = wrapped[0]
+    idx = list(world).index(old)
+    world.remove(old)
+    world.insert(idx, scenes[0])
+    if sum(p.get("name") == scene_name for p in world.findall("plugin")) != 1:
+        raise ValueError("D08_SCENE_BROADCASTER_NOT_UNCONDITIONAL")
+
+
 def compose(waffle: Path, pi: Path, world: Path, actor: Path,
-            model: Path, out: Path) -> dict:
-    """Produce D05 demo variant only, with original D04 composition as baseline."""
+            model: Path, out: Path, d08_rgbd_rate_hz: int | None = None) -> dict:
+    """Produce D05 as before; optionally reduce only D08 RGBD rate for RTF comparison."""
+    if d08_rgbd_rate_hz is not None and d08_rgbd_rate_hz not in (5, 10, 15, 30):
+        raise ValueError("D08_RGBD_RATE_INVALID: allowed 5,10,15,30 Hz")
     manifest = compose_d04(waffle, pi, world, actor, model, out)
     bot_path = out / "student_waffle_rgb.sdf.xacro"
     world_path = out / "student_human_world.sdf.xacro"
@@ -47,6 +81,18 @@ def compose(waffle: Path, pi: Path, world: Path, actor: Path,
         raise ValueError("D05 duplicate mounted RGBD camera")
     rgb.set("name", "axia_d05_registered_rgbd")
     rgb.set("type", "rgbd_camera")
+    rate_node = rgb.find("update_rate")
+    # Preserve existing D05 unchanged, including minimal legacy fixtures
+    # which may omit update_rate. Only D08 perf opt-in writes this tag.
+    if d08_rgbd_rate_hz is not None:
+        if rate_node is None:
+            rate_node = ET.SubElement(rgb, "update_rate")
+        rate_node.text = str(d08_rgbd_rate_hz)
+    actual_rgbd_rate_hz = (
+        int(rate_node.text) if rate_node is not None and rate_node.text else None
+    )
+    if actual_rgbd_rate_hz is not None and actual_rgbd_rate_hz not in (5, 10, 15, 30):
+        raise ValueError("D08_RGBD_RATE_NOT_EXPECTED")
     topic = rgb.find("topic")
     if topic is None:
         raise ValueError("D05 camera sensor topic missing")
@@ -68,6 +114,7 @@ def compose(waffle: Path, pi: Path, world: Path, actor: Path,
     bot.write(bot_path, encoding="unicode", xml_declaration=True)
 
     world_tree = ET.parse(world_path)
+    ensure_scene_broadcaster_visible(world_tree.getroot())
     waypoints = world_tree.findall(
         ".//actor[@name='axia_student_person']/script/trajectory/waypoint")
     if len(waypoints) != 4:
@@ -97,9 +144,13 @@ def compose(waffle: Path, pi: Path, world: Path, actor: Path,
         "variant": "D05_MOUNTED_RGBD_APPROACH_ONLY",
         "camera_topic": RGB, "depth_topic": DEPTH,
         "registered_rgbd_sensor": "axia_d05_registered_rgbd",
+        "rgbd_update_rate_hz": actual_rgbd_rate_hz,
+        "d08_perf_candidate": d08_rgbd_rate_hz is not None,
         "optical_frame": FRAME,
         "actor_trajectory_x": [x for _, x in PATH],
         "camera_pitch_rad": CAMERA_UP_PITCH_RAD,
+        "scene_broadcaster_unconditional": True,
+        "scene_gui_pixels_verified": False,
         "d05_sensor_actual_execution": False,
         "d05_distance_actual_execution": False,
         "goal_sent": False,
@@ -114,9 +165,11 @@ def main() -> int:
     cli = argparse.ArgumentParser()
     for name in ("waffle", "pi", "world", "actor", "model", "out"):
         cli.add_argument("--"+name, required=True, type=Path)
+    cli.add_argument("--d08-rgbd-rate-hz",type=int,choices=(5,10,15,30),default=None)
     args = cli.parse_args()
     try:
-        result = compose(args.waffle,args.pi,args.world,args.actor,args.model,args.out)
+        result = compose(args.waffle,args.pi,args.world,args.actor,args.model,args.out,
+                         d08_rgbd_rate_hz=args.d08_rgbd_rate_hz)
     except (ValueError, OSError, ET.ParseError) as exc:
         cli.exit(2, "D05_LIVE_SCENE_BLOCKED: "+str(exc)+"\n")
     print("D05_LIVE_SCENE_READY: "+json.dumps(result,ensure_ascii=False))

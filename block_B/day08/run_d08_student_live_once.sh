@@ -25,11 +25,26 @@ grep -Fq '/yolo/cam0/debug_image' "$RVIZ"
 # D08 RViz selection changes only the read-only view.
 export AXIA_D05_LIVE=1
 export AXIA_D05_SENSOR_ONLY=1
+# D08 RViz already subscribes /yolo/cam0/debug_image.
+# Avoid a duplicate GUI renderer; upstream YOLO detections remain unchanged.
+export AXIA_D04_STUDENT_IMAGE_VIEW=0
 export AXIA_D04_STUDENT_RVIZ=1
 export AXIA_D04_STUDENT_RVIZ_CONFIG="$RVIZ"
+export AXIA_D08_STAGED_GUI=1
+# Same D07-H01 staged GUI pattern. Xvfb CI uses software-only,
+# actual WSLg uses a scoped D3D12/NVIDIA GUI child (no global GPU settings).
+if [[ "${GITHUB_ACTIONS:-false}" == true ]]; then
+  export AXIA_D08_GUI_BACKEND="${AXIA_D08_GUI_BACKEND:-software}"
+else
+  export AXIA_D08_GUI_BACKEND="${AXIA_D08_GUI_BACKEND:-d3d12}"
+fi
 export AXIA_D04_STUDENT_GUI=1
 export AXIA_D04_STUDENT_DOMAIN_ID="${AXIA_D08_DOMAIN_ID:-49}"
 export AXIA_D04_STUDENT_GUI_HOLD_S="${AXIA_D08_HOLD_S:-300}"
+# 30Hz = original D05 baseline, 10Hz = D08-only render-load candidate.
+# Set AXIA_D08_RGBD_RATE_HZ=10 for a single-variable RTF comparison.
+export AXIA_D08_RGBD_RATE_HZ="${AXIA_D08_RGBD_RATE_HZ:-30}"
+echo "AXIA_D08_RGBD_RATE_PROFILE=${AXIA_D08_RGBD_RATE_HZ}Hz baseline=30Hz candidate=10Hz RTF_NOT_VERIFIED"
 
 if [[ "$MODE" == --self-check ]]; then
   bash "$SOURCE" --self-check
@@ -54,8 +69,31 @@ if [[ "$MODE" == --doctor ]]; then
   exec bash "$SOURCE" --doctor
 fi
 
+# Real WSL2 RViz logs show the installed Jazzy /robot_description has
+# upstream package://.../models/*.dae missing-path references (Nav2 issue #19).
+# Generate a PRIVATE read-only RViz file + official URDF mesh-path overlay.
+# Do not modify official URDF, Gazebo SDF, ROS robot_state_publisher or TF.
+MODEL_TOOL="$HERE/live/prepare_rviz_mesh_view.py"
+[[ -r "$MODEL_TOOL" ]] || {
+  echo "D08_RVIZ_OFFICIAL_MESH_TOOL_MISSING" >&2; exit 2;
+}
+NAV_PREFIX="$(ros2 pkg prefix nav2_minimal_tb3_sim)" || {
+  echo "D08_RVIZ_OFFICIAL_NAV2_PACKAGE_MISSING" >&2; exit 2;
+}
+URDF="$NAV_PREFIX/share/nav2_minimal_tb3_sim/urdf/turtlebot3_waffle.urdf"
+MODEL_CACHE="$HOME/.cache/axia/d08/rviz"
+mkdir -p "$MODEL_CACHE"
+MODEL_DIR="$(mktemp -d "$MODEL_CACHE/waffle-XXXXXXXX")"
+python3 "$MODEL_TOOL" --prefix "$NAV_PREFIX" --urdf "$URDF" \
+  --rviz "$RVIZ" --out "$MODEL_DIR" || {
+  echo "D08_RVIZ_OFFICIAL_MESH_FIX_BLOCKED" >&2; exit 2;
+}
+export AXIA_D04_STUDENT_RVIZ_CONFIG="$MODEL_DIR/d08_render_view.rviz"
+echo "D08_RVIZ_OFFICIAL_MESH_VIEW_READY config=$AXIA_D04_STUDENT_RVIZ_CONFIG"
+
 echo "D08_STUDENT_LIVE_LAUNCH_REQUESTED: Gazebo + moving visual-only person + RGB-D + YOLO + RViz2"
 echo "D08_STUDENT_LIVE_READONLY: NO_GOAL NO_CMD_VEL NO_PRIVATE_D05_RANGE NO_SAFETY_TTL"
+echo "D08_GUI_WINDOWS=GAZEBO_RVIZ2_ONLY YOLO_DEBUG_IN_RVIZ NO_IMAGE_VIEW"
 echo "D08_STUDENT_RVIZ_CONFIG=$RVIZ"
 echo "D08_STUDENT_DOMAIN_ID=$AXIA_D04_STUDENT_DOMAIN_ID"
 echo "D08_STUDENT_LIVE_NOT_YET_VERIFIED: check D05_PUBLIC_SENSOR_ONLY_PASS and actual GUI"
