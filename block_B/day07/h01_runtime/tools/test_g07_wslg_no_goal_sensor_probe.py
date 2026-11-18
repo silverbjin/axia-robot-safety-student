@@ -67,6 +67,10 @@ class NoGoalReadOnlySensor(unittest.TestCase):
         self.assertIn('if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1',src)
         self.assertIn('setsid gz sim -g',src)
         self.assertIn('setsid rviz2 -d',src)
+        self.assertIn('G07_WSLG_SENSOR_GAZEBO_RVIZ_REAL_WINDOWS_READY_BEFORE_SCAN_NO_GOAL',src)
+        self.assertIn('G07_WSLG_SENSOR_GUI_WINDOWS_NOT_READY_NO_GOAL',src)
+        self.assertLess(src.index('G07_WSLG_SENSOR_GAZEBO_RVIZ_REAL_WINDOWS_READY_BEFORE_SCAN_NO_GOAL'),
+                        src.index('g07_wslg_no_goal_sensor_probe.py'))
         self.assertIn('G07_WSLG_NO_GOAL_SENSOR_UNSAFE_HOLD',src)
         self.assertIn('QT_QPA_PLATFORM=xcb AXIA_P0_SIM_ONLY=1',src)
         self.assertNotIn('export AXIA_G07_CI_SIM_GOAL_ALLOWED=1',src)
