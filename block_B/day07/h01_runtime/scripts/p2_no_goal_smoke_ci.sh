@@ -707,6 +707,28 @@ PY
   cat "$OUT/g07_ci_pregoal.log"
   EXPECTED_CI_SHA="$(git -c safe.directory="$ROOT" rev-parse HEAD)"
 
+  # Task03 disposable ECM positive calibration only. A real Gazebo
+  # obstacle/robot contact is deliberately introduced with NO ROS Goal;
+  # this world is destroyed before the independent moving-Goal run.
+  if [[ "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" == 1 ]]; then
+    [[ "${GITHUB_ACTIONS:-}" == true
+       && "${AXIA_P0_SIM_ONLY:-0}" == 1
+       && "${AXIA_G07_TASK03_ECM_WITNESS:-0}" == 1
+       && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+       && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+       && "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1 ]] || {
+      echo 'AXIA_G07_TASK03_POSITIVE_SCOPE_NOT_AUTHORIZED_NO_GOAL' >&2; exit 2;
+    }
+    timeout --signal=TERM --kill-after=5s 40s python3 tools/p2_g07_task03_ecm_positive.py \
+      --source-sha "$EXPECTED_CI_SHA" \
+      --startup "$OUT/startup_verdict.json" \
+      --pregoal "$OUT/g07_ci_pregoal/owner_pregoal_l2.json" || {
+      echo 'AXIA_G07_TASK03_ECM_POSITIVE_CALIBRATION_FAILED_NO_GOAL' >&2; exit 2;
+    }
+    echo 'AXIA_G07_TASK03_NO_GOAL_POSITIVE_CONTROL_COMPLETE_DISCARD_WORLD'
+    exit 0
+  fi
+
   # D07 H01 optional read-only ROS/Gazebo callback timing. NO moving Goal.
   # Callback gaps are NOT causal CM→Guard delivery or ROS sensor header proof.
   if [[ "${AXIA_D07_H01_TTL_DIAGNOSTIC_ONLY:-0}" == 1 ]]; then
