@@ -55,6 +55,13 @@ class IndependentPhysicalAxes(unittest.TestCase):
         self.assertIsNone(r["ros_clock_rtf"])
         self.assertEqual(r["timing_pattern"],"RTF_UNMEASURED")
 
+    def test_rtf_host_pairs_are_decimated_without_losing_clock_monotonic_check(self):
+        src=(Path(__file__).with_name("g07_wslg_no_goal_sensor_probe.py")).read_text()
+        self.assertIn('CLOCK_RTF_RECEIPT_MIN_STEP_SEC = .20',src)
+        self.assertIn('recv - records["clock_receipts"][-1]["recv"]',src)
+        self.assertIn('records["clock"].append(stamp)',src)
+        self.assertIn('records["clock_receipts"].append({"recv": recv, "sim": stamp})',src)
+
     def test_no_sim_advance_does_not_claim_rtf(self):
         d=readings(1.,1.4,2.5)
         for row in d["clock_receipts"]:row["sim"]=4.0
