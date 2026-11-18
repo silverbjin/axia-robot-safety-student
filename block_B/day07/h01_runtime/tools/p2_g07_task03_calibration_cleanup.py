@@ -61,6 +61,18 @@ def assess_calibration_teardown(witness,startup,shutdown,teardown,runner_rc,leak
             and "P2_L2_GRACEFUL_TEARDOWN" in teardown
             and "P2_L2_FORCED_SIGKILL" not in teardown):
         return fail
+    # Disposable native Contact positive-control does not require an
+    # unrelated managed Nav2 shutdown to prove the sensor. The literal
+    # source-guarded marker is emitted ONLY for AXIA_G07_TASK03_POSITIVE_ONLY,
+    # after successful NO_GOAL calibration. The common preconditions above
+    # still require positive Contact, graceful signal cleanup and zero leak.
+    # Never classify this as moving Goal L2/Nav2 ACK success.
+    if (runner_rc==0
+            and shutdown.get("status")=="DISPOSABLE_NO_GOAL_DIRECT_SIGINT_CONFIRMED"
+            and shutdown.get("navigation_ack") is False
+            and shutdown.get("localization_ack") is False):
+        return {**fail,"status":"CONTACT_CALIBRATION_PROVEN_DISPOSABLE_ONLY",
+                "cleanup_stage":"NO_GOAL_DISPOSABLE_DIRECT_SIGINT_NO_NAV2_ACK_CLAIM"}
     if runner_rc==0:
         if not (shutdown.get("status")=="NAV2_LIFECYCLE_SHUTDOWN_ACK"
                 and shutdown.get("navigation_ack") is True
