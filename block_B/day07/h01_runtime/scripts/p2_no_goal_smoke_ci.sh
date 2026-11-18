@@ -68,16 +68,6 @@ stop_owner_parity_bag() {
 }
 cleanup() {
  local rc=$?
- local gui_pid
- # Clean only GUI clients owned by this run, never every Gazebo instance.
- for gui_pid in "$MOVING_RVIZ_PID" "$MOVING_GAZEBO_GUI_PID";do
-   if [[ -n "$gui_pid" ]] && kill -0 "$gui_pid" 2>/dev/null;then
-     kill -INT -- "-$gui_pid" 2>/dev/null || true
-     wait "$gui_pid" 2>/dev/null || true
-   fi
- done
- trap - EXIT INT TERM
- set +e
  # Exactly ONE isolated read-only GUI process group is owned by this smoke.
  # A watcher sleeps until the verified free baseline; NO GUI renders before.
  if [[ -n "$GUI_WATCH_PID" ]]; then
@@ -221,6 +211,16 @@ for name in need:
 print('G07_CI_OWNER_BAG_REAL_TOPIC_MESSAGES '+json.dumps({k:counts[k] for k in need},sort_keys=True))
 PY
   fi
+ local gui_pid
+ # Clean only GUI clients owned by this run, never every Gazebo instance.
+ for gui_pid in "$MOVING_RVIZ_PID" "$MOVING_GAZEBO_GUI_PID";do
+   if [[ -n "$gui_pid" ]] && kill -0 "$gui_pid" 2>/dev/null;then
+     kill -INT -- "-$gui_pid" 2>/dev/null || true
+     wait "$gui_pid" 2>/dev/null || true
+   fi
+ done
+ trap - EXIT INT TERM
+ set +e
  (cd "$OUT" && find . -type f -not -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 -r sha256sum > SHA256SUMS)
  printf 'P2_L2_SMOKE_RC=%s\nEVIDENCE=%s\nG05_G06_G07_ACCEPTED=false\n' "$rc" "$OUT"
  exit "$rc"
