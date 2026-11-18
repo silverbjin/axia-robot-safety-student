@@ -31,7 +31,7 @@
 
 **결론:** WorldStats의 두 수치(실시간요소 reported median 0.79%, 기간 평균 약 6.81%)는 집계 방식상 차이가 있다. 둘 다 실제 시뮬레이션이 현저히 느리다는 점을 지지한다. 기간 평균 6.81% 기준 5 sim-sec Actor 한 방향 이동은 약 **73.4 wall-sec**로 추정되며, 화면의 5.27%라면 약 94.9초다. 이는 실제 Actor Pose 추적 결과가 아니라 시간 비율과 SDF로 추정한 값이다.
 
-동일 로그에서 이미 Gazebo server, Gazebo GUI, YOLO, Bridge, `image_view`, RViz2는 **별도 PID·process group**으로 시작한다. 스크립트 하나에서 запуск한다고 교착상태라고 단정할 수 없고 실제 WorldStats 시간이 전진하므로 전체 시뮬레이션 deadlock이 확인되지 않았다. Actor 분리 프로세스 제작은 불필요하다.
+동일 로그에서 이미 Gazebo server, Gazebo GUI, YOLO, Bridge, `image_view`, RViz2는 **별도 PID·process group**으로 시작한다. 스크립트 하나에서 시작한다고 교착상태라고 단정할 수 없고 실제 WorldStats 시간이 전진하므로 전체 시뮬레이션 deadlock이 확인되지 않았다. Actor 분리 프로세스 제작은 불필요하다.
 
 CPU 코어별 부하와 GUI/Ogre2/센서 렌더링 부하가 후보이나 GPU 사용률·GL renderer와 개별 단계 wait 증거가 없어 확정하지 않는다. RAM 부족은 낮은 가능성. ROS→YOLO나 Nav2 제어 경계 장애라고 보기도 어렵다.
 
@@ -48,7 +48,7 @@ D08 렌더 복원 브랜치의 `run_d08_student_live_once.sh`가 `AXIA_D04_STUDE
 | RED | 공개 D08 L0 [Run #44214103125](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44214103125): **3 failed, 32 passed** (실행기·토글·CI 2창 계약 미구현) | Python/스크립트 계약 |
 | GREEN | 공개 D08 L0 [Run #44214442717](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44214442717): **35 passed**, 학생 D08 TODO는 의도된 RED 상태 유지 | Python/스크립트 계약 |
 | 기존 Block B | 공개 [Run #44214440950](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44214440950): **56 passed** | 기존 D04/D05 Python |
-| 실제 Gazebo L2 | 2창 새 CI Run #44214440895 — 결과 별도 확인 필요 | ROS·Gazebo/Xvfb |
+| 실제 Gazebo L2 | [Run #44214440895](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44214440895), [#44214790710](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44214790710) — **FAILURE / BLOCKED before Gazebo** | YOLO ONNX Runtime 1.20.0 다운로드 9바이트 → archive extraction 오류; 두 창·성능 통합 미검증 |
 | Owner WSLg RTF 재측정 | 수정 코드 현장 실행 이전, **NOT_RUN** | 최종 현장 |
 
 변경 파일:
@@ -60,6 +60,8 @@ D08 렌더 복원 브랜치의 `run_d08_student_live_once.sh`가 `AXIA_D04_STUDE
 - 본 보고서, 기존/새 안내 문서
 
 **정적 확인:** `NO_GOAL`, `NO_CMD_VEL`; 기존 Actor SDF, D05 모니터, ROS 메시, Nav2, CM/Guard 및 학생 TODO는 변경하지 않았다. D08 L2는 실제 Gazebo+RViz Xvfb 두 창과 YOLO 메시, 시각화 리소스 경로를 별도 확인한다.
+
+**실제 CI L2 실패의 최초 경계:** 기존 `yolo_onnxruntime_vendor`가 원격 ONNX Runtime 압축파일 대신 9바이트 응답을 받은 다음 `CMake Error: Unrecognized archive format`으로 중단됐다. 새 D08 이미지 창 토글 또는 Gazebo Actor 코드의 오류로 확인된 것이 아니다. 이 턴에서는 변경 범위를 확장해 모델·YOLO 패키지 설치기를 수정하지 않는다. **PUBLIC_L0_PASS / PUBLIC_L2_BLOCKED / OWNER_RTF_AFTER_CHANGE_NOT_RUN**을 유지한다.
 
 ## 4. 다음 성능 개선 순서 (재시험 최소화)
 
