@@ -82,12 +82,16 @@ def compose(waffle: Path, pi: Path, world: Path, actor: Path,
     rgb.set("name", "axia_d05_registered_rgbd")
     rgb.set("type", "rgbd_camera")
     rate_node = rgb.find("update_rate")
-    if rate_node is None or rate_node.text is None:
-        raise ValueError("D08_RGBD_UPSTREAM_RATE_MISSING")
+    # Preserve existing D05 unchanged, including minimal legacy fixtures
+    # which may omit update_rate. Only D08 perf opt-in writes this tag.
     if d08_rgbd_rate_hz is not None:
+        if rate_node is None:
+            rate_node = ET.SubElement(rgb, "update_rate")
         rate_node.text = str(d08_rgbd_rate_hz)
-    actual_rgbd_rate_hz = int(rate_node.text)
-    if actual_rgbd_rate_hz not in (5, 10, 15, 30):
+    actual_rgbd_rate_hz = (
+        int(rate_node.text) if rate_node is not None and rate_node.text else None
+    )
+    if actual_rgbd_rate_hz is not None and actual_rgbd_rate_hz not in (5, 10, 15, 30):
         raise ValueError("D08_RGBD_RATE_NOT_EXPECTED")
     topic = rgb.find("topic")
     if topic is None:
