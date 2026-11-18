@@ -25,6 +25,9 @@ grep -Fq '/yolo/cam0/debug_image' "$RVIZ"
 # D08 RViz selection changes only the read-only view.
 export AXIA_D05_LIVE=1
 export AXIA_D05_SENSOR_ONLY=1
+# D08 RViz already subscribes /yolo/cam0/debug_image.
+# Avoid a duplicate GUI renderer; upstream YOLO detections remain unchanged.
+export AXIA_D04_STUDENT_IMAGE_VIEW=0
 export AXIA_D04_STUDENT_RVIZ=1
 export AXIA_D04_STUDENT_RVIZ_CONFIG="$RVIZ"
 export AXIA_D08_STAGED_GUI=1
@@ -86,6 +89,7 @@ echo "D08_RVIZ_OFFICIAL_MESH_VIEW_READY config=$AXIA_D04_STUDENT_RVIZ_CONFIG"
 
 echo "D08_STUDENT_LIVE_LAUNCH_REQUESTED: Gazebo + moving visual-only person + RGB-D + YOLO + RViz2"
 echo "D08_STUDENT_LIVE_READONLY: NO_GOAL NO_CMD_VEL NO_PRIVATE_D05_RANGE NO_SAFETY_TTL"
+echo "D08_GUI_WINDOWS=GAZEBO_RVIZ2_ONLY YOLO_DEBUG_IN_RVIZ NO_IMAGE_VIEW"
 echo "D08_STUDENT_RVIZ_CONFIG=$RVIZ"
 echo "D08_STUDENT_DOMAIN_ID=$AXIA_D04_STUDENT_DOMAIN_ID"
 echo "D08_STUDENT_LIVE_NOT_YET_VERIFIED: check D05_PUBLIC_SENSOR_ONLY_PASS and actual GUI"
