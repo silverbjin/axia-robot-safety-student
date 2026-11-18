@@ -76,3 +76,61 @@ ros2 action info /compute_path_to_pose
 ros2 run rqt_graph rqt_graph
 ```
 위 명령은 토픽·QoS·주기 확인용이며, 실제 Goal 전송이나 Stop 제어를 실행하지 않습니다. 수업 중 검출 실패/UNKNOWN을 **CLEAR/이동 허가**로 치환하지 마십시오.
+
+## 7. 최종 공개 NO_GOAL 인수 준비 — 실제 코드 통합 L2 PASS / WSLg GUI L3 미검증 (2026-11-18)
+
+이 절은 앞쪽의 **통합 L2 미완료** 표기보다 최신입니다. 다만 학생이 실제 WSLg 화면을 확인하기 전에는 `D08_LIVE_NO_GOAL_ACCEPTED=YES`로 바꾸지 않습니다. 독립 학생 TODO와 기존 D04/D05 visual-only 실행기는 삭제하지 않았습니다.
+
+- 정확한 공개 기능 SHA: `a83629edd71ce51567e184451f2a76bafcf1318b` ([Public CI #44248098353](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44248098353), L0 **103 PASS**, 실제 Gazebo Harmonic+Jazzy+원본 C++ YOLO+공식 Nav2 **L2 SUCCESS**).
+- 같은 Gazebo World 한 개와 실제 사람 Proxy: D05 유효 미터 거리 `0.704022m`(먼 위치) → `0.534589m`(가까운 위치), 차이 `0.16943m`; 실제 검출 소실 `UNKNOWN:NO_PERSON_CLASS_IN_ACTUAL_YOLO`. 실제 `/scan`/Costmap lethal `0→66→0`, 공식 ComputePathToPose 원본 3상 Path before/intrusion/restored.
+- 공식 Collision Monitor는 실제 native lifecycle `active`, `observation_sources=["scan"]`, `scan.topic="scan"` 조회 PASS. ROS 그래프에서 CM 노드명이 `_NODE_NAME_UNKNOWN_`일 수도 있어, 그래프에서 안 보인다는 사실만으로 CM 없음이라고 해석하면 안 됩니다. CM 내부 callback gap·실제 SLOW/STOP 출력·Guard TTL·주행 속도 변화는 이번 NO_GOAL 실습에서 미검증입니다.
+
+### 터미널 A — 공개 SHA 고정 동일 실행기 원샷 (WSL2 Ubuntu 24.04)
+
+```bash
+export AXIA_D08_PUBLIC_SHA=a83629edd71ce51567e184451f2a76bafcf1318b
+D08_SCRIPT="/tmp/axia_d08_owner_${AXIA_D08_PUBLIC_SHA}.sh"
+curl -fL --retry 3 "https://raw.githubusercontent.com/silverbjin/axia-robot-safety-ci-public/${AXIA_D08_PUBLIC_SHA}/d08/scripts/d08_owner_no_goal_bootstrap.sh" -o "$D08_SCRIPT"
+bash -n "$D08_SCRIPT"
+bash "$D08_SCRIPT" --self-check
+bash "$D08_SCRIPT" --doctor
+bash "$D08_SCRIPT" --run
+```
+
+`--run`은 최초 실행 시 기존 설치에 부족한 공식 패키지를 설치하고, 고정된 C++ YOLO·ONNX 모델을 확인/빌드합니다. 이미 있는 폴더를 강제로 삭제하거나 임의의 기존 ROS 프로세스를 종료하지 않습니다. GUI는 **Gazebo + RViz2**이며 로봇은 이동하지 않습니다. 세 경로를 반복 관찰하다가 **Ctrl+C**로 종료합니다. 로그·원본 증거는 새로 만들어진 `~/axia_d08_owner_runs/run_*/live_evidence/`에 보존됩니다.
+
+성공적으로 실행됐을 때 확인할 문자열(화면 픽셀 검증을 자동으로 대체하지 않음):
+
+```text
+D08_OWNER_EXACT_SOURCE_SHA_VERIFIED=<위 SHA>
+D08_OWNER_WSLG_REAL_GUI_REQUESTED
+D08_OFFICIAL_CM_NATIVE_ACTIVE_SCAN_SOURCE_NO_GOAL
+D08_OFFICIAL_SAME_WORLD_THREE_PHASE_PATHS_L2_PASS_NO_GOAL
+D08_LIVE_D05_TWO_VALID_ONE_UNKNOWN_L2_PASS
+D08_OWNER_GUI_REPLAN_LOOP_READY Ctrl+C TO_STOP
+D08_OWNER_GUI_CTRLC_ACK
+```
+
+### 터미널 B — rqt_graph 3계층 관찰 (옵션)
+
+```bash
+set +u; source /opt/ros/jazzy/setup.bash; set -u
+export ROS_DOMAIN_ID=69 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+ros2 topic list -t
+ros2 topic info -v /scan
+ros2 topic hz /scan -w 20
+ros2 topic info -v /axia/d08/rgbd/image
+ros2 topic info -v /yolo/cam0/detections
+ros2 topic info -v /axia/d08/official_path_readonly
+ros2 action info /compute_path_to_pose
+ros2 node info /collision_monitor
+ros2 param get /collision_monitor observation_sources
+ros2 param get /collision_monitor scan.topic
+ros2 run rqt_graph rqt_graph
+```
+
+1. **인지·계획**: RGB-D → YOLO DetectionArray; 실제 LaserScan → 공식 Costmap; 공식 `ComputePathToPose` 결과 → `/axia/d08/official_path_readonly`. YOLO→CM 직접 연결은 **없음**.
+2. **Nav2·제어**: Planner/Costmap/Collision Monitor 노드를 확인하되, 경로 계산 Action은 이동 Action이 아니므로 실제 `cmd_vel`이 발생했다고 설명하지 않습니다.
+3. **안전·물리 증거**: `/clock`, `/tf`, `/odom`, `/scan` 및 native CM active/scan config를 확인합니다. 실제 CM 출력 감속·Guard TTL/Contact-free 주행은 **NOT_RUN/NOT_VERIFIED**로 표기합니다.
+
+최종 Owner WSLg 화면이 검정이거나 Gazebo 인물 메시가 표시되지 않으면 CI의 Xvfb 통과만으로 성공했다고 보고하지 않습니다. 원본 로그와 화면 증거를 모아 최초 rendering/TF/Scan 경계부터 보고합니다.
