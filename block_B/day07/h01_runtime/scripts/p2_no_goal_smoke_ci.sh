@@ -707,6 +707,27 @@ if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1
     echo 'G07_TASK04_GUI_CLIENT_DIED_BEFORE_GOAL' >&2;exit 2;
   }
   echo 'AXIA_G07_TASK04_GAZEBO_SERVER_SINGLE_GUI_CLIENTS_ATTACHED'
+  if [[ "$SENSOR_NO_GOAL" == 1 ]]; then
+    # Real Owner WSLg reported GPU LiDAR all-angle near ranges. Do not
+    # measure our 20s sensor window before Gazebo and RViz actually have
+    # visible GUI windows, or mistake a GUI startup transient for sensor TTL.
+    command -v xwininfo >/dev/null || {
+      echo 'G07_WSLG_SENSOR_XWININFO_REQUIRED_NO_GOAL' >&2;exit 3;
+    }
+    gazebo_ready=0;rviz_ready=0
+    for ((gui_i=0;gui_i<60;gui_i++));do
+      windows="$(timeout 4s xwininfo -root -tree 2>/dev/null || true)"
+      grep -Eiq 'Gazebo' <<< "$windows" && gazebo_ready=1
+      grep -Eiq 'RViz' <<< "$windows" && rviz_ready=1
+      [[ "$gazebo_ready" == 1 && "$rviz_ready" == 1 ]] && break
+      sleep 1
+    done
+    [[ "$gazebo_ready" == 1 && "$rviz_ready" == 1 ]] || {
+      echo "G07_WSLG_SENSOR_GUI_WINDOWS_NOT_READY_NO_GOAL gazebo=$gazebo_ready rviz=$rviz_ready" >&2
+      exit 3
+    }
+    echo 'G07_WSLG_SENSOR_GAZEBO_RVIZ_REAL_WINDOWS_READY_BEFORE_SCAN_NO_GOAL'
+  fi
 fi
 # New G07 shutdown-only regression: reuse the staged REAL Gazebo/Nav2
 # no-Goal session, avoid re-running the previously successful moving L2.
