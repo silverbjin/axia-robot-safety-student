@@ -18,6 +18,49 @@ from p2_g07_owner_prepositioned import pregoal_side_obstacle_ready
 from p2_l3_gz_fixture import admit_preloaded as admit_preloaded_fixture
 
 
+def build_pregoal_baseline(*, front_m, side_m, scan_topic,
+                           publisher_identity, scan_frame_id,
+                           scan_header_stamp, scan_host_receive_time,
+                           gazebo_robot_world_pose=None,
+                           initial_obstacle_world_pose=None):
+    """Pure ROS-free record. Never infer world pose from AMCL/odom or set_pose.
+
+    This record is written BEFORE the first physical clearance exception.
+    Unknown Gazebo entity poses remain null until independently measured.
+    """
+    known = (type(front_m) in (int, float) and math.isfinite(front_m)
+             and type(side_m) in (int, float) and math.isfinite(side_m))
+    clear = known and front_m > .75 and side_m > 1.20
+    failure = ("NONE" if clear else
+               "OWNER_PREGOAL_NOT_CLEAR_BEFORE_FIXTURE" if known else
+               "OWNER_PREGOAL_BASELINE_SCAN_ODOM_ABSENT")
+    return {
+        "schema": "axia_g07_owner_pregoal_baseline_v1",
+        "status": "CLEAR" if clear else "BLOCKED",
+        "first_failure": failure,
+        "scan_topic": scan_topic,
+        "publisher_identity": publisher_identity,
+        "scan_frame_id": scan_frame_id,
+        "scan_header_stamp": scan_header_stamp,
+        "scan_host_receive_time": scan_host_receive_time,
+        "front_m": front_m,
+        "side_m": side_m,
+        "required_front_m": .75,
+        "required_side_m": 1.20,
+        "gazebo_robot_world_pose": gazebo_robot_world_pose,
+        "initial_obstacle_world_pose": initial_obstacle_world_pose,
+        "goal_sent": False,
+        "certified_estop": False,
+    }
+
+
+def save_pregoal_baseline(outdir, report):
+    """Persist source evidence before any clearance exception is raised."""
+    (outdir / "pregoal_baseline.json").write_text(
+        json.dumps(report, sort_keys=True, indent=2) + "\\n",
+        encoding="utf-8")
+
+
 def run(outdir):
     if (os.environ.get("ROS_DISTRO")!="jazzy" or
         os.environ.get("AXIA_P0_SIM_ONLY")!="1" or
@@ -42,7 +85,8 @@ def run(outdir):
         if side is None or not values:return
         stamp=msg.header.stamp.sec+msg.header.stamp.nanosec*1e-9
         if math.isfinite(stamp):
-            scans.append((time.monotonic(),stamp,min(values),side))
+            scans.append((time.monotonic(),stamp,min(values),side,
+                          msg.header.frame_id,time.time()))
     def on_odom(msg):
         speeds.append((time.monotonic(),msg.twist.twist.linear.x,
                        msg.twist.twist.angular.z))
@@ -51,13 +95,34 @@ def run(outdir):
         node.create_subscription(Odometry,"/odom",on_odom,qos_profile_sensor_data),
     ]
     try:
+        # Fail-closed custody: even missing initial Scan/Odom is preserved.
+        save_pregoal_baseline(outdir, build_pregoal_baseline(
+            front_m=None, side_m=None, scan_topic="/safety/scan",
+            publisher_identity=None, scan_frame_id=None,
+            scan_header_stamp=None, scan_host_receive_time=None))
         deadline=time.monotonic()+8
         while time.monotonic()<deadline and (len(scans)<3 or len(speeds)<3):
             rclpy.spin_once(node,timeout_sec=.15)
         if len(scans)<3 or len(speeds)<3:
             raise RuntimeError("OWNER_PREGOAL_BASELINE_SCAN_ODOM_ABSENT")
         before=scans[-1]
-        if before[2] <= .75 or before[3] <= 1.2:
+        endpoints=node.get_publishers_info_by_topic("/safety/scan")
+        publishers=[{
+            "node_name":info.node_name,
+            "node_namespace":info.node_namespace,
+            "endpoint_gid":bytes(info.endpoint_gid).hex()
+        } for info in endpoints]
+        baseline=build_pregoal_baseline(
+            front_m=before[2], side_m=before[3],
+            scan_topic="/safety/scan",
+            publisher_identity=publishers if publishers else None,
+            scan_frame_id=before[4],
+            scan_header_stamp=before[1],
+            scan_host_receive_time=before[5],
+            gazebo_robot_world_pose=None,
+            initial_obstacle_world_pose=None)
+        save_pregoal_baseline(outdir, baseline)
+        if baseline["status"] != "CLEAR":
             raise RuntimeError("OWNER_PREGOAL_NOT_CLEAR_BEFORE_FIXTURE")
         # Exact same Owner function and coordinates; Gazebo native set_pose ACK
         # occurs BEFORE any Nav2 Goal. No second Gazebo move after this.
@@ -69,7 +134,7 @@ def run(outdir):
         while time.monotonic()<deadline:
             rclpy.spin_once(node,timeout_sec=.1)
             if not scans or not speeds:continue
-            t,stamp,front,side=scans[-1]
+            t,stamp,front,side,*_=scans[-1]
             _,vx,wz=speeds[-1]
             valid=(
                 stamp>last_stamp and
