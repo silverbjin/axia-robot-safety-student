@@ -77,7 +77,7 @@ def parse_gz_model_pose(output):
         line = line.strip()
         if not (line.startswith("[") and line.endswith("]")):
             return None
-        parts = [p.strip() for p in line[1:-1].split("|")]
+        # Gazebo Harmonic CLI uses whitespace; retain pipe-form support.\n        parts = line[1:-1].replace("|", " ").split()
         if len(parts) != 3:
             return None
         try:
