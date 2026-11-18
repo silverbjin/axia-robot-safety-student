@@ -13,6 +13,19 @@ from pathlib import Path
 from p2_g07_task03_contract import audit_bag_14,audit_goal_terminal,audit_guard_internal_cm_age
 from d06.diagnostic.g07_task02_strict_gate import assess as assess_cm120
 
+def authorized_scenario_result(report):
+    """Read-only CI/Owner candidate mapping; never grants Owner L3."""
+    if not isinstance(report,dict):
+        return None
+    if (report.get("status")=="CI_GAZEBO_MOVING_GOAL_CANDIDATE"
+            and report.get("shared_execution_mode")!="owner"):
+        return "ci"
+    if (report.get("status")=="NUMERICAL_CANDIDATE"
+            and report.get("shared_execution_mode")=="owner"
+            and report.get("common_g07_ci_oracle_status")=="CI_GAZEBO_MOVING_GOAL_CANDIDATE"):
+        return "owner"
+    return None
+
 def review(root,witness,expected_sha,gui_windows):
     result={"schema":"axia.g07.task04.single_native_moving_evidence_v1",
             "status":"HOLD","first_failure":"NOT_VERIFIED",
@@ -55,6 +68,7 @@ def review(root,witness,expected_sha,gui_windows):
                 and len(clock)>=10 and clock[0]<clock[-1]
                 and witness_data.get("first_sim_ns",10**100)<=clock[0]
                 and witness_data.get("last_sim_ns",-1)>=clock[-1])
+        scenario_scope=authorized_scenario_result(report)
         checks={
             "single_goal_actual_action":len(goals)==1 and bool(observed_cancel),
             "exact_goal_cancel":terminal["status"]=="EXACT_GOAL_UUID_TERMINAL_CANCELED_PASS",
@@ -62,7 +76,7 @@ def review(root,witness,expected_sha,gui_windows):
             "cm_source_and_observer_120ms":cm["status"]=="TASK02_PUBLIC_L2_NUMERICAL_CANDIDATE",
             "guard_internal_150ms":guard["status"]=="GUARD_NATIVE_CM_AGE_TTL150_PASS",
             "s02_actual_native_contact_zero":native,
-            "cli_shared_moving_result":report.get("status")=="CI_GAZEBO_MOVING_GOAL_CANDIDATE",
+            "cli_shared_moving_result":scenario_scope is not None,
             "no_unexpected_guard_latch":report.get("guard_latched") is False,
             "first_timing_violation_none":report.get("first_timing_violation") is None,
             "odom_moved":report.get("observed_odom_moved_m",0)>.05,
@@ -92,9 +106,13 @@ def review(root,witness,expected_sha,gui_windows):
           bag_sqlite_sha256=bag.get("sqlite_sha256"),
           bag_metadata_sha256=bag.get("metadata_sha256"),
           native_contact_binary_sha256=witness_data.get("source_sha"),
-          native_contact_positive_calibration_this_run=False)
+          native_contact_positive_calibration_this_run=False,
+          scenario_scope=scenario_scope)
         if result["first_failure"]=="NONE":
-            result["status"]="TASK04_REAL_GAZEBO_MOVING_GUI_L2_SCOPED_PASS"
+            result["status"]=(
+                "TASK04_REAL_GAZEBO_MOVING_GUI_L2_SCOPED_PASS"
+                if scenario_scope=="ci" else
+                "TASK04_OWNER_WSL2_NUMERICAL_CANDIDATE_REVIEW_PENDING")
     except (OSError,ValueError,TypeError,IndexError,KeyError,AssertionError) as exc:
         result["first_failure"]="SOURCE_OR_EVIDENCE_"+type(exc).__name__+":"+str(exc)[:120]
     return result
@@ -114,7 +132,9 @@ def main(argv=None):
           json.dumps({k:v.get(k) for k in ("status","first_failure","source_sha","gui_windows_seen")},
                      sort_keys=True),flush=True)
     print("AXIA_G07_TASK04_OWNER_MOVING_L3=NOT_RUN AXIA_MVP_DEMO_ACCEPTED=HOLD CERTIFIED_ESTOP=false")
-    return 0 if v["status"]=="TASK04_REAL_GAZEBO_MOVING_GUI_L2_SCOPED_PASS" else 3
+    return 0 if v["status"] in (
+        "TASK04_REAL_GAZEBO_MOVING_GUI_L2_SCOPED_PASS",
+        "TASK04_OWNER_WSL2_NUMERICAL_CANDIDATE_REVIEW_PENDING") else 3
 
 if __name__=="__main__":
     sys.exit(main())
