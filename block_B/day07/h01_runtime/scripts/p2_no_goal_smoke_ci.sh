@@ -565,28 +565,6 @@ else
   fi
   exit 2
 fi
-# Bounded Owner WSLg LiDAR truth: THE original G07 physical world, original
-# 10Hz Waffle profile, no D07 sensor noise overlay, no Gazebo pose change,
-# no Nav2 Goal and no CI/Owner Moving authority. Clean up only owned PIDs.
-if [[ "$SENSOR_NO_GOAL" == 1 ]]; then
-  duration="${AXIA_WSLG_SENSOR_PROBE_DURATION_SEC:-20}"
-  [[ "$duration" =~ ^[0-9]+$ && "$duration" -ge 10 && "$duration" -le 30 ]] || {
-    echo 'G07_WSLG_SENSOR_DURATION_INVALID_NO_GOAL' >&2;exit 2;
-  }
-  if timeout --signal=TERM --kill-after=5s 50s \
-      python3 tools/g07_wslg_no_goal_sensor_probe.py \
-        --duration-sec "$duration" \
-        --output "$OUT/g07_wslg_sensor_truth.json" \
-        > "$OUT/g07_wslg_sensor_truth.log" 2>&1; then
-    cat "$OUT/g07_wslg_sensor_truth.log"
-    echo 'G07_WSLG_NO_GOAL_SENSOR_WINDOW_CANDIDATE_NO_MOVING_ACCEPTANCE'
-    exit 0
-  else
-    cat "$OUT/g07_wslg_sensor_truth.log" >&2 || true
-    echo 'G07_WSLG_NO_GOAL_SENSOR_UNSAFE_HOLD' >&2
-    exit 3
-  fi
-fi
 # D07-H01 GUI renderers AFTER Nav2 readiness, NOT during CM get_state or
 # lifecycle bond startup. Gazebo Harmonic -g is a GUI-only client joining
 # the existing isolated GZ_PARTITION, never a second simulation server.
@@ -727,6 +705,28 @@ if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1
       exit 3
     }
     echo 'G07_WSLG_SENSOR_GAZEBO_RVIZ_REAL_WINDOWS_READY_BEFORE_SCAN_NO_GOAL'
+  fi
+fi
+# Bounded Owner WSLg LiDAR truth: THE original G07 physical world, original
+# 10Hz Waffle profile, no D07 sensor noise overlay, no Gazebo pose change,
+# no Nav2 Goal and no CI/Owner Moving authority. Clean up only owned PIDs.
+if [[ "$SENSOR_NO_GOAL" == 1 ]]; then
+  duration="${AXIA_WSLG_SENSOR_PROBE_DURATION_SEC:-20}"
+  [[ "$duration" =~ ^[0-9]+$ && "$duration" -ge 10 && "$duration" -le 30 ]] || {
+    echo 'G07_WSLG_SENSOR_DURATION_INVALID_NO_GOAL' >&2;exit 2;
+  }
+  if timeout --signal=TERM --kill-after=5s 50s \
+      python3 tools/g07_wslg_no_goal_sensor_probe.py \
+        --duration-sec "$duration" \
+        --output "$OUT/g07_wslg_sensor_truth.json" \
+        > "$OUT/g07_wslg_sensor_truth.log" 2>&1; then
+    cat "$OUT/g07_wslg_sensor_truth.log"
+    echo 'G07_WSLG_NO_GOAL_SENSOR_WINDOW_CANDIDATE_NO_MOVING_ACCEPTANCE'
+    exit 0
+  else
+    cat "$OUT/g07_wslg_sensor_truth.log" >&2 || true
+    echo 'G07_WSLG_NO_GOAL_SENSOR_UNSAFE_HOLD' >&2
+    exit 3
   fi
 fi
 # New G07 shutdown-only regression: reuse the staged REAL Gazebo/Nav2
