@@ -88,6 +88,23 @@ class DisposableContactCalibrationCleanup(unittest.TestCase):
         self.assertIn("G07_MOVING_GOAL_ORDERED_SHUTDOWN_ACK_BEFORE_SIGINT",runner)
         self.assertIn("G07_REAL_SHUTDOWN_L2_CM_CLEAN_EXIT_AFTER_NAV2_ACK_PASS",runner)
 
+    def test_no_goal_direct_sigint_emits_distinct_shutdown_json_only_after_graceful_exit(self):
+        # Regression: REAL public Gazebo #44220702329 had valid native
+        # Contact + graceful rc=0, but proof reader required this absent
+        # NO_GOAL-only shutdown JSON. It must never claim Nav2 ACK.
+        from pathlib import Path
+        runner=(Path(__file__).resolve().parents[1]/"scripts/p2_no_goal_smoke_ci.sh").read_text()
+        after_wait=runner.index('wait "$LAUNCH_PID" 2>/dev/null || true')
+        after=runner[after_wait:after_wait+1800]
+        self.assertIn('task03_disposable_shutdown.marker',after)
+        self.assertIn('P2_L2_GRACEFUL_TEARDOWN',after)
+        self.assertIn('g07_ordered_shutdown.json',after)
+        self.assertIn('DISPOSABLE_NO_GOAL_DIRECT_SIGINT_CONFIRMED',after)
+        self.assertIn('"navigation_ack":false',after)
+        self.assertIn('"localization_ack":false',after)
+        self.assertIn('"goal_sent":false',after)
+        self.assertIn('"native_nav2_l2_pass":false',after)
+
     def test_full_native_nav2_shutdown_ack_is_stronger(self):
         args=list(self.frame())
         args[2]=dict(status="NAV2_LIFECYCLE_SHUTDOWN_ACK",
