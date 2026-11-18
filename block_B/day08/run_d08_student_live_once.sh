@@ -44,7 +44,7 @@ export AXIA_D04_STUDENT_GUI_HOLD_S="${AXIA_D08_HOLD_S:-300}"
 # 30Hz = original D05 baseline, 10Hz = D08-only render-load candidate.
 # Set AXIA_D08_RGBD_RATE_HZ=10 for a single-variable RTF comparison.
 export AXIA_D08_RGBD_RATE_HZ="${AXIA_D08_RGBD_RATE_HZ:-30}"
-echo "D08_RGBD_RATE_PROFILE=${AXIA_D08_RGBD_RATE_HZ}Hz baseline=30Hz candidate=10Hz RTF_NOT_VERIFIED"
+echo "AXIA_D08_RGBD_RATE_PROFILE=${AXIA_D08_RGBD_RATE_HZ}Hz baseline=30Hz candidate=10Hz RTF_NOT_VERIFIED"
 
 if [[ "$MODE" == --self-check ]]; then
   bash "$SOURCE" --self-check
