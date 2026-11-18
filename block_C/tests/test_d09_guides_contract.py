@@ -66,3 +66,14 @@ def test_d09_recording_new_terminal_rebinds_topic_and_reads_bag_metadata():
     assert "기록용 터미널" in section
     assert 'read -rp "기록할 토픽 이름' in section
     assert 'ros2 bag info "$BAG"' in section
+
+
+def test_d09_guides_start_with_safe_fresh_clone_and_repo_root():
+    # Training docs must be executable by a learner who has never cloned the repository.
+    readme = (ROOT / "day09" / "README_KO.md").read_text(encoding="utf-8")
+    for name, content in (("demo", _read(DEMO)), ("lab", _read(LAB)), ("readme", readme)):
+        bootstrap = content[:2400]
+        assert "git clone https://github.com/silverbjin/axia-robot-safety-student.git" in bootstrap, name
+        assert "cd axia-robot-safety-student" in bootstrap, name
+        assert "git rev-parse --show-toplevel" in bootstrap, name
+        assert "github.com/silverbjin/axia-robot-safety-instructor" not in content
