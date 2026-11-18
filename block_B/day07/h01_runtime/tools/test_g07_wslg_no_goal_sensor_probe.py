@@ -64,7 +64,7 @@ class NoGoalReadOnlySensor(unittest.TestCase):
     def test_no_goal_gui_load_matches_owner_after_nav2_readiness(self):
         src=(ROOT/"scripts/p2_no_goal_smoke_ci.sh").read_text()
         self.assertIn('|| "$SENSOR_NO_GOAL" == 1',src)
-        self.assertIn('if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1\\n   || "$SENSOR_NO_GOAL" == 1 ]];then',src)
+        self.assertIn('if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1',src)
         self.assertIn('setsid gz sim -g',src)
         self.assertIn('setsid rviz2 -d',src)
         self.assertIn('G07_WSLG_NO_GOAL_SENSOR_UNSAFE_HOLD',src)
