@@ -1,5 +1,8 @@
 # AXIA Block B D08 — WSLg Gazebo 흰 화면·RViz2 검은 3D 화면 복원 후보
 
+> **2026-11-18 Owner 현장 최신 관측:** 사용자가 Gazebo와 RViz2 3D 화면 복원을 보고했으며, 이후 Gazebo 실시간 배율이 화면에서 약 **5.27%**, 첨부 진단 ZIP의 실제 구간 Sim Time/Real Time 비율이 **6.81%**로 확인됐다. 디버깅용 별도 `image_view`가 RViz YOLO 패널과 중복되므로, **새 D08 실행에서는 Gazebo + RViz2 2창만 기동**한다. [원본 RTF·자원 분석과 RED→GREEN 보고서](D08_ACTOR_LOW_RTF_NO_IMAGE_VIEW_REVIEW_20261118_KO.md) 참조. **해당 변경 후 RTF 개선/WSLg 픽셀은 아직 미측정.**
+
+
 > **상태:** 공개 CI 실 Gazebo+YOLO+RViz **L2 PASS** / Owner WSL2 렌더 픽셀 최종 인수 **NOT_VERIFIED**. 수정 브랜치 `fix/d08-gazebo-rviz-scene-mesh-20261118`. 기존 센서 Live 성공은 보존한다. 공식 ROS 2 Jazzy / Gazebo Harmonic / Nav2 / TurtleBot3 Waffle을 재사용하며 NO_GOAL·NO_CMD_VEL이다.
 
 ## 1. 증거로 확인한 최초 실패 경계
@@ -53,6 +56,8 @@ D08_GAZEBO_WORLD_READY_BEFORE_GUI partition=...
 D08_GAZEBO_GUI_BACKEND=D3D12_OWNER_TRIAL_NOT_VISUAL_PROOF
 D04_STUDENT_PROCESS_STARTED name=gazebo_gui ...
 D04_STUDENT_PROCESS_STARTED name=rviz2 ...
+D08_DEBUG_IMAGE_WINDOW_SKIPPED RVIZ_YOLO_DEBUG_IMAGE_ENABLED
+D08_GUI_WINDOWS=GAZEBO_RVIZ2_ONLY YOLO_DEBUG_IN_RVIZ NO_IMAGE_VIEW
 D05_LIVE_VERDICT={"status":"PASS_REAL_GAZEBO_REGISTERED_RGBD_YOLO_MOVING_BBOX_ONLY", ...}
 D05_PUBLIC_SENSOR_ONLY_PASS REAL_RGBD_YOLO PRIVATE_D05_RANGE_NOT_RUN
 D04_STUDENT_SHUTDOWN: stopping only child process groups
@@ -60,6 +65,17 @@ D04_STUDENT_EXIT_CODE=0
 ```
 
 위 문자열은 **기대 결과**이며 현재 Owner WSL2에서 수정판을 실행했다는 뜻이 아니다. Gazebo 월드와 RViz 모델·TF·Grid·LaserScan 화면이 실제로 보이는지 확인한다. 보이지 않으면 기존 센서 PASS를 시각 인수로 승격하지 않고 `OWNER_WSLG_3D_RENDER_NOT_VERIFIED`로 기록한다.
+
+
+### 3D 화면은 유지하고 중복 YOLO 이미지 창만 제외
+
+기존 D08 GUI 복원 기준선은 세 창(Gazebo, YOLO image_view, RViz2)을 사용했으나 새 D08에서는 **Gazebo와 RViz2 두 창**만 실행한다. `/yolo/cam0/debug_image`는 RViz2의 **YOLO Debug Image** 패널에서 확인하며, 별도 `image_view`를 띄우지 않는다. YOLO 모델과 검출 데이터, 등록 RGB·Depth, `/scan` 및 RViz RobotModel은 그대로 유지된다.
+
+현장 성능 추정: 실제 진단 45샘플의 RTF reported median은 0.79%, 동일 구간의 Sim Time 진행 1.329초 / Real Time 진행 19.523초는 **구간 평균 6.81%**이다. 현재 화면의 5.27%에 가깝다. Actor 기본 속도 0.16m/s에서 한 방향 0.8m 이동은 구간 평균 기준 약 73초가 소요될 수 있다. 이 계산은 실제 Actor pose 속도 측정이 아니다.
+
+`image_view`는 프로세스 CPU 약 4.8% 수준으로, Gazebo server 약 95.8%, Gazebo GUI 약 100%, RViz 약 37%보다 적다. **중복 창 제거만으로 RTF 정상화 보장은 없다.** 사용자가 최신 2창 실행을 한 뒤 기존 read-only RTF 관측기로 한 번 재측정하고, 계속 낮다면 Ogre2/WSLg 렌더러와 D08용 센서 부하 후보를 좁힌다. 원래 D04/D05 기본 디버그 창은 유지된다.
+
+**새 공개 CI 목표:** 2개 GUI 창, 독립 `image_view` 프로세스 **없음**, YOLO 실제 person 검출·RGB-D 전달 및 SceneBroadcaster·RViz mesh 보호 모두 통과. 새 실제 Gazebo L2 성공 전까지 `D08_TWO_WINDOW_L2_NOT_CONFIRMED`로 표기한다.
 
 ### 선택: WSLg 그래픽 드라이버 대응
 
