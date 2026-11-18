@@ -12,6 +12,7 @@ from p2_g07_task03_contract import (
     audit_bag_14,audit_goal_terminal,audit_guard_internal_cm_age,
     audit_native_ecm_contact,
 )
+from d06.diagnostic.g07_task02_strict_gate import assess as assess_real_cm120
 
 def main():
     p=argparse.ArgumentParser()
@@ -52,6 +53,7 @@ def main():
             raise ValueError("SIM_CLOCK_GOAL_WINDOW_NOT_BOUND")
         contact=audit_native_ecm_contact(positive,motion,
                  goal_sim_ns=sim_start[0],stop_sim_ns=sim_end[-1])
+        cm120=assess_real_cm120(report,events)
         bag=audit_bag_14(r/"rosbag2")
         guard=audit_guard_internal_cm_age(events,goal_start=start_t,window_end=end_t)
         uuid=report.get("goal_uuid")
@@ -63,6 +65,7 @@ def main():
             report.get("guard_latched"))
         checks={
            "native_contact":contact["status"],
+           "actual_cm120":cm120["status"],
            "bag_14_topic":bag["status"],
            "guard_internal_age":guard["status"],
            "goal_terminal":terminal["status"],
@@ -73,6 +76,7 @@ def main():
         verdict["checks"]=checks
         verdict["first_failure"]=next((k+"="+v for k,v in checks.items() if
          (k=="native_contact" and v!="S02_NATIVE_ECM_GOAL_WINDOW_CONTACT_ZERO_PASS")
+         or (k=="actual_cm120" and v!="TASK02_PUBLIC_L2_NUMERICAL_CANDIDATE")
          or (k=="bag_14_topic" and v!="ACTUAL_SQLITE_14_TOPIC_CUSTODY_PASS")
          or (k=="guard_internal_age" and v!="GUARD_NATIVE_CM_AGE_TTL150_PASS")
          or (k=="goal_terminal" and v!="EXACT_GOAL_UUID_TERMINAL_CANCELED_PASS")
@@ -82,6 +86,12 @@ def main():
          "NONE")
         verdict.update(
           contact_zero_proven=contact.get("contact_zero_proven",False),
+          cm120_exact_source_observer_proven=(
+              cm120["status"]=="TASK02_PUBLIC_L2_NUMERICAL_CANDIDATE"),
+          cm120={"status":cm120["status"],
+                 "source_gap_max_ms":cm120.get("source_gap_max_ms"),
+                 "observer_gap_max_ms":cm120.get("observer_gap_max_ms"),
+                 "actual_publisher_pairs":cm120.get("actual_publisher_pairs")},
           original_bag_14_topic_custody_proven=bag["status"]=="ACTUAL_SQLITE_14_TOPIC_CUSTODY_PASS",
           exact_goal_terminal_proven=terminal["terminal_verified"],
           guard_internal_cm_age_proven=guard["status"]=="GUARD_NATIVE_CM_AGE_TTL150_PASS",
