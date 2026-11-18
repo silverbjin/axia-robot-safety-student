@@ -79,6 +79,7 @@ def run(outdir):
     rclpy.init()
     node=rclpy.create_node("axia_g07_owner_pregoal_l2_observer")
     scans=deque(maxlen=80)
+    scan_ring_metrics=deque(maxlen=80)
     speeds=deque(maxlen=80)
     def on_scan(msg):
         side=sector_min(msg)
@@ -90,8 +91,10 @@ def run(outdir):
         stamp=msg.header.stamp.sec+msg.header.stamp.nanosec*1e-9
         if math.isfinite(stamp):
             near_fraction,valid_beams=near_ring_fraction(msg)
-            scans.append((time.monotonic(),stamp,min(values),side,
-                          near_fraction,valid_beams))
+            # Preserve the exact 4-value historical Scan tuple consumed by
+            # the post-set_pose freshness gate, never change this schema.
+            scans.append((time.monotonic(),stamp,min(values),side))
+            scan_ring_metrics.append((near_fraction,valid_beams))
     def on_odom(msg):
         speeds.append((time.monotonic(),msg.twist.twist.linear.x,
                        msg.twist.twist.angular.z))
@@ -106,9 +109,10 @@ def run(outdir):
         if len(scans)<3 or len(speeds)<3:
             raise RuntimeError("OWNER_PREGOAL_BASELINE_SCAN_ODOM_ABSENT")
         before=scans[-1]
+        near_fraction,valid_beams=scan_ring_metrics[-1]
         baseline=diagnose_pregoal_baseline(
-            front_m=before[2],side_m=before[3],near_fraction=before[4],
-            valid_beams=before[5],scan_count=len(scans))
+            front_m=before[2],side_m=before[3],near_fraction=near_fraction,
+            valid_beams=valid_beams,scan_count=len(scans))
         # Write this small, read-only causal evidence BEFORE any native
         # Gazebo set_pose or Goal. Real WSLg scan may differ from Xvfb CI;
         # never weaken .75m/1.2m thresholds to make a demo pass.
