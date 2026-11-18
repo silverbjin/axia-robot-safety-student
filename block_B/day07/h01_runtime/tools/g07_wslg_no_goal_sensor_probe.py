@@ -100,7 +100,10 @@ def run(out, duration):
             or os.environ.get("AXIA_G07_OWNER_SENSOR_TRUTH_NO_GOAL") != "1"
             or os.environ.get("AXIA_G07_CI_SIM_GOAL_ALLOWED", "0") != "0"
             or os.environ.get("AXIA_G07_TASK04_OWNER_MOVING_L3", "0") != "0"
-            or os.environ.get("GITHUB_ACTIONS") == "true"
+            or (os.environ.get("GITHUB_ACTIONS") == "true"
+                and os.environ.get("AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL") != "1")
+            or (os.environ.get("GITHUB_ACTIONS") != "true"
+                and os.environ.get("AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL", "0") != "0")
             or not os.environ.get("GZ_PARTITION", "").startswith("axia_p2_")):
         raise RuntimeError("G07_READONLY_NO_GOAL_WSL2_OWNER_SCOPE_INVALID")
     import rclpy
