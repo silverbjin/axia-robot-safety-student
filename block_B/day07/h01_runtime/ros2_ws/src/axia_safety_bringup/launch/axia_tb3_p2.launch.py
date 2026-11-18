@@ -74,7 +74,19 @@ def _order_h01_world_xacro_before_gazebo(d):
           and env.get("AXIA_P0_SIM_ONLY") == "1"
           and env.get("AXIA_G07_OWNER_STARTUP_PARITY") == "1"
           and env.get("AXIA_P2_G07_PHYSICAL_PREFLIGHT") == "1")
-    if not (h01 or owner or ci):
+    sensor_no_goal = (
+        env.get("AXIA_G07_OWNER_SENSOR_TRUTH_NO_GOAL") == "1"
+        and ((env.get("GITHUB_ACTIONS") != "true"
+              and env.get("AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL", "0") == "0")
+             or (env.get("GITHUB_ACTIONS") == "true"
+                 and env.get("AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL") == "1"))
+        and env.get("AXIA_G07_TASK04_OWNER_MOVING_L3", "0") == "0"
+        and env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED") == "0"
+        and env.get("AXIA_P0_SIM_ONLY") == "1"
+        and env.get("AXIA_G07_OWNER_STARTUP_PARITY") == "1"
+        and env.get("AXIA_P2_G07_PHYSICAL_PREFLIGHT") == "1"
+        and env.get("AXIA_P2_G07_RELOCATED_OBSTACLE") == "1")
+    if not (h01 or owner or ci or sensor_no_goal):
         return
     processes = [item for item in d.entities if type(item) is ExecuteProcess]
     if len(processes) != 2:
