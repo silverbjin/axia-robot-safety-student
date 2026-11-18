@@ -28,6 +28,8 @@ jobs:
       DEBIAN_FRONTEND: noninteractive
       MAKEFLAGS: -j2
       CMAKE_BUILD_PARALLEL_LEVEL: '2'
+      # Read-only token permits official Microsoft GitHub REST release asset API.
+      GITHUB_TOKEN: ${{ github.token }}
       EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       # Nested bootstrap must clone the exact PR head under test, not its old default branch.
       AXIA_D08_RELEASE_BRANCH: ${{ github.head_ref || 'main' }}
