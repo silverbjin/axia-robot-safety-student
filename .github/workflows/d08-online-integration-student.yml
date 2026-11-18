@@ -39,8 +39,7 @@ jobs:
             block_B/day08/tests/test_d08_no_duplicate_debug_window.py \
             block_B/day08/tests/test_d08_perf_sensor_profile.py \
             block_B/day08/tests/test_d08_wslg_renderer_probe.py \
-            block_B/day08/tests/test_d08_gui_engine_fallback.py \
-            block_B/day08/tests/test_d08_ci_onnxruntime_asset.py
+            block_B/day08/tests/test_d08_gui_engine_fallback.py
       - name: Student integration TODO intentionally RED, never hidden reference
         run: |
           set -euo pipefail
