@@ -31,6 +31,22 @@ class OwnerSensorRendererParity(unittest.TestCase):
         self.assertIn("env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12", source)
         self.assertIn("unset GALLIUM_DRIVER MESA_D3D12_DEFAULT_ADAPTER_NAME", source)
 
+    def test_real_gazebo_model_pose_uses_whitespace_separated_coordinates(self):
+        # Exact formatting transcribed from the signed Owner S75 raw gz model
+        # output; the existing pipe-only parser dropped both poses as null.
+        from p2_g07_owner_pregoal_l2 import parse_gz_model_pose
+        real = """Requesting state for world [default]...
+Model: [48]
+  - Name: turtlebot3_waffle
+  - Pose [ XYZ (m) ] [ RPY (rad) ]:
+    [-2.000520 -0.500000 0.010007]
+    [-0.000000 -0.005694 -0.000006]
+"""
+        self.assertEqual(parse_gz_model_pose(real), {
+            "x": -2.000520, "y": -0.500000, "z": 0.010007,
+            "roll": -0.0, "pitch": -0.005694, "yaw": -0.000006,
+        })
+
     def test_nearfield_ring_cannot_authorize_a_goal(self):
         source = (ROOT / "tools" / "p2_g07_owner_pregoal_l2.py").read_text()
         self.assertIn("OWNER_PREGOAL_NOT_CLEAR_BEFORE_FIXTURE", source)
