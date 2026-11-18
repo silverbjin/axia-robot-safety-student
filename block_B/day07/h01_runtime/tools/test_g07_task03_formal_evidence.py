@@ -56,7 +56,7 @@ class FormalEvidenceContract(unittest.TestCase):
     def test_guard_cm_internal_age_in_same_motion_window(self):
         events=[{"kind":"owner_goal_published","t":1.0}]
         events.extend({"kind":"guard","t":1.01+i*.05,
-             "data":{"latched":False,"cm_age_sec":.049,"supervisor_age_sec":.045}}
+             "data":{"latched":False,"guard_ever_moved":True,"cm_age_sec":.049,"supervisor_age_sec":.045}}
              for i in range(20))
         v=audit_guard_internal_cm_age(events,goal_start=1.0,window_end=2.01)
         self.assertEqual(v["status"],"GUARD_NATIVE_CM_AGE_TTL150_PASS")
