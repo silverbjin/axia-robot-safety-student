@@ -52,3 +52,27 @@ rqt_graph에서 가시성 필터(플러그인 버전에 따라 정규식/부분�
 - 각 소스의 설치된 type/QoS/주기 확인 전 미검증으로 남긴다. 기본 종료는 실행 소유 터미널에서 Ctrl+C. 수업 중 임의 pkill 또는 reset --hard 금지.
 
 이 가이드는 **Task04 문서 초안**으로서 Task01·Task02 실제 L2 완료 및 학생용 정확한 실행기 배포 전까지 릴리스하지 않는다.
+
+## 6. 실제 공개 CI로 확인한 계층별 관찰 예시 (릴리스 전 교육용 로그)
+
+- [D08 공개 Run #44227457087](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44227457087), HEAD `d37d1a36507cfe5c99cd41f4384cc9c7cac3c5ca`: 실제 Gazebo 한 World에서 공식 `ComputePathToPose` before/intrusion/restored 세 경로를 원본 Path로 관측. 같은 물리 사람 Proxy의 실제 LaserScan 해당 방향 거리 **1.875→0.552→1.876m**, 공식 Costmap 장애물 lethal cell **0→73→0**, 우회로의 물리 Proxy 최소거리 **0.003→0.327→0.018m** (단위 m). 이 결과는 실제 로봇의 주행·감속·충돌방지 인증 증거가 아님.
+- [통합 후보 Run #44229304083](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44229304083), HEAD `d06c00a3846b1fcdcc8a5f3532b54a523de78283`: **같은 World**의 실제 RGB/Depth·YOLO DetectionArray·D05 미터 값 연결을 최초로 확인, VALID 두 건 **0.475343m/0.534589m**, UNKNOWN `NO_PERSON_CLASS_IN_ACTUAL_YOLO` 한 건. 단, 물리 사람은 가까워졌는데 D05 ROI 값이 오히려 증가하므로 당시 판정은 **HOLD**. 정확한 거리·의미는 ROI/BBox 검증 완료 뒤 설명할 것.
+- 현재 본 학생용 원샷 `run_d08_student_live_once.sh`는 기존 **D04/D05 시각 관측** 실행기를 재사용하며, 상기 D07 공식 Nav2 3상 통합 런타임과 **아직 동일하지 않음**. 기존 실행기로 3상 공식 Path가 자동으로 보인다고 안내하지 않는다. 공개 CI 한 SHA 통합/WSLg GUI 준비 후 같은 실행기로 교체할 예정; 현재 `D08_LIVE_NO_GOAL_ACCEPTED=NO`.
+
+### rqt_graph 실습 시 실제 데이터와 미배선 구분
+
+1. **인지·계획**: RGB/Depth/Yolo DetectionArray를 표시한 후 `/scan`, `/global_costmap/costmap`, `/compute_path_to_pose`를 단계적으로 추가합니다. `ComputePathToPose`는 **읽기 전용 공식 Path Action 요청**이며 `NavigateToPose` 주행 명령이 아닙니다. 토픽 필터는 사용 중인 rqt_graph 버전의 노드·토픽 숨김 옵션에 맞게 적용합니다.
+2. **Nav2·제어**: `/planner_server`, `/controller_server`, `/collision_monitor`를 표시하되, NO_GOAL에서는 실제 감속 Twist가 발생하지 않는 것이 정상입니다. 공식 CM이 `/scan`을 구독한다는 ROS Graph 증거만으로 SLOW/STOP state 메시지가 실제로 출력됐다고 해석하지 않습니다.
+3. **안전·물리**: `/clock`, `/tf`, `/odom`, `/scan`과 실제 Contact topic의 존재·메시지 발행을 구분합니다. 실제 Guard 노드가 없는 수업 실행에서는 Guard TTL 간선을 그리지 않습니다. **미확인 연결은 비어 있는 선/미검증으로 표시**합니다.
+
+원본 관찰 명령(시연이 실제 실행 중인 별도 터미널, Jazzy 소싱 후):
+```bash
+ros2 topic list -t
+ros2 topic info -v /scan
+ros2 topic hz /scan -w 20
+ros2 topic info -v /axia/d08/rgbd/depth_image
+ros2 topic info -v /yolo/cam0/detections
+ros2 action info /compute_path_to_pose
+ros2 run rqt_graph rqt_graph
+```
+위 명령은 토픽·QoS·주기 확인용이며, 실제 Goal 전송이나 Stop 제어를 실행하지 않습니다. 수업 중 검출 실패/UNKNOWN을 **CLEAR/이동 허가**로 치환하지 마십시오.
