@@ -53,3 +53,13 @@
 - GUI 대체: `AXIA_D08_GUI_RENDER_ENGINE=ogre`; 기본 `ogre2`, **오직 D08 staged GUI에서만**. 실제 한 줄: `gz sim -g -v 4 --render-engine ogre`.
 - 학습자 TODO/공개 CI와 강사용 reference/hidden tests는 서로 다른 저장소를 유지. 비공개 정답을 공개 저장소로 복사하지 않는다.
 - 모든 `main` 병합은 사용자 요청으로 명시 승인되었으나, **병합 전 CI 검증 범위와 남은 L2 오류를 공개 보고**한다. 소스·증거 ZIP은 immutable SHA로 추적한다.
+
+## 6. 릴리스 직전 추가 회귀: 외부 ONNX Runtime tar 다운로드 실패의 조사·철회
+
+- 사용자 WSL2 Ogre1 런타임 성공은 먼저 확보. 별도로 공용 GitHub Actions **실제 L2**가 `yolo_onnxruntime_vendor`에서 `onnxruntime-linux-x64-1.20.0.tgz` 대신 정상 tar가 아닌 짧은 HTTP 오류 응답을 받으며 **Gazebo 시작 전에 중단**되었습니다.
+- 공식 `mgonzs13/yolo_ros` pinned CMake는 `curl -L`로 GitHub Release tar를 다운로드하며, 오류 HTTP body를 검증하지 않은 채 `cmake -E tar xzf`에 넘기는 경계가 있습니다. 2026-11-08 이후 GitHub Release 자산 URL 504 장애와 REST API 우회 사례도 별도로 보고됨: https://github.com/orgs/community/discussions/212417 (사용자 CI가 **반드시 동일 원인**이라고 확정하지는 않음).
+- 교육용 추가 **RED:** `620746010b5c56b286f67bba019d5753dbd2f7ff`에서 9바이트 부정 입력 차단·공식 GitHub REST Asset 응답 검증을 새 L0 회귀로 등록.
+- `812ea5a9592e9a70a900bc287c0d0cb878f81626` 및 `19af200545ba0940bd54021ed321a354dd7d2d68`에서 외부 자산 사전 검증·URL override와 Python L0 계약 **GREEN**을 관측. 그러나 실제 공개 CI L2는 공식 REST 응답 404를 반환하여 **GREEN 아님**.
+- GitHub 읽기 토큰을 빌드 전체가 아닌 단일 다운로드 단계에만 노출시키는 방향도 시도했지만, 실제 외부 자산 다운로드 실패는 해결되지 않았습니다. 이 우회 코드는 **교육용 성공 실행과 관계 없으며 검증되지 않아 릴리스에서 전부 철회**: `5a782bf1`, `f8880ca3`, `bf258785`, `0c1d6701`, `4b485324`, `4154d30a`.
+- **검증 결론:** CGI/GUI 렌더 문제와 외부 ONNX 공급망 CI 장애는 별개의 최초 실패 경계. 현장 반복 재시작이나 Mesa 전역 업그레이드 대신 외부 다운로드가 정상화되거나 재현 가능한 공식 공급 방식이 확보된 뒤 해당 CI L2만 별도 복구할 것. 현재 릴리스는 기존 NVIDIA·10Hz·Ogre1 GUI 소스와 문서/Owner 증거만 포함합니다.
+- **중요:** 학생용 전체 문서·정적 L0 CI가 PASS해도 이 공개 Gazebo L2는 **HOLD**입니다. `AXIA_MVP_DEMO_ACCEPTED`, 안전 TTL, Goal 주행 또는 인증 E-Stop의 전체 수용을 의미하지 않습니다. **Instructor 비공개 CI는 사용하지 않습니다.**
