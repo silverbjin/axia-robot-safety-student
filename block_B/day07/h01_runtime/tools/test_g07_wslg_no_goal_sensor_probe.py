@@ -61,6 +61,16 @@ class NoGoalReadOnlySensor(unittest.TestCase):
         self.assertFalse(r["certified_estop"])
         self.assertFalse(r["owner_l3_accepted"])
 
+    def test_no_goal_gui_load_matches_owner_after_nav2_readiness(self):
+        src=(ROOT/"scripts/p2_no_goal_smoke_ci.sh").read_text()
+        self.assertIn('|| "$SENSOR_NO_GOAL" == 1',src)
+        self.assertIn('if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1\\n   || "$SENSOR_NO_GOAL" == 1 ]];then',src)
+        self.assertIn('setsid gz sim -g',src)
+        self.assertIn('setsid rviz2 -d',src)
+        self.assertIn('G07_WSLG_NO_GOAL_SENSOR_UNSAFE_HOLD',src)
+        self.assertIn('QT_QPA_PLATFORM=xcb AXIA_P0_SIM_ONLY=1',src)
+        self.assertNotIn('export AXIA_G07_CI_SIM_GOAL_ALLOWED=1',src)
+
     def test_same_original_world_no_noise_override_no_goal_gate(self):
         sh=(ROOT/"scripts/p2_no_goal_smoke_ci.sh").read_text()
         launch=(ROOT/"ros2_ws/src/axia_safety_bringup/launch/axia_tb3_p2.launch.py").read_text()
