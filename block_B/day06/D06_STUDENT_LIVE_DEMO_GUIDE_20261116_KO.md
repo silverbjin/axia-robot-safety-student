@@ -1,3 +1,7 @@
+> **2026-11-18 최신 강의 시연 상태 (아래 과거 11/14 공지보다 우선):** G07 Task03 공개 CI [#44223320904](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44223320904)에서 **실제 TurtleBot3 Waffle 0.2111m 주행·CLEAR→SLOWDOWN→STOP, CM 발행 최대 56.642ms, Guard CM age 53.972ms**를 검증했습니다. G07 Task04에서는 **강사 WSL2 Gazebo+RViz2 화면 표시가 NO_GOAL 범위에서 성공**했습니다. 이는 서로 다른 검증 세션이므로 강사 WSL2 **실제 이동**과 동시에 검증됐다는 뜻은 아닙니다.
+>
+> D06에서는 검증된 G07 코드를 재사용할 뿐, CM/Guard를 새로 개발하지 않습니다. 공개 D06 재사용 실행기 [PR #170](https://github.com/silverbjin/axia-robot-safety-ci-public/pull/170)의 공개 L0 [#44249371454](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44249371454)는 **6/6 PASS**이며, **주행을 지시하는 `--live`는 아직 안전하게 차단**됩니다. 학생은 기존 D05 공개 Gazebo NO_GOAL 실습 및 D06 Python TODO를 수행하고, 실제 이동 시연은 강사의 화면 공유로만 관찰합니다. 공식 CM 격리 L1은 실제 0.20→0.06→0.00m/s 출력의 대체 시연으로 사용 가능합니다. 강사 별도 Owner Moving Goal 인수 전에는 D06 LIVE 주행 성공으로 표현하지 않습니다. SW Stop≠HW E-Stop입니다.
+
 # AXIA D06 — 학생용 Gazebo Live Demo 및 강사 G07 관찰 가이드
 
 **일시:** 2026-11-16(월) 21:25–21:40 선택 시연, 3시간 수업의 일부. **학습 목표:** ① 거리 구간별 속도 제한·감속·정지 규칙 이해 ② Safety Bubble 기반 안전제어 로직 설계 실습.
