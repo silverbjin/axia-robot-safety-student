@@ -20,6 +20,7 @@ SCAN_TTL_SEC = .300
 FRONT_MIN_M = .75
 SIDE_MIN_M = 1.20
 MIN_MESSAGES = 20
+CLOCK_RTF_RECEIPT_MIN_STEP_SEC = .20
 
 
 def analyze_timing_separately(records):
@@ -225,7 +226,14 @@ def run(out, duration):
         if math.isfinite(stamp) and stamp > 0 and (
                 not records["clock"] or stamp > records["clock"][-1]):
             records["clock"].append(stamp)
-            records["clock_receipts"].append({"recv": recv, "sim": stamp})
+            # Sim clock can publish hundreds of messages per wall second.
+            # Log host/RTF receipts sparsely so this read-only observer does
+            # not steal executor slots from safety /scan subscribers.
+            # Original monotonic source /clock validation is unchanged.
+            if (not records["clock_receipts"] or
+                    recv - records["clock_receipts"][-1]["recv"] >=
+                    CLOCK_RTF_RECEIPT_MIN_STEP_SEC):
+                records["clock_receipts"].append({"recv": recv, "sim": stamp})
 
     subs = [
         node.create_subscription(LaserScan, "/safety/scan",
