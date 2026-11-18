@@ -31,6 +31,7 @@ ROS_SETUP="${AXIA_D04_STUDENT_ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
 CI_HEADLESS="${AXIA_D04_STUDENT_CI_HEADLESS:-0}"
 GUI="${AXIA_D04_STUDENT_GUI:-1}"
 SHOW_RVIZ="${AXIA_D04_STUDENT_RVIZ:-0}"
+SHOW_IMAGE_VIEW="${AXIA_D04_STUDENT_IMAGE_VIEW:-1}"
 HOLD="${AXIA_D04_STUDENT_GUI_HOLD_S:-180}"
 D08_STAGED_GUI="${AXIA_D08_STAGED_GUI:-0}"
 export ROS_DOMAIN_ID="${AXIA_D04_STUDENT_DOMAIN_ID:-40}"
@@ -72,6 +73,7 @@ fi
 [[ "$D05_SENSOR_ONLY" == 0 || "$D05_SENSOR_ONLY" == 1 ]] || { echo "D05_SENSOR_ONLY_INVALID"; exit 2; }
 [[ "$D05_SENSOR_ONLY" == 0 || "$D05_LIVE" == 1 ]] || { echo "D05_SENSOR_ONLY_REQUIRES_LIVE"; exit 2; }
 [[ "$SHOW_RVIZ" == 0 || "$SHOW_RVIZ" == 1 ]] || { echo "D04_STUDENT_RVIZ_INVALID"; exit 2; }
+[[ "$SHOW_IMAGE_VIEW" == 0 || "$SHOW_IMAGE_VIEW" == 1 ]] || { echo "D04_STUDENT_IMAGE_VIEW_INVALID"; exit 2; }
 [[ "$HOLD" =~ ^[0-9]{1,4}$ ]] || { echo "D04_STUDENT_HOLD_INVALID"; exit 2; }
 if [[ "$D08_STAGED_GUI" == 1 ]]; then
   [[ "$GUI" == 1 && "$D05_LIVE" == 1 && "$D05_SENSOR_ONLY" == 1 &&
@@ -280,8 +282,14 @@ if [[ "$D08_STAGED_GUI" == 1 ]]; then
   start_group gazebo_gui "${D08_RENDER_ENV[@]}" gz sim -g -v 4
 fi
 if [[ "$GUI" == 1 ]]; then
-  start_group image_view ros2 run image_view image_view \
-    --ros-args -r image:=/yolo/cam0/debug_image
+  # D08 already shows this exact YOLO debug image in its read-only RViz panel.
+  # Preserve the original D04/D05 standalone image_view by default.
+  if [[ "$SHOW_IMAGE_VIEW" == 1 ]]; then
+    start_group image_view ros2 run image_view image_view \
+      --ros-args -r image:=/yolo/cam0/debug_image
+  else
+    echo "D08_DEBUG_IMAGE_WINDOW_SKIPPED RVIZ_YOLO_DEBUG_IMAGE_ENABLED"
+  fi
   if [[ "$SHOW_RVIZ" == 1 ]]; then
     if command -v rviz2 >/dev/null; then
       if [[ "$D08_STAGED_GUI" == 1 ]]; then
@@ -296,7 +304,11 @@ if [[ "$GUI" == 1 ]]; then
   fi
 fi
 echo "D04_STUDENT_GAZEBO_LAUNCHED: GUI startup requested; NOT yet verified"
-echo "D04_STUDENT_GUI_NOTICE: Gazebo and yolo image_view windows may open after ROS startup"
+if [[ "$GUI" == 1 && "$SHOW_IMAGE_VIEW" == 0 ]]; then
+  echo "D08_STUDENT_GUI_NOTICE: Gazebo and RViz2 only; YOLO messages remain active"
+else
+  echo "D04_STUDENT_GUI_NOTICE: Gazebo and yolo image_view windows may open after ROS startup"
+fi
 
 set +e
 if [[ "$D05_LIVE" == 1 ]]; then
