@@ -36,6 +36,53 @@ def _require_ci_only(expected_sha):
     current=subprocess.check_output(["git","rev-parse","HEAD"],text=True,timeout=5).strip()
     assert current==expected_sha, "CI_SOURCE_SHA_MISMATCH"
 
+def _task03_exact_goal_terminal(node, obs, goal_uuid):
+    """One exact Nav2 action CancelGoal AFTER physical STOP and 1s odom ZERO.
+
+    This cancels only the UUID already issued by the Supervisor. A successful
+    service return alone is NOT terminal proof; require real ROS ActionStatus=5.
+    Does not rearm, inject faults or change any command publisher.
+    """
+    import re
+    from action_msgs.srv import CancelGoal
+    from p2_g07_task03_contract import audit_goal_terminal
+    if not re.fullmatch(r"[0-9a-f]{32}", goal_uuid):
+        raise RuntimeError("TASK03_GOAL_UUID_MALFORMED")
+    if obs.data()["goals"].get(goal_uuid)!=2:
+        raise RuntimeError("TASK03_GOAL_NOT_EXECUTING_AT_CANCEL")
+    client=node.create_client(CancelGoal,"/navigate_to_pose/_action/cancel_goal")
+    if not client.wait_for_service(timeout_sec=3):
+        raise RuntimeError("TASK03_CANCEL_SERVICE_MISSING")
+    req=CancelGoal.Request()
+    req.goal_info.goal_id.uuid=list(bytes.fromhex(goal_uuid))
+    future=client.call_async(req)
+    deadline=time.monotonic()+10.0
+    while not future.done() and time.monotonic()<deadline:
+        time.sleep(.05)
+    if not future.done():
+        raise RuntimeError("TASK03_EXACT_CANCEL_ACK_TIMEOUT")
+    ans=future.result()
+    if ans is None:
+        raise RuntimeError("TASK03_EXACT_CANCEL_EMPTY_ACK")
+    canceled=["".join(format(v,"02x") for v in row.goal_id.uuid)
+              for row in ans.goals_canceling]
+    # Goal state is reported by the existing real Nav2 action status topic.
+    while time.monotonic()<deadline:
+        snap=obs.data()
+        if snap["goals"].get(goal_uuid)==5: break
+        if snap["goals"].get(goal_uuid) in (4,6): break
+        time.sleep(.05)
+    snap=obs.data()
+    verdict=audit_goal_terminal(goal_uuid, int(ans.return_code),canceled,
+                                snap["goals"].get(goal_uuid),
+                                snap["guard"].get("latched"))
+    if verdict["status"]!="EXACT_GOAL_UUID_TERMINAL_CANCELED_PASS":
+        raise RuntimeError("TASK03_EXACT_GOAL_TERMINAL_UNVERIFIED")
+    print("AXIA_G07_TASK03_EXACT_GOAL_UUID_CANCELED_NATIVE_ACTION_PASS "+goal_uuid,
+          flush=True)
+    return verdict
+
+
 def _stop_supervisor_active(vin):
     """STOP checks motion authority by magnitude: Nav2 can legitimately
     reverse to avoid the physical obstacle. The *final* CM/Guard must still
@@ -339,6 +386,10 @@ def run(args):
                                 final["pose"][1]-start_pose[1])
         latest=obs.snapshot()
         t1=time.monotonic()
+        if os.environ.get("AXIA_G07_TASK03_FORMAL_CI")=="1":
+            if owner_mode or os.environ.get("AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE")!="1":
+                raise RuntimeError("TASK03_PUBLIC_SIM_ONLY_CANDIDATE_REQUIRED")
+            obs._write("task03_motion_window_end",at=t1)
         # Complete read-only host-monotonic callback evidence through t1
         # before assessing required delivery intervals. Owner mode still
         # line-flushes every event; CI buffered evidence flushes once here.
@@ -435,6 +486,12 @@ def run(args):
             print("AXIA_G07_CI_OWNER_OBSERVER_SURVIVED_15S "
                   "workers=2 buffered=true bounded_flush_sec=0.75 native_crash=false",
                   flush=True)
+            save()
+        if os.environ.get("AXIA_G07_TASK03_FORMAL_CI")=="1":
+            task03_goal=_task03_exact_goal_terminal(node,obs,goal_uuid)
+            report.update(goal_cancel_ack=True,goal_cancel_uuid=goal_uuid,
+                          goal_cancel_status=5,
+                          task03_exact_goal_terminal=task03_goal)
             save()
         if owner_mode:
             # CI safety verdict is reused verbatim, but never claim an
