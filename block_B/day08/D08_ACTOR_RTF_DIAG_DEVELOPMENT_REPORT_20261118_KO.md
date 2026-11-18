@@ -38,6 +38,15 @@
 
 자동 저장은 summary.json, REPORT.md, gazebo_topics.txt, world_stats_raw.txt, processes.txt, resources.txt와 ZIP. 입력 자료의 runtime process/env에는 로컬 경로가 있을 수 있으므로 공개 첨부 전 확인한다.
 
+## 부수적으로 트리거된 기존 전체 Gazebo L2 — 별도 실패
+
+공개 CI가 DAY08/** 경로 변경만으로 기존 GUI L2를 트리거했다. 이 진단 브랜치는 기존 Gazebo 런타임 및 YOLO 소스를 전혀 변경하지 않았으므로, 해당 L2를 진단 스크립트 자체의 PASS/FAIL로 혼동하지 않는다.
+
+- [Run #44210674189](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44210674189), [Run #44210884596](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/44210884596): **FAILURE**.
+- **최초 실패:** yolo_onnxruntime_vendor가 ONNX Runtime 1.20.0 다운로드에서 9바이트 파일을 받았고 CMake에서 Unrecognized archive format으로 중단됨. 실제 Gazebo/Actor RTF 측정 단계에 도달하지 못했다.
+- 이 실패를 Actor의 교착/RTF 저하 원인으로 해석하지 않는다. 같은 종류의 다운로드 실패는 YOLO 의존성 경계의 별도 회귀 과제로 관리하며, 이번 교육용 수동 진단 배포를 위해 기존 ROS/Nav2/YOLO 패키지 수정은 하지 않는다.
+- **현장 실기 측정은 여전히 NOT_RUN.** L0 GREEN의 범위는 synthetic stats 파서, 판정, ZIP·무수정 계약이다.
+
 ## 검증 수준 / 미검증
 
 - **검증:** Python 구문/파서·SDF 0.16m/s·RTF 분류·정상/실패 경계·ZIP·중복 경로 차단: 공개 CI L0 GREEN.
