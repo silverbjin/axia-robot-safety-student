@@ -25,17 +25,24 @@ class G07S02Witness final :
     if(sha) source_sha_=sha;
     enabled_=!report_.empty() && report_.at(0)=='/' &&
       source_sha_.size()==64 && source_sha_.find_first_not_of("0123456789abcdef")==std::string::npos;
+    // At most two writes in the complete run to distinguish native plugin
+    // not loaded vs ContactSensorData collision entity missing. These
+    // strings are fixed, no PID, geometry, frames or raw contact contents.
+    if(enabled_) {
+      std::ofstream stage(report_+".status",std::ios::trunc);
+      stage<<"PLUGIN_CONSTRUCTED_NO_SENSOR_PROOF\n";
+    }
   }
 
   ~G07S02Witness() override {
-    if(!enabled_ || observed_iterations_<20) return;
+    if(!enabled_) return;
     const std::string temp=report_+".part";
     std::ofstream out(temp,std::ios::out|std::ios::trunc);
     if(!out.good()) return;
     out << "{"
         << "\"source_sha\":\"" << source_sha_ << "\","
         << "\"sensor_found\":" << (sensor_found_?"true":"false") << ","
-        << "\"report_complete\":true,"
+        << "\"report_complete\":" << (observed_iterations_>=20?"true":"false") << ","
         << "\"observed_iterations\":" << observed_iterations_ << ","
         << "\"missing_iterations\":" << missing_iterations_ << ","
         << "\"positive_contacts\":" << positive_contacts_ << ","
@@ -74,7 +81,11 @@ class G07S02Witness final :
       return;
     }
     const int64_t sim_ns=_info.simTime.count();
-    if(!sensor_found_) first_sim_ns_=sim_ns;
+    if(!sensor_found_) {
+      first_sim_ns_=sim_ns;
+      std::ofstream stage(report_+".status",std::ios::trunc);
+      stage<<"CONTACT_COLLISION_COMPONENT_FOUND\n";
+    }
     sensor_found_=true;
     last_sim_ns_=sim_ns;
     ++observed_iterations_;
