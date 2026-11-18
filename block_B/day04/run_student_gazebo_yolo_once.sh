@@ -84,6 +84,13 @@ if [[ "$D08_STAGED_GUI" == 1 ]]; then
      "${AXIA_D08_GUI_BACKEND:-}" == d3d12 ]] || {
     echo "D08_GUI_BACKEND_MUST_BE_SOFTWARE_OR_D3D12" >&2; exit 2;
   }
+  # Keep Ogre2 default intact. Ogre1 is an explicit fallback for a
+  # visually broken WSLg GUI; the Nav2 Gazebo server stays unchanged.
+  D08_GUI_ENGINE="${AXIA_D08_GUI_RENDER_ENGINE:-ogre2}"
+  case "$D08_GUI_ENGINE" in
+    ogre|ogre2) ;;
+    *) echo "D08_GUI_RENDER_ENGINE_INVALID=$D08_GUI_ENGINE" >&2; exit 2 ;;
+  esac
 elif [[ "$D08_STAGED_GUI" != 0 ]]; then
   echo "D08_STAGED_GUI_INVALID" >&2; exit 2
 fi
@@ -291,7 +298,14 @@ if [[ "$D08_STAGED_GUI" == 1 ]]; then
                     QT_QPA_PLATFORM=xcb)
     echo "D08_GAZEBO_GUI_BACKEND=D3D12_OWNER_TRIAL_NOT_VISUAL_PROOF"
   fi
-  start_group gazebo_gui "${D08_RENDER_ENV[@]}" gz sim -g -v 4
+  # The -g process is only the viewer. Do not change the official
+  # Nav2/Gazebo server Ogre2 renderer that produced real RGB-D and YOLO.
+  D08_GUI_ENGINE_ARGS=()
+  if [[ "$D08_GUI_ENGINE" == ogre ]]; then
+    D08_GUI_ENGINE_ARGS=(--render-engine ogre)
+  fi
+  echo "D08_GAZEBO_GUI_RENDER_ENGINE=$D08_GUI_ENGINE SERVER_ENGINE_UNCHANGED SENSOR_RTF_NOT_REVERIFIED"
+  start_group gazebo_gui "${D08_RENDER_ENV[@]}" gz sim -g -v 4 "${D08_GUI_ENGINE_ARGS[@]}"
 fi
 if [[ "$GUI" == 1 ]]; then
   # D08 already shows this exact YOLO debug image in its read-only RViz panel.
