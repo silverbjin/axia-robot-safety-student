@@ -107,6 +107,12 @@ def run(*, limit=60.0):
             budget=shutdown_stage_budget(key, deadline-monotonic())
             ack=call_native_manage(node, manager=key, command="shutdown",
                                    timeout_sec=budget)
+            # Preserve FIRST lifecycle service response boundary, not just
+            # the final shell rc. This is diagnostic, NEVER a substitute
+            # for the required actual Navigation + Localization ACK.
+            stages[key+"_response_elapsed_sec"]=ack.get("elapsed_sec")
+            stages[key+"_service_request_sent"]=ack.get("request_sent",False)
+            stages[key+"_service_status"]=ack.get("status")
             if ack["status"]!="ACK":
                 return result("BLOCKED_LIFECYCLE_"+key.upper()+"_"+ack["status"],
                               **stages)
