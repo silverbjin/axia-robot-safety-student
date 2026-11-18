@@ -27,6 +27,29 @@ class DisposableContactCalibrationCleanup(unittest.TestCase):
         self.assertFalse(v["certified_estop"])
         self.assertTrue(v["world_isolation_required"])
 
+    def test_exact_navigation_shutdown_timeout_disposable_no_goal_zero_leaks_only(self):
+        # Real public native Gazebo #44217387168: 5325 actual positive
+        # contacts, 32946 ECM frames, no leaked process, but original
+        # NO_GOAL Navigation service timed out; moving Goal NOT started.
+        args=list(self.frame())
+        args[0]["positive_contacts"]=5325
+        args[0]["observed_iterations"]=32946
+        args[2]={"status":"BLOCKED_LIFECYCLE_NAVIGATION_SERVICE_TIMEOUT",
+                 "navigation_ack":False,"localization_ack":False}
+        v=assess_calibration_teardown(*args)
+        self.assertEqual(v["status"],"CONTACT_CALIBRATION_PROVEN_DISPOSABLE_ONLY")
+        self.assertEqual(v["cleanup_stage"],
+            "NO_GOAL_NAVIGATION_TIMEOUT_BUT_NO_LEAK_OR_FORCED_KILL")
+        self.assertFalse(v["native_nav2_l2_pass"])
+        self.assertFalse(v["moving_goal_accepted"])
+        args[5]=[9911]
+        self.assertNotEqual(assess_calibration_teardown(*args)["status"],
+                            "CONTACT_CALIBRATION_PROVEN_DISPOSABLE_ONLY")
+        args[5]=[]
+        args[1]["goal_sent"]=True
+        self.assertNotEqual(assess_calibration_teardown(*args)["status"],
+                            "CONTACT_CALIBRATION_PROVEN_DISPOSABLE_ONLY")
+
     def test_full_native_nav2_shutdown_ack_is_stronger(self):
         args=list(self.frame())
         args[2]=dict(status="NAV2_LIFECYCLE_SHUTDOWN_ACK",
