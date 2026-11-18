@@ -615,6 +615,23 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   fi
   echo "D07_H01_GUI_RENDERERS_AFTER_NAV2_READY watcher_pid=$GUI_WATCH_PID awaiting_stable_free_baseline=1 NO_GOAL"
 fi
+# Client-only GUI: attach after real shared staged Nav2 readiness.
+# Gazebo SERVER remains owned solely by the original ros2 launch process.
+if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
+  [[ -r "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" ]] || {
+    echo 'G07_TASK04_RVIZ_CONFIG_MISSING_NO_GOAL' >&2;exit 2;
+  }
+  setsid gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+  MOVING_GAZEBO_GUI_PID=$!
+  setsid rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+    --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
+  MOVING_RVIZ_PID=$!
+  sleep 3
+  kill -0 "$MOVING_GAZEBO_GUI_PID" "$MOVING_RVIZ_PID" 2>/dev/null || {
+    echo 'G07_TASK04_GUI_CLIENT_DIED_BEFORE_GOAL' >&2;exit 2;
+  }
+  echo 'AXIA_G07_TASK04_GAZEBO_SERVER_SINGLE_GUI_CLIENTS_ATTACHED'
+fi
 # New G07 shutdown-only regression: reuse the staged REAL Gazebo/Nav2
 # no-Goal session, avoid re-running the previously successful moving L2.
 # Explicit public Actions-only admission; never use this shortcut on Owner.
@@ -730,11 +747,16 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   exit 0
 fi
 
-# Isolated GitHub Actions SIMULATION-ONLY moving Goal, unrelated to Owner L3.
-# The existing Owner runner *still* requires its controlling TTY; this branch
-# is never reachable in Owner WSL2 or ordinary no-Goal smoke runs.
-if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 ]]; then
-  [[ "${GITHUB_ACTIONS:-}" == true
+# Owner Moving reuses the unchanged public-CI physical scenario.
+# CI authority and Owner controlling-TTY authority never overlap.
+if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
+  [[ ( ( "${GITHUB_ACTIONS:-}" == true
+          && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+          && "$OWNER_MOVING" == 0 )
+        || ( "${GITHUB_ACTIONS:-}" != true
+             && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1
+             && "$OWNER_MOVING" == 1
+             && -t 0 && -r /dev/tty ) )
      && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
      && "${AXIA_P0_SIM_ONLY:-0}" == 1 ]] || {
     echo 'AXIA_G07_CI_MOVING_GOAL_SCOPE_NOT_AUTHORIZED' >&2
@@ -1015,12 +1037,39 @@ PY
     echo 'AXIA_P3_S05_ACTUAL_GAZEBO_SW_STOP_SCOPED_CANDIDATE_FORMAL_HOLD'
     exit 0
   fi
+  # The real Owner shell must read the exact consent phrase from /dev/tty.
+  # The single Goal is sent later by the existing Python Supervisor path.
+  OWNER_GOAL_ARGS=()
+  if [[ "$OWNER_MOVING" == 1 ]];then
+    [[ -n "${AXIA_G07_TASK04_EXPECTED_STUDENT_SHA:-}"
+       && "$EXPECTED_CI_SHA" == "$AXIA_G07_TASK04_EXPECTED_STUDENT_SHA"
+       && "$EXPECTED_CI_SHA" =~ ^[a-f0-9]{40}$ ]] || {
+      echo 'G07_TASK04_OWNER_EXACT_SHA_PREGOAL_BLOCKED' >&2;exit 2;
+    }
+    [[ -t 0 && -r /dev/tty ]] || {
+      echo 'G07_TASK04_OWNER_CONTROLLING_TTY_MISSING' >&2;exit 2;
+    }
+    printf '%s\n' 'Simulation-only Moving Goal: type YES-P2-G07-GOAL to approve exactly one Goal:' > /dev/tty
+    owner_answer=''
+    IFS= read -r -t 180 owner_answer < /dev/tty || {
+      echo 'G07_TASK04_OWNER_TTY_APPROVAL_TIMEOUT_OR_EOF_NO_GOAL' >&2;exit 2;
+    }
+    [[ "$owner_answer" == 'YES-P2-G07-GOAL' ]] || {
+      echo 'G07_TASK04_OWNER_GOAL_DENIED_BY_TTY_NO_GOAL' >&2;exit 2;
+    }
+    unset owner_answer
+    export AXIA_G07_OWNER_COMMON_RUNNER_AUTHORIZED=1
+    export AXIA_P2_OWNER_PINNED_SHA="$EXPECTED_CI_SHA"
+    OWNER_GOAL_ARGS=(--owner-launch-pid "$LAUNCH_PID")
+    echo 'AXIA_G07_TASK04_OWNER_MANUAL_CONTROLLING_TTY_GOAL_CONSENT_PASS'
+  fi
   timeout --signal=TERM --kill-after=7s 132s \
     python3 tools/p2_g07_ci_moving_goal.py \
       --startup "$OUT/startup_verdict.json" \
       --pregoal "$OUT/g07_ci_pregoal/owner_pregoal_l2.json" \
       --source-sha "$EXPECTED_CI_SHA" \
       --output "$OUT/g07_ci_moving" \
+      "${OWNER_GOAL_ARGS[@]}" \
     > "$OUT/g07_ci_moving.log" 2>&1 || {
     tail -n 100 "$OUT/g07_ci_moving.log" >&2 || true
     echo 'AXIA_G07_CI_MOVING_GOAL_ACTUAL_NAV2_BLOCKED' >&2
