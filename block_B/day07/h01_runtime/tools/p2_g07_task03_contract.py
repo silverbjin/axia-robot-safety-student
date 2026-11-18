@@ -86,36 +86,66 @@ def audit_goal_terminal(goal_uuid, response_code, canceling_uuids,
 
 
 def audit_guard_internal_cm_age(events, *, goal_start, window_end):
+    """Respect the actual Guard policy's immutable first-motion TTL boundary.
+
+    State.step() deliberately forwards ZERO and tolerates stale or absent CM
+    *before* it ever forwards motion (ever_moved=False). AFTER the first
+    nonzero forwarded command ever_moved stays True, and the unchanged
+    CM_TTL_SEC=.15 enforces a permanent stale latch. We must not count
+    pre-motion NO_FRESH_PAIR ages as an after-motion safety violation, and
+    must not ignore any post-motion age >=150ms or missing evidence.
+    """
     hold={"status":"GUARD_INTERNAL_CM_AGE_UNVERIFIED_HOLD",
-          "max_cm_age_ms":None,"samples":0}
+          "max_cm_age_ms":None,"samples":0,
+          "excluded_pre_motion_ticks":0,"first_forwarded_motion_proven":False}
     if not (isinstance(events,list) and 0<len(events)<=100000
             and _finite(goal_start) and _finite(window_end)
             and goal_start<window_end):
         return hold
     ages=[]
+    ignored=0
+    started=False
+    last_t=None
     for event in events:
         if not isinstance(event,dict) or event.get("kind")!="guard":
             continue
         t=event.get("t")
         if not _finite(t) or not goal_start<=t<=window_end:
             continue
+        if last_t is not None and t<last_t:
+            return hold
+        last_t=t
         data=event.get("data")
         if not isinstance(data,dict) or data.get("latched") is not False:
             return hold
+        # This field is recorded on the exact native Guard 20Hz timer tick.
+        # Unknown, absent, or a True->False regression never passes.
+        moved=data.get("guard_ever_moved")
+        if type(moved) is not bool:
+            return hold
+        if not moved:
+            if started or data.get("reason") not in ("NO_FRESH_PAIR","BOOT_ZERO",
+                                                      "FORWARDING_MONITORED_CM",
+                                                      "NORMAL"):
+                return hold
+            ignored+=1
+            continue
+        started=True
         cm=data.get("cm_age_sec")
         sup=data.get("supervisor_age_sec")
         if (not _finite(cm) or not _finite(sup)
                 or cm<0 or sup<0):
             return hold
         ages.append(cm)
-    if len(ages)<10:
-        return hold
+    if not started or len(ages)<10:
+        return {**hold,"excluded_pre_motion_ticks":ignored}
     mm=max(ages)*1000
+    facts={"max_cm_age_ms":round(mm,6),"samples":len(ages),
+           "excluded_pre_motion_ticks":ignored,
+           "first_forwarded_motion_proven":True}
     if mm>150:
-        return {**hold,"status":"GUARD_INTERNAL_CM_AGE_GT150_HOLD",
-                "max_cm_age_ms":round(mm,6),"samples":len(ages)}
-    return {"status":"GUARD_NATIVE_CM_AGE_TTL150_PASS",
-            "max_cm_age_ms":round(mm,6),"samples":len(ages)}
+        return {**hold,**facts,"status":"GUARD_INTERNAL_CM_AGE_GT150_HOLD"}
+    return {**facts,"status":"GUARD_NATIVE_CM_AGE_TTL150_PASS"}
 
 
 def audit_native_ecm_contact(positive, motion, *, goal_sim_ns,stop_sim_ns):
