@@ -58,7 +58,21 @@ cleanup() {
  if [[ -n "$LAUNCH_PID" ]]; then
    # Identical to G07 WSL2 Owner: Nav2 lifecycle before launch SIGINT.
    # Only after the already-successful CI simulation Goal and odom dwell.
-   if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+   # Task03 disposable native sensor-only positive control has NOT sent
+   # any Goal: skip unrelated managed Nav2 lifecycle shutdown. This avoids
+   # a race in a world that is about to be discarded. Actual Moving Goal
+   # still MUST obtain both lifecycle ACKs and CM child clean exit.
+   if [[ "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" == 1
+      && "${GITHUB_ACTIONS:-}" == true
+      && "${AXIA_P0_SIM_ONLY:-0}" == 1
+      && "${AXIA_G07_TASK03_ECM_WITNESS:-0}" == 1
+      && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+      && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+      && "$rc" == 0 ]]; then
+     printf 'DISPOSABLE_NO_GOAL_DIRECT_SIGINT_CONFIRMED\n' \
+       > "$OUT/task03_disposable_shutdown.marker"
+     echo 'AXIA_G07_TASK03_NO_GOAL_DISPOSABLE_NATIVE_POSITIVE_SIGINT'
+   elif [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
       && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
       && "$rc" == 0 ]]; then
      echo 'AXIA_G07_CI_MOVING_GOAL_ORDERED_SHUTDOWN_REQUIRED'
@@ -79,6 +93,12 @@ cleanup() {
    if ! stop_owner_parity_bag; then rc=3; fi
    kill -INT -- "-$LAUNCH_PID" 2>/dev/null || true
    local launch_grace_steps=25
+   if [[ "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" == 1
+      && -f "$OUT/task03_disposable_shutdown.marker" ]]; then
+     # Process exit budget only, NOT CM/Scan watchdog expansion.
+     launch_grace_steps=$((G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2))
+     echo 'AXIA_G07_TASK03_NO_GOAL_DISPOSABLE_SIGINT_EXIT_BUDGET_26S'
+   fi
    if [[ "${AXIA_G07_CI_OWNER_BAG_PARITY:-0}" == 1
       && "$rc" == 0
       && -f "$OUT/g07_ordered_shutdown.json" ]]; then
@@ -118,6 +138,7 @@ cleanup() {
  if [[ "${AXIA_G07_SHUTDOWN_L2_ONLY:-0}" == 1
     || ( "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
          && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+         && "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" != 1
          && "$rc" == 0 ) ]]; then
    if [[ ! -f "$OUT/g07_ordered_shutdown.json" ]]; then
      echo 'G07_REAL_SHUTDOWN_L2_NO_NAV2_ACK' >&2
