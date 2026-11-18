@@ -67,6 +67,19 @@ class FormalEvidenceContract(unittest.TestCase):
         self.assertNotEqual(audit_guard_internal_cm_age(events,goal_start=1.0,window_end=2.01)["status"],
                             "GUARD_NATIVE_CM_AGE_TTL150_PASS")
 
+    def test_native_contact_witness_is_exact_gazebo_collision_component_opt_in(self):
+        from p2_l3_world_overlay import patch_world
+        sdf='<world name="default"><plugin name="gz::sim::systems::UserCommands"/></world>'
+        base=patch_world(sdf)
+        native=patch_world(sdf,task03_ecm=True)
+        self.assertNotIn("axia::G07S02Witness",base)
+        self.assertEqual(native.count("axia::G07S02Witness"),1)
+        self.assertIn("gz::sim::systems::Contact",native)
+        cpp=(Path(__file__).resolve().parent/"native_s02_public/s02_witness.cc").read_text()
+        self.assertIn('if(_name->Data()!="obstacle_collision")',cpp)
+        self.assertNotIn('if(_name->Data()!="axia_contact")',cpp)
+        self.assertIn("CONTACT_COLLISION_COMPONENT_FOUND",cpp)
+
     def test_native_ecm_contact_one_positive_control_and_motion_zero(self):
         positive={"source_sha":"same_witness_binary",
                   "sensor_found":True,"observed_iterations":100,
