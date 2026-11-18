@@ -104,7 +104,7 @@ def _read_only_gazebo_world_poses(outdir):
             proc = subprocess.run(
                 ["nice", "-n", "19", "gz", "model", "-m", model, "--pose"],
                 text=True, capture_output=True, timeout=5, check=False)
-            raw = ("exit=" + str(proc.returncode) + "\\n" +
+            raw = ("exit=" + str(proc.returncode) + "\n" +
                    (proc.stdout + proc.stderr)[:6000])
             pose = (parse_gz_model_pose(proc.stdout)
                     if proc.returncode == 0 and "- Name: " + model in proc.stdout
@@ -113,7 +113,7 @@ def _read_only_gazebo_world_poses(outdir):
             pose = None
             raw = type(exc).__name__ + ":GAZEBO_MODEL_POSE_NOT_VERIFIED"
         (outdir / ("gz_pose_" + model + ".log")).write_text(
-            raw + "\\n", encoding="utf-8")
+            raw + "\n", encoding="utf-8")
         result[field] = pose
     return result
 
