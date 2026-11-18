@@ -70,7 +70,7 @@ def test_d09_recording_new_terminal_rebinds_topic_and_reads_bag_metadata():
 
 def test_d09_guides_start_with_safe_fresh_clone_and_repo_root():
     # Training docs must be executable by a learner who has never cloned the repository.
-    readme = _read(ROOT / "day09" / "README_KO.md")
+    readme = (ROOT / "day09" / "README_KO.md").read_text(encoding="utf-8")
     for name, content in (("demo", _read(DEMO)), ("lab", _read(LAB)), ("readme", readme)):
         bootstrap = content[:2400]
         assert "git clone https://github.com/silverbjin/axia-robot-safety-student.git" in bootstrap, name
