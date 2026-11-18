@@ -63,8 +63,10 @@ def ensure_scene_broadcaster_visible(root: ET.Element) -> None:
 
 
 def compose(waffle: Path, pi: Path, world: Path, actor: Path,
-            model: Path, out: Path) -> dict:
-    """Produce D05 demo variant only, with original D04 composition as baseline."""
+            model: Path, out: Path, d08_rgbd_rate_hz: int | None = None) -> dict:
+    """Produce D05 as before; optionally reduce only D08 RGBD rate for RTF comparison."""
+    if d08_rgbd_rate_hz is not None and d08_rgbd_rate_hz not in (5, 10, 15, 30):
+        raise ValueError("D08_RGBD_RATE_INVALID: allowed 5,10,15,30 Hz")
     manifest = compose_d04(waffle, pi, world, actor, model, out)
     bot_path = out / "student_waffle_rgb.sdf.xacro"
     world_path = out / "student_human_world.sdf.xacro"
@@ -79,6 +81,14 @@ def compose(waffle: Path, pi: Path, world: Path, actor: Path,
         raise ValueError("D05 duplicate mounted RGBD camera")
     rgb.set("name", "axia_d05_registered_rgbd")
     rgb.set("type", "rgbd_camera")
+    rate_node = rgb.find("update_rate")
+    if rate_node is None or rate_node.text is None:
+        raise ValueError("D08_RGBD_UPSTREAM_RATE_MISSING")
+    if d08_rgbd_rate_hz is not None:
+        rate_node.text = str(d08_rgbd_rate_hz)
+    actual_rgbd_rate_hz = int(rate_node.text)
+    if actual_rgbd_rate_hz not in (5, 10, 15, 30):
+        raise ValueError("D08_RGBD_RATE_NOT_EXPECTED")
     topic = rgb.find("topic")
     if topic is None:
         raise ValueError("D05 camera sensor topic missing")
@@ -130,6 +140,8 @@ def compose(waffle: Path, pi: Path, world: Path, actor: Path,
         "variant": "D05_MOUNTED_RGBD_APPROACH_ONLY",
         "camera_topic": RGB, "depth_topic": DEPTH,
         "registered_rgbd_sensor": "axia_d05_registered_rgbd",
+        "rgbd_update_rate_hz": actual_rgbd_rate_hz,
+        "d08_perf_candidate": d08_rgbd_rate_hz is not None,
         "optical_frame": FRAME,
         "actor_trajectory_x": [x for _, x in PATH],
         "camera_pitch_rad": CAMERA_UP_PITCH_RAD,
@@ -149,9 +161,11 @@ def main() -> int:
     cli = argparse.ArgumentParser()
     for name in ("waffle", "pi", "world", "actor", "model", "out"):
         cli.add_argument("--"+name, required=True, type=Path)
+    cli.add_argument("--d08-rgbd-rate-hz",type=int,choices=(5,10,15,30),default=None)
     args = cli.parse_args()
     try:
-        result = compose(args.waffle,args.pi,args.world,args.actor,args.model,args.out)
+        result = compose(args.waffle,args.pi,args.world,args.actor,args.model,args.out,
+                         d08_rgbd_rate_hz=args.d08_rgbd_rate_hz)
     except (ValueError, OSError, ET.ParseError) as exc:
         cli.exit(2, "D05_LIVE_SCENE_BLOCKED: "+str(exc)+"\n")
     print("D05_LIVE_SCENE_READY: "+json.dumps(result,ensure_ascii=False))
