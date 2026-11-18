@@ -18,7 +18,7 @@ def _fixture(tmp_path):
     nav=tmp_path/"gz_waffle.sdf.xacro"
     nav.write_text('<sdf><model name="waffle"><link name="camera_link"><sensor name="depth" type="depth_camera"/></link></model></sdf>')
     pi=tmp_path/"pi.sdf"
-    pi.write_text('<sdf><model><link><sensor name="camera" type="camera"><topic>camera/image_raw</topic><camera><image><width>640</width><height>480</height><format>R8G8B8</format></image></camera></sensor></link></model></sdf>')
+    pi.write_text('<sdf><model><link><sensor name="camera" type="camera"><topic>camera/image_raw</topic><update_rate>30</update_rate><camera><image><width>640</width><height>480</height><format>R8G8B8</format></image></camera></sensor></link></model></sdf>')
     world=tmp_path/"world.sdf.xacro"
     world.write_text('<sdf xmlns:xacro="http://www.ros.org/wiki/xacro"><xacro:arg name="headless" default="true"/><world name="default"><plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/><xacro:unless value="$(arg headless)"><plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/></xacro:unless><plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors"><render_engine>ogre2</render_engine></plugin></world></sdf>')
     actor=tmp_path/"walk.dae";actor.write_text("fixture")
