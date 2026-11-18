@@ -28,7 +28,7 @@ git rev-parse --short HEAD
 
 예상 결과: `~/axia_d09_course/axia-robot-safety-student` 저장소가 준비되고 현재 브랜치가 `main`으로 표시됩니다(새 클론 기준). 기존 브랜치·수정 파일은 덮어쓰지 않습니다. **이후 명령은 같은 터미널에서 학생 저장소 루트에 머문 상태로 실행**합니다. `git clone` 실패 시 네트워크·Git 설치·접근 URL부터 확인하고, `git pull --ff-only` 실패 시 충돌을 강제 해결하지 말고 `git status`를 확인하세요.
 
-**D09 라이브 도입(이론 첫 12분):** [학생용 데모 가이드의 D08 실제 `/scan` Plot 관찰](STUDENT_DEMO_GUIDE_KO.md#0-a-12분-오프닝--강사의-d08-실제-lidar-live-plot을-관찰합니다)을 먼저 확인합니다. 강사 화면의 실시간 LiDAR **거리(m)** 관찰이며 모터 전류·토크·가속도 실측이 아닙니다. Plot은 선택 데모로, 안 보이면 HOLD 후 기존 오프라인 실습으로 진행합니다. **이론 60분/실습 120분 유지**.
+**D09 라이브 도입(이론 첫 12분):** [학생용 데모 가이드 0-A절의 D08 실제 `/scan` Plot 관찰](STUDENT_DEMO_GUIDE_KO.md)을 먼저 확인합니다. 강사 화면의 실시간 LiDAR **거리(m)** 관찰이며 모터 전류·토크·가속도 실측이 아닙니다. Plot은 선택 데모로, 안 보이면 HOLD 후 기존 오프라인 실습으로 진행합니다. **이론 60분/실습 120분 유지**.
 
 **D09 최신 학생 자료:** [데모 가이드](STUDENT_DEMO_GUIDE_KO.md) / [120분 실습 가이드](STUDENT_LAB_GUIDE_KO.md). 두 문서를 순서대로 읽고 본 README의 TODO 계약을 수행합니다.
 
