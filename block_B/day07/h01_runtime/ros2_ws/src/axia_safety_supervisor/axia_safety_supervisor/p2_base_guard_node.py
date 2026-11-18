@@ -149,6 +149,11 @@ class P2BaseCommandGuard(Node):
             snapshot = self._policy.diagnostic_snapshot(tick_mono)
             status_fields['cm_age_sec'] = snapshot['cm_age_sec']
             status_fields['supervisor_age_sec'] = snapshot['supervisor_age_sec']
+            # This monotonic latch becomes True ONLY when this exact Guard
+            # has forwarded a real nonzero CM command. NO_FRESH_PAIR before
+            # first motion is fail-closed ZERO but not a postmotion stale fault.
+            # Read-only provenance; State.step and CM_TTL_SEC=.15 unchanged.
+            status_fields['guard_ever_moved'] = self._policy.ever_moved
         status.data = json.dumps(status_fields, sort_keys=True)
         self._status.publish(status)
 
