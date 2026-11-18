@@ -13,6 +13,29 @@ MOVING_GAZEBO_GUI_PID=''
 MOVING_RVIZ_PID=''
 OWNER_MOVING="${AXIA_G07_TASK04_OWNER_MOVING_L3:-0}"
 CI_MOVING_GUI="${AXIA_G07_TASK04_CI_GUI_MOVING:-0}"
+SENSOR_NO_GOAL="${AXIA_G07_OWNER_SENSOR_TRUTH_NO_GOAL:-0}"
+[[ "$SENSOR_NO_GOAL" == 0 || "$SENSOR_NO_GOAL" == 1 ]] || exit 2
+if [[ "$SENSOR_NO_GOAL" == 1 ]];then
+  # Actual WSL2 sensor only. Never borrow Owner Moving/CI Goal authorization
+  # or D07's altered Gaussian-free Waffle noise profile.
+  [[ "${GITHUB_ACTIONS:-}" != true
+     && "$OWNER_MOVING" == 0 && "$CI_MOVING_GUI" == 0
+     && "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 0
+     && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0
+     && "${AXIA_G07_CI_OWNER_BAG_PARITY:-0}" == 0
+     && "${AXIA_P0_SIM_ONLY:-0}" == 1
+     && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+     && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
+     && "${AXIA_P2_G07_RELOCATED_OBSTACLE:-0}" == 1
+     && "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 0
+     && "${LIBGL_ALWAYS_SOFTWARE:-0}" != 1
+     && "${ROS_DISTRO:-}" == jazzy ]] || {
+    echo 'G07_WSLG_SENSOR_NO_GOAL_AUTHORITY_DENIED' >&2;exit 2;
+  }
+  grep -qiE 'microsoft|wsl' /proc/sys/kernel/osrelease || {
+    echo 'G07_WSLG_SENSOR_REAL_WSL2_REQUIRED' >&2;exit 2;
+  }
+fi
 [[ "$OWNER_MOVING" == 0 || "$OWNER_MOVING" == 1 ]] || exit 2
 [[ "$CI_MOVING_GUI" == 0 || "$CI_MOVING_GUI" == 1 ]] || exit 2
 if [[ "$OWNER_MOVING" == 1 ]];then
@@ -240,7 +263,11 @@ set +u; source install/setup.bash; set -u
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-56}"
 export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 export GZ_PARTITION="${GZ_PARTITION:-axia_p2_ci_$$_$(date +%s)}"
-if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
+if [[ "$SENSOR_NO_GOAL" == 1 ]];then
+  # Do not force llvmpipe on the *sensor server*: capture actual WSLg
+  # backend, unlike historical offscreen CI. No GUI/Gazebo new server.
+  export QT_QPA_PLATFORM=offscreen AXIA_P0_SIM_ONLY=1
+elif [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   # Explicit CLI/window mode; unlike existing CI H01 Gate this needs an
   # actual DISPLAY, never a spoofed GITHUB_ACTIONS=true on Owner WSL2.
   [[ -n "${DISPLAY:-}" && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1 ]] || {
@@ -418,7 +445,17 @@ fi
 # Public CI and Owner use precisely the same G07 staged startup runner.
 # The only admitted platform variance is offscreen CI vs WSLg Owner GUI.
 if [[ "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]]; then
-  if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
+  if [[ "$SENSOR_NO_GOAL" == 1 ]];then
+    [[ "${GITHUB_ACTIONS:-}" != true
+       && "$OWNER_MOVING" == 0 && "$CI_MOVING_GUI" == 0
+       && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0
+       && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
+       && "${AXIA_P0_SIM_ONLY:-0}" == 1
+       && "${ROS_DISTRO:-}" == jazzy
+       && "${GZ_PARTITION:-}" == axia_p2_* ]] || {
+      echo 'G07_WSLG_SENSOR_NO_GOAL_STAGED_START_DENIED' >&2; exit 2;
+    }
+  elif [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
     # Local WSL2 stationary GUI may reuse the EXISTING shared staged startup.
     # This is NOT permission for a moving Goal, not a GITHUB_ACTIONS spoof.
     [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1
@@ -513,6 +550,28 @@ else
     echo 'AXIA_G07_CI_CLOCK_TIMEOUT_NO_GOAL' >&2
   fi
   exit 2
+fi
+# Bounded Owner WSLg LiDAR truth: THE original G07 physical world, original
+# 10Hz Waffle profile, no D07 sensor noise overlay, no Gazebo pose change,
+# no Nav2 Goal and no CI/Owner Moving authority. Clean up only owned PIDs.
+if [[ "$SENSOR_NO_GOAL" == 1 ]]; then
+  duration="${AXIA_WSLG_SENSOR_PROBE_DURATION_SEC:-20}"
+  [[ "$duration" =~ ^[0-9]+$ && "$duration" -ge 10 && "$duration" -le 30 ]] || {
+    echo 'G07_WSLG_SENSOR_DURATION_INVALID_NO_GOAL' >&2;exit 2;
+  }
+  if timeout --signal=TERM --kill-after=5s 50s \
+      python3 tools/g07_wslg_no_goal_sensor_probe.py \
+        --duration-sec "$duration" \
+        --output "$OUT/g07_wslg_sensor_truth.json" \
+        > "$OUT/g07_wslg_sensor_truth.log" 2>&1; then
+    cat "$OUT/g07_wslg_sensor_truth.log"
+    echo 'G07_WSLG_NO_GOAL_SENSOR_WINDOW_CANDIDATE_NO_MOVING_ACCEPTANCE'
+    exit 0
+  else
+    cat "$OUT/g07_wslg_sensor_truth.log" >&2 || true
+    echo 'G07_WSLG_NO_GOAL_SENSOR_UNSAFE_HOLD' >&2
+    exit 3
+  fi
 fi
 # D07-H01 GUI renderers AFTER Nav2 readiness, NOT during CM get_state or
 # lifecycle bond startup. Gazebo Harmonic -g is a GUI-only client joining
