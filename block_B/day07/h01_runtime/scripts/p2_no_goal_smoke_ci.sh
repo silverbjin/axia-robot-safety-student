@@ -762,44 +762,23 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
     echo 'AXIA_G07_CI_MOVING_GOAL_SCOPE_NOT_AUTHORIZED' >&2
     exit 2
   }
-  # Confirm the real lifecycle node loaded the G07-only window from its
-  # generated Nav2 parameters BEFORE issuing any moving Goal. A static YAML
-  # unit test alone cannot establish this runtime delivery contract.
-  CM_ZERO_PARAM="$(timeout 12s ros2 param get /collision_monitor stop_pub_timeout)" || {
-    echo 'AXIA_G07_CI_REAL_CM_ZERO_PARAM_READBACK_FAILED' >&2
-    exit 2
-  }
-  printf '%s\n' "$CM_ZERO_PARAM"
-  if ! python3 -c 'import re,sys; s=sys.stdin.read(); assert re.search(r"(?m)(?:Double value is:|Double value:)\s*5(?:\.0+)?\s*$",s), "CM_STOP_ZERO_WINDOW_NOT_FIVE_SEC"' <<< "$CM_ZERO_PARAM"; then
-    echo 'AXIA_G07_CI_REAL_CM_ZERO_PARAM_MISMATCH_NO_GOAL' >&2
+  # Verify the FOUR actual Collision Monitor parameters via ONE bounded
+  # native rclpy GetParameters request. Native #44263077295: first separate
+  # ros2 param CLI replied, the second new DDS CLI participant timed out.
+  # Never infer a live parameter from YAML or relax safety timing limits.
+  CM_GATE_ARGS=()
+  if [[ "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1 ]];then
+    CM_GATE_ARGS+=(--require-simple-tf)
+  fi
+  if ! timeout --signal=TERM --kill-after=2s 18s \
+       python3 tools/p2_g07_cm_active_param_readback.py \
+         --output "$OUT/g07_active_cm_native_parameters.json" \
+         "${CM_GATE_ARGS[@]}" > "$OUT/g07_active_cm_native_parameters.log" 2>&1;then
+    cat "$OUT/g07_active_cm_native_parameters.log" >&2 || true
+    echo 'AXIA_G07_TASK04_FIRST_FAILURE=CM_NATIVE_ACTIVE_PARAM_PREGOAL_BLOCKED' >&2
     exit 2
   fi
-  echo 'AXIA_G07_CI_REAL_CM_STOP_ZERO_WINDOW_5S_GUARD_TTL_150MS_UNCHANGED'
-  # Task02 CI-only: read back the active official CM simple-TF option.
-  # Reject any missing runtime override BEFORE publishing a real Goal.
-  if [[ "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1 ]]; then
-    TF_SHIFT="$(timeout 12s ros2 param get /collision_monitor base_shift_correction)" || {
-      echo 'AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_PARAM_MISSING_NO_GOAL' >&2;exit 2;
-    }
-    TF_TIMEOUT="$(timeout 12s ros2 param get /collision_monitor transform_tolerance)" || {
-      echo 'AXIA_G07_TASK02_SIMPLE_TF_TIMEOUT_READBACK_MISSING_NO_GOAL' >&2;exit 2;
-    }
-    TF_SOURCE="$(timeout 12s ros2 param get /collision_monitor source_timeout)" || {
-      echo 'AXIA_G07_TASK02_SIMPLE_TF_SOURCE_TIMEOUT_MISSING_NO_GOAL' >&2;exit 2;
-    }
-    if ! python3 - "$TF_SHIFT" "$TF_TIMEOUT" "$TF_SOURCE" <<'PY'
-import sys
-shift,tol,source=(x.strip() for x in sys.argv[1:])
-assert shift.startswith('Boolean value') and shift.rsplit(':',1)[-1].strip().lower()=='false'
-assert tol.startswith('Double value') and abs(float(tol.rsplit(':',1)[-1])-0.2)<1e-9
-assert source.startswith('Double value') and abs(float(source.rsplit(':',1)[-1])-1.0)<1e-9
-PY
-    then
-      echo 'AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_SAFETY_READBACK_MISMATCH_NO_GOAL' >&2
-      exit 2
-    fi
-    echo 'AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_READBACK_PASS SHIFT_FALSE TF_TOL_0.2 SOURCE_TIMEOUT_1.0 GUARD_150MS_UNCHANGED'
-  fi
+  cat "$OUT/g07_active_cm_native_parameters.log"
   echo 'AXIA_G07_CI_MOVING_GOAL_PREG0AL_NATIVE_FIXTURE_BEGIN'
   timeout --signal=TERM --kill-after=5s 70s \
     python3 tools/p2_g07_owner_pregoal_l2.py --output "$OUT/g07_ci_pregoal" \
