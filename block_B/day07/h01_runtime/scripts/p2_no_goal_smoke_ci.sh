@@ -621,9 +621,9 @@ if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
   [[ -r "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" ]] || {
     echo 'G07_TASK04_RVIZ_CONFIG_MISSING_NO_GOAL' >&2;exit 2;
   }
-  setsid gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+  setsid nice -n 10 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
   MOVING_GAZEBO_GUI_PID=$!
-  setsid rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+  setsid nice -n 10 rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
     --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
   MOVING_RVIZ_PID=$!
   sleep 3
