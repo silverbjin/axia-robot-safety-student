@@ -6,6 +6,32 @@
 - 본 실습의 데이터: `SYNTHETIC_COURSE_FIXTURE`, seed=2409, **10 Hz**, trace-local 시간
 - 구별: 수업의 가상 전류·토크·가속도는 **실제 TurtleBot3 Waffle 계측값이 아닙니다**. 교육용 분석에는 자동주행·제어 권한이 없으며 인증된 E-Stop과 무관합니다.
 
+
+## 0. GitHub 저장소 클론부터 시작 (최초 1회)
+
+**Ubuntu 24.04 / WSL2의 새 터미널에서 시작합니다.** 학생 저장소는 공개이므로 GitHub 로그인 없이 읽기 전용으로 클론할 수 있습니다. 이미 클론한 경우에는 파일을 덮어쓰거나 재클론하지 않습니다.
+
+```bash
+git --version
+mkdir -p "$HOME/axia_d09_course"
+cd "$HOME/axia_d09_course"
+if [ ! -d axia-robot-safety-student/.git ]; then
+  git clone https://github.com/silverbjin/axia-robot-safety-student.git
+fi
+cd axia-robot-safety-student
+# 기존 clone이 깨끗한 main인 경우에만 안전하게 최신 상태로 갱신합니다.
+if [ "$(git branch --show-current)" = "main" ] && [ -z "$(git status --porcelain)" ]; then
+  git pull --ff-only origin main
+else
+  echo "기존 브랜치/수정 사항 보존: 자동 pull 생략"
+fi
+git rev-parse --show-toplevel
+git branch --show-current
+git rev-parse --short HEAD
+```
+
+예상 결과: `~/axia_d09_course/axia-robot-safety-student` 저장소가 준비되고 현재 브랜치가 `main`으로 표시됩니다(새 클론 기준). 기존 브랜치·수정 파일은 덮어쓰지 않습니다. **이후 명령은 같은 터미널에서 학생 저장소 루트에 머문 상태로 실행**합니다. `git clone` 실패 시 네트워크·Git 설치·접근 URL부터 확인하고, `git pull --ff-only` 실패 시 충돌을 강제 해결하지 말고 `git status`를 확인하세요.
+
 ## 1. 오늘 데모의 큰 그림
 
 ```text
@@ -26,7 +52,7 @@
 다음 명령은 학생 저장소 **루트**에서 실행합니다. 새 터미널은 Windows Terminal의 Ubuntu 24.04 탭으로 열고, 기존 ROS 주행 데모를 종료시키지 마세요.
 
 ```bash
-cd ~/axia-robot-safety-student  # 실제 clone 위치가 다르면 그 경로로 이동
+test -d block_C/fixtures   # 앞 단계에서 클론한 저장소 루트인지 확인
 python3 --version
 bash block_C/scripts/block_c_once.sh --doctor
 ```
