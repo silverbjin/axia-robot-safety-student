@@ -62,6 +62,32 @@ class IndependentPhysicalAxes(unittest.TestCase):
         self.assertIn('records["clock"].append(stamp)',src)
         self.assertIn('records["clock_receipts"].append({"recv": recv, "sim": stamp})',src)
 
+    def test_first_raw_ttl_violation_before_safety_starts_is_labeled_not_ignored(self):
+        from g07_wslg_no_goal_sensor_probe import correlate_first_raw_gap
+        raw=[{"recv":float(i)*.1+10.0,"stamp":5.0+i*.1,
+              "front":1.4,"side":2.5,"near":.3,"beams":360} for i in range(30)]
+        raw[6]["recv"]=raw[5]["recv"]+.331547
+        for i in range(7,30):raw[i]["recv"]+=.24
+        safe=[dict(row) for row in raw[10:]]
+        obs=correlate_first_raw_gap({"raw":raw,"safety":safe})
+        self.assertEqual(obs["first_gap_sec"],.331547)
+        self.assertEqual(obs["first_gap_index"],6)
+        self.assertEqual(obs["phase"],"BEFORE_FIRST_SAFETY_SCAN")
+        self.assertFalse(obs["raw_ttl_accepted"])
+        self.assertFalse(obs["upstream_lidar_fault_proven"])
+
+    def test_same_stamp_safety_on_time_raw_late_classifies_observer_path_only(self):
+        from g07_wslg_no_goal_sensor_probe import correlate_first_raw_gap
+        raw=[{"recv":20.0+i*.1,"stamp":10.+i*.1} for i in range(15)]
+        safe=[dict(row) for row in raw]
+        raw[9]["recv"]=raw[8]["recv"]+.40
+        for i in range(10,len(raw)):raw[i]["recv"]+=.31
+        obs=correlate_first_raw_gap({"raw":raw,"safety":safe})
+        self.assertEqual(obs["phase"],"BOTH_TOPIC_ACTIVE")
+        self.assertEqual(obs["hypothesis"],"RAW_RECEIVER_PATH_DELAY_SUSPECT")
+        self.assertFalse(obs["raw_ttl_accepted"])
+        self.assertFalse(obs["gpu_causality_proven"])
+
     def test_no_sim_advance_does_not_claim_rtf(self):
         d=readings(1.,1.4,2.5)
         for row in d["clock_receipts"]:row["sim"]=4.0
