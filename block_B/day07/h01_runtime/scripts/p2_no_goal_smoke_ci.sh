@@ -131,6 +131,19 @@ cleanup() {
      rc=3
    fi
    wait "$LAUNCH_PID" 2>/dev/null || true
+   # Real public Gazebo #44220702329: the disposable NO_GOAL marker
+   # previously existed only as .marker; downstream expected JSON.
+   # Emit distinct NO_GOAL evidence AFTER actual graceful SIGINT teardown,
+   # never implying Navigation/Localization lifecycle ACKs or moving L2.
+   if [[ "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" == 1
+      && -f "$OUT/task03_disposable_shutdown.marker"
+      && "$rc" -eq 0
+      && -f "$OUT/teardown.txt" ]] &&
+      grep -Fxq 'P2_L2_GRACEFUL_TEARDOWN' "$OUT/teardown.txt"; then
+     printf '%s\n' '{"schema":"axia.g07.task03.disposable_no_goal_sigint_v1","status":"DISPOSABLE_NO_GOAL_DIRECT_SIGINT_CONFIRMED","navigation_ack":false,"localization_ack":false,"goal_sent":false,"native_nav2_l2_pass":false,"certified_estop":false}' \
+       > "$OUT/g07_ordered_shutdown.json"
+     echo 'AXIA_G07_TASK03_NO_GOAL_DISPOSABLE_SIGINT_GRACEFUL_EVIDENCE_WRITTEN'
+   fi
  fi
  # New exact-SHA, public-only simulation: evidence that CM truly exits
  # cleanly AFTER official managed lifecycle shutdown, not just a parent
