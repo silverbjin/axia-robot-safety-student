@@ -275,7 +275,7 @@ export GZ_PARTITION="${GZ_PARTITION:-axia_p2_ci_$$_$(date +%s)}"
 if [[ "$SENSOR_NO_GOAL" == 1 ]];then
   # Do not force llvmpipe on the *sensor server*: capture actual WSLg
   # backend, unlike historical offscreen CI. No GUI/Gazebo new server.
-  export QT_QPA_PLATFORM=offscreen AXIA_P0_SIM_ONLY=1
+  export QT_QPA_PLATFORM=xcb AXIA_P0_SIM_ONLY=1
 elif [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   # Explicit CLI/window mode; unlike existing CI H01 Gate this needs an
   # actual DISPLAY, never a spoofed GITHUB_ACTIONS=true on Owner WSL2.
@@ -357,11 +357,13 @@ if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1 ]]; then
   # leaving an otherwise healthy server /scan and Nav2 but a BLANK 3D GUI.
   # Keep staged headless startup and all P2/G07 motion cases untouched.
   if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
-     || "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
+     || "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1
+     || "$SENSOR_NO_GOAL" == 1 ]];then
     [[ "${AXIA_P0_SIM_ONLY:-0}" == 1
        && ( ( "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
               && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0 )
-            || "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ) ]] || {
+            || "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1
+            || "$SENSOR_NO_GOAL" == 1 ) ]] || {
       echo 'G07_TASK04_SCENE_BROADCASTER_SCOPE_DENIED' >&2;exit 2;
     }
     python3 tools/d07_h01_scene_broadcaster_overlay.py \
@@ -688,7 +690,10 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
 fi
 # Client-only GUI: attach after real shared staged Nav2 readiness.
 # Gazebo SERVER remains owned solely by the original ros2 launch process.
-if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
+# NO_GOAL diagnosis reuses both original clients to catch GUI contention
+# without issuing Goal/Velocity/Fault or loosening native TTL.
+if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1
+   || "$SENSOR_NO_GOAL" == 1 ]];then
   [[ -r "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" ]] || {
     echo 'G07_TASK04_RVIZ_CONFIG_MISSING_NO_GOAL' >&2;exit 2;
   }
