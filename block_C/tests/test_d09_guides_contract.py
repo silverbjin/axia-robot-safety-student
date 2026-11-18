@@ -58,3 +58,11 @@ def test_d09_student_guides_do_not_contain_hidden_solution_or_unsafe_control():
         assert "send_goal_async(" not in text
         assert "create_publisher(" not in text
         assert "git clone" not in text or "axia-robot-safety-instructor" not in text
+
+
+def test_d09_recording_new_terminal_rebinds_topic_and_reads_bag_metadata():
+    demo = _read(DEMO)
+    section = demo.split("기록이 가능한 경우에만", 1)[1]
+    assert "기록용 터미널" in section
+    assert 'read -rp "기록할 토픽 이름' in section
+    assert 'ros2 bag info "$BAG"' in section
