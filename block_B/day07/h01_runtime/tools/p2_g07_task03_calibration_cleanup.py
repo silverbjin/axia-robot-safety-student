@@ -74,4 +74,17 @@ def assess_calibration_teardown(witness,startup,shutdown,teardown,runner_rc,leak
             and shutdown.get("localization_ack") is False):
         return {**fail,"status":"CONTACT_CALIBRATION_PROVEN_DISPOSABLE_ONLY",
                 "cleanup_stage":"NO_GOAL_LOCALIZATION_TIMEOUT_BUT_NO_LEAK_OR_FORCED_KILL"}
+    # Real public #44217387168: native positive contact verified 5,325
+    # events / 32,946 frames; disposable no-Goal Navigation shutdown
+    # service timed out, but no launched process leaked, no forced kill,
+    # and original cleanup was graceful. This permits ONLY the positive
+    # sensor calibration result to be retained in an independently clean
+    # ROS_DOMAIN_ID/GZ_PARTITION. The later moving Goal still requires
+    # BOTH native Navigation+Localization ACK and CM clean exit.
+    if (runner_rc==3 and
+            shutdown.get("status")=="BLOCKED_LIFECYCLE_NAVIGATION_SERVICE_TIMEOUT"
+            and shutdown.get("navigation_ack") is False
+            and shutdown.get("localization_ack") is False):
+        return {**fail,"status":"CONTACT_CALIBRATION_PROVEN_DISPOSABLE_ONLY",
+                "cleanup_stage":"NO_GOAL_NAVIGATION_TIMEOUT_BUT_NO_LEAK_OR_FORCED_KILL"}
     return fail
