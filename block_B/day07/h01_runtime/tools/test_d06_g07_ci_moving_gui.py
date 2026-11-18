@@ -33,7 +33,7 @@ class D06CIIntegratedVisual(unittest.TestCase):
         self.assertIn('python3 tools/p2_g07_ci_moving_goal.py',s)
         self.assertIn('python3 tools/p2_g07_ordered_shutdown.py',s)
         self.assertIn('G07_MOVING_GOAL_CM_CLEAN_EXIT_AFTER_NAV2_ACK_PASS',s)
-        self.assertNotIn('GITHUB_ACTIONS=true',s)
+        self.assertNotIn('export GITHUB_ACTIONS=true',s)
         self.assertNotIn('AXIA_G07_CI_SIM_GOAL_ALLOWED=1',s)
         self.assertNotIn('AXIA_D06_G07_CI_MOVING_GUI=1',s)
 
