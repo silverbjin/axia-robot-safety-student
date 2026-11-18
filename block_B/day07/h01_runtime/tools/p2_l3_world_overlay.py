@@ -56,13 +56,40 @@ def main(argv=None):
         raw=a.source.read_bytes()
         task03=os.environ.get('AXIA_G07_TASK03_ECM_WITNESS')=='1'
         if task03:
-            required={'GITHUB_ACTIONS':'true','AXIA_P0_SIM_ONLY':'1',
-                      'AXIA_P2_G07_PHYSICAL_PREFLIGHT':'1'}
-            if any(os.environ.get(k)!=v for k,v in required.items()):
-                raise ValueError('TASK03_PUBLIC_SIM_ONLY_ECM_DENIED')
-            if not (os.environ.get('AXIA_G07_CI_SIM_GOAL_ALLOWED')=='1' or
-                    os.environ.get('AXIA_D07_H01_CONTACT_CALIBRATION_ONLY')=='1'):
-                raise ValueError('TASK03_NO_GOAL_OR_CALIBRATION_AUTHORITY')
+            # Permit the SAME read-only native Contact witness for an actual
+            # G07 Task04 WSL2 Owner. Do not grant CI Goal authority or skip
+            # the original controlling-TTY consent / three owned PID checks.
+            # All other ECM use remains exact-public-CI scoped.
+            owner = (
+                os.environ.get('GITHUB_ACTIONS') != 'true'
+                and os.environ.get('AXIA_G07_TASK04_OWNER_MOVING_L3') == '1'
+                and os.environ.get('AXIA_G07_CI_SIM_GOAL_ALLOWED') == '0'
+                and os.environ.get('AXIA_P0_SIM_ONLY') == '1'
+                and os.environ.get('AXIA_P2_G07_PHYSICAL_PREFLIGHT') == '1'
+                and os.environ.get('AXIA_G07_OWNER_STARTUP_PARITY') == '1'
+                and os.environ.get('AXIA_G07_CI_OWNER_BAG_PARITY') == '1'
+                and os.isatty(0)
+            )
+            if owner:
+                import subprocess
+                expected = os.environ.get('AXIA_G07_TASK04_EXPECTED_STUDENT_SHA', '')
+                actual = subprocess.run(
+                    ['git', 'rev-parse', 'HEAD'], cwd=Path(__file__).resolve().parents[1],
+                    capture_output=True, text=True, timeout=5, check=False
+                )
+                if (len(expected) != 40
+                        or not re.fullmatch('[0-9a-f]{40}', expected)
+                        or actual.returncode != 0
+                        or actual.stdout.strip() != expected):
+                    raise ValueError('TASK04_OWNER_WITNESS_EXACT_SHA_DENIED')
+            else:
+                required={'GITHUB_ACTIONS':'true','AXIA_P0_SIM_ONLY':'1',
+                          'AXIA_P2_G07_PHYSICAL_PREFLIGHT':'1'}
+                if any(os.environ.get(k)!=v for k,v in required.items()):
+                    raise ValueError('TASK03_PUBLIC_SIM_ONLY_ECM_DENIED')
+                if not (os.environ.get('AXIA_G07_CI_SIM_GOAL_ALLOWED')=='1' or
+                        os.environ.get('AXIA_D07_H01_CONTACT_CALIBRATION_ONLY')=='1'):
+                    raise ValueError('TASK03_NO_GOAL_OR_CALIBRATION_AUTHORITY')
         new=patch_world(raw.decode('utf-8'), task03_ecm=task03)
         with a.output.open('x',encoding='utf-8') as f:f.write(new)
         with a.manifest.open('x',encoding='utf-8') as f:
