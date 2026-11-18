@@ -204,11 +204,23 @@ PI_DIR="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo"
 test -r "$NAV_DIR/urdf/gz_waffle.sdf.xacro"
 test -r "$PI_DIR/models/turtlebot3_waffle_pi/model.sdf"
 test -r "$NAV_DIR/worlds/tb3_sandbox.sdf.xacro"
+# D08-only runtime experiment: change one RGBD update_rate in temporary SDF.
+# D04/D05 legacy launch keeps the official 30Hz camera unchanged.
+D08_RATE_ARGS=()
+if [[ "$D08_STAGED_GUI" == 1 ]]; then
+  D08_RATE_HZ="${AXIA_D08_RGBD_RATE_HZ:-30}"
+  case "$D08_RATE_HZ" in
+    5|10|15|30) ;;
+    *) echo "AXIA_D08_RGBD_RATE_HZ_INVALID=$D08_RATE_HZ" >&2; exit 2 ;;
+  esac
+  D08_RATE_ARGS=(--d08-rgbd-rate-hz "$D08_RATE_HZ")
+  echo "D08_RGBD_RATE_REQUEST_HZ=$D08_RATE_HZ"
+fi
 python3 "$SCENE" \
   --waffle "$NAV_DIR/urdf/gz_waffle.sdf.xacro" \
   --pi "$PI_DIR/models/turtlebot3_waffle_pi/model.sdf" \
   --world "$NAV_DIR/worlds/tb3_sandbox.sdf.xacro" \
-  --actor "$ACTOR" --model "$MODEL" --out "$SCENE_DIR" \
+  --actor "$ACTOR" --model "$MODEL" --out "$SCENE_DIR" "${D08_RATE_ARGS[@]}" \
   > "$OUT/scene.log"
 echo "D04_STUDENT_SCENE_READY: public Waffle Pi RGB + visual-only person"
 
