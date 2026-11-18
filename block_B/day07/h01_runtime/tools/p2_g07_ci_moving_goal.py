@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""ONE public-CI-only actual Gazebo Harmonic / Nav2 moving G07 Goal.
+"""Shared simulation-only Jazzy/Gazebo moving G07 Goal for CI and Owner.
 
-Independent from Owner L3's mandatory controlling-TTY approval: this runner
-does not import/call the Owner run() or consent helper. It reuses only read-only
-ROS event observation and the existing Supervisor start/goal primitives.
-Explicit GitHub Actions + simulation environment gate, no fault/crash/rearm.
-Simulation-only candidate; contact ground truth and hardware E-Stop unavailable.
+CI requires GitHub Actions authority. Owner requires controlling TTY, exact
+source SHA and three run-owned processes before any Goal. Neither mode grants
+final Owner L3 acceptance or certified hardware E-Stop.
 """
 import argparse
 import faulthandler
@@ -386,8 +384,8 @@ def run(args):
                                 final["pose"][1]-start_pose[1])
         latest=obs.snapshot()
         t1=time.monotonic()
-        if os.environ.get("AXIA_G07_TASK03_FORMAL_CI")=="1":
-            if owner_mode or os.environ.get("AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE")!="1":
+        if owner_mode or os.environ.get("AXIA_G07_TASK03_FORMAL_CI")=="1":
+            if not owner_mode and os.environ.get("AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE")!="1":
                 raise RuntimeError("TASK03_PUBLIC_SIM_ONLY_CANDIDATE_REQUIRED")
             obs._write("task03_motion_window_end",at=t1)
         # Complete read-only host-monotonic callback evidence through t1
@@ -487,7 +485,7 @@ def run(args):
                   "workers=2 buffered=true bounded_flush_sec=0.75 native_crash=false",
                   flush=True)
             save()
-        if os.environ.get("AXIA_G07_TASK03_FORMAL_CI")=="1":
+        if owner_mode or os.environ.get("AXIA_G07_TASK03_FORMAL_CI")=="1":
             task03_goal=_task03_exact_goal_terminal(node,obs,goal_uuid)
             report.update(goal_cancel_ack=True,goal_cancel_uuid=goal_uuid,
                           goal_cancel_status=5,
@@ -628,6 +626,9 @@ def main():
     p.add_argument("--startup",type=Path,required=True)
     p.add_argument("--pregoal",type=Path,required=True)
     p.add_argument("--source-sha",required=True)
+    # Optional Owner CLI path; all PID/TTY/SHA admission stays in run().
+    # Never turn on CI Goal authority to obtain this path in WSL2.
+    p.add_argument("--owner-launch-pid",type=int)
     a=p.parse_args()
     try:return run(a)
     except Exception as exc:
