@@ -105,6 +105,35 @@ def _period(values,t0,t1):
     v=[z["t"] for z in values if t0<=z["t"]<=t1]
     return max((b-a for a,b in zip(v,v[1:])),default=None)
 
+def _pre_goal_odom_pose(snap, data):
+    """Confirm actual fresh Observer odom before any start/Goal operation.
+
+    A ready ROS graph is not a receipt from this recently attached node.
+    Keep existing after-Goal 300ms sensor TTL; this is PRE-GOAL readiness
+    only, never simulated odom or a watchdog relaxation.
+    """
+    if not isinstance(snap, dict) or not isinstance(data, dict):
+        return None
+    now, last = snap.get("mono"), snap.get("odom_at")
+    samples, pose = data.get("odom"), data.get("pose")
+    if (not isinstance(now, (int,float))
+            or not isinstance(last, (int,float))
+            or not all(math.isfinite(x) for x in (now,last))
+            or not 0 <= now-last <= .30
+            or not isinstance(samples, (list,tuple)) or len(samples)<2
+            or not isinstance(pose,(list,tuple)) or len(pose)!=3
+            or not all(type(x) in (int,float) and math.isfinite(x) for x in pose)):
+        return None
+    before, recent = samples[-2].get("t"), samples[-1].get("t")
+    if (not isinstance(before,(int,float))
+            or not isinstance(recent,(int,float))
+            or not all(math.isfinite(x) for x in (before,recent))
+            or not 0 < recent-before <= .30
+            or abs(recent-last)>0.03):
+        return None
+    return tuple(pose)
+
+
 def run(args):
     # Same exact Gazebo/ROS phase and stop oracle for public CI and WSL2.
     # Only PRE-GOAL authority differs; the Owner cannot set CI credentials.
@@ -262,8 +291,13 @@ def run(args):
         # Exclusive graph proved pre-Goal; avoid DDS introspection at 40Hz
         # during safety-critical Supervisor -> CM -> Guard delivery.
         graph_checks=False
-        start_pose=obs.data().get("pose")
-        assert start_pose is not None
+        # Run #44250223189: graphical /scan and graph were ready, but
+        # this new Observer had not yet delivered TWO fresh /odom callbacks.
+        # Do not turn a benign asynchronous discovery boundary into an
+        # unnamed assertion or send an unanchored Goal.
+        start_pose=wait(_pre_goal_odom_pose,4,"PRE_GOAL_ODOM")
+        print("AXIA_G07_TASK04_REAL_OBSERVER_ODOM_READY_BEFORE_GOAL "
+              "two_fresh_callbacks=true max_gap_sec=0.3",flush=True)
         # An actual TF-derived map/odom anchor and verified official world
         # spawn are required before the Goal, not inferred from raw /odom.
         world_anchor=make_frame_anchor(
