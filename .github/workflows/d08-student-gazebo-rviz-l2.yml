@@ -1,4 +1,4 @@
-name: D08 student real Gazebo RGBD YOLO and RViz 3-window NO-GOAL L2
+name: D08 Gazebo RViz two-window YOLO-in-RViz NO-GOAL L2
 on:
   pull_request:
     paths:
@@ -125,14 +125,24 @@ jobs:
           }
           tail -n 95 "$LOG"
           grep -F 'D05_PUBLIC_SENSOR_ONLY_PASS' "$LOG"
+          # D08 does NOT require image_view: YOLO image is observed
+          # through the existing read-only RViz panel. Verify both 3D windows.
           if grep -Eiq 'Gazebo|gz sim' "$WINDOWS" &&
-             grep -Eiq 'image_view|yolo|debug_image' "$WINDOWS"; then
-            echo 'D08_REAL_GAZEBO_RGBD_YOLO_GUI_WINDOWS_PASS'
+             grep -Eiq 'rviz' "$WINDOWS"; then
+            echo 'D08_GAZEBO_RVIZ_TWO_WINDOWS_PASS'
           else
-            echo 'D08_PUBLIC_GUI_WINDOW_NOT_CONFIRMED'
-            grep -Ei 'Gazebo|gz sim|image_view|yolo' "$WINDOWS" || true
+            echo 'D08_PUBLIC_TWO_GUI_WINDOWS_NOT_CONFIRMED'
+            grep -Ei 'Gazebo|gz sim|rviz' "$WINDOWS" || true
             exit 1
           fi
+          grep -F 'D08_DEBUG_IMAGE_WINDOW_SKIPPED RVIZ_YOLO_DEBUG_IMAGE_ENABLED' "$LOG"
+          if grep -Fq 'D04_STUDENT_PROCESS_STARTED name=image_view ' "$LOG" ||
+             grep -Eiq 'image_view' "$WINDOWS"; then
+            echo 'D08_IMAGE_VIEW_PROCESS_FORBIDDEN'
+            exit 1
+          fi
+          echo 'D08_IMAGE_VIEW_PROCESS_FORBIDDEN_CHECK_PASS'
+          echo 'D08_RTF_PERFORMANCE_NOT_VERIFIED'
           grep -F 'D08_STUDENT_LIVE_LAUNCH_REQUESTED' "$LOG"
           [[ -s "$SCENE_GATE" ]] || {
             echo D08_GZ_SCENE_GATE_ARTIFACT_MISSING; exit 1;
