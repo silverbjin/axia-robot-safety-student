@@ -2,6 +2,8 @@
 
 이론 60분 / 실습 120분. 합성 데이터(SYNTHETIC_COURSE_FIXTURE)만 사용합니다. 실제 TurtleBot3 측정이나 인증된 E-Stop이 아닙니다.
 
+**D09 최신 학생 자료:** [데모 가이드](STUDENT_DEMO_GUIDE_KO.md) / [120분 실습 가이드](STUDENT_LAB_GUIDE_KO.md). 두 문서를 순서대로 읽고 본 README의 TODO 계약을 수행합니다.
+
 1. 프로젝트 루트에서 `bash block_C/scripts/block_c_once.sh --doctor`로 환경을 확인합니다.
 2. fixture의 SHA256과 train/valid/test 분리를 확인합니다.
 3. `student_eda_todo.py`의 TODO를 구현합니다.
