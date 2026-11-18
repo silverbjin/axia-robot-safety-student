@@ -621,11 +621,31 @@ if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
   [[ -r "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" ]] || {
     echo 'G07_TASK04_RVIZ_CONFIG_MISSING_NO_GOAL' >&2;exit 2;
   }
-  setsid nice -n 10 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
-  MOVING_GAZEBO_GUI_PID=$!
-  setsid nice -n 10 rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
-    --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
-  MOVING_RVIZ_PID=$!
+  # The original D07 NO_GOAL WSLg success scoped Mesa D3D12 ONLY to
+  # the GUI children. Do not inherit GPU renderer override into the
+  # Gazebo physics/sensor server or ROS safety nodes.
+  if [[ "$OWNER_MOVING" == 1 ]];then
+    case "${AXIA_G07_TASK04_GUI_D3D12_ADAPTER:-}" in
+      NVIDIA|Intel) ;;
+      *) echo 'G07_TASK04_GUI_D3D12_ADAPTER_NOT_VERIFIED_NO_GOAL' >&2;exit 2 ;;
+    esac
+    setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
+      MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
+      gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+    MOVING_GAZEBO_GUI_PID=$!
+    setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
+      MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
+      rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
+    MOVING_RVIZ_PID=$!
+  else
+    # Preserve the already L2-verified Xvfb/llvmpipe client process flow.
+    setsid nice -n 10 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+    MOVING_GAZEBO_GUI_PID=$!
+    setsid nice -n 10 rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
+    MOVING_RVIZ_PID=$!
+  fi
   sleep 3
   kill -0 "$MOVING_GAZEBO_GUI_PID" "$MOVING_RVIZ_PID" 2>/dev/null || {
     echo 'G07_TASK04_GUI_CLIENT_DIED_BEFORE_GOAL' >&2;exit 2;
