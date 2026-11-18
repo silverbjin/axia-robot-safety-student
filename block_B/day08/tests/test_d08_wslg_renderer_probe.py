@@ -46,3 +46,22 @@ def test_offline_static_self_check():
                      capture_output=True,text=True,timeout=15)
     assert p.returncode==0,p.stderr
     assert "D08_GL_PROBE_STATIC_PASS ROS_NOT_RUN GAZEBO_NOT_RUN" in p.stdout
+
+def test_renderer_proof_zip_created_without_overwriting_existing(tmp_path,monkeypatch):
+    import json,zipfile
+    mod=_module()
+    def dummy_probe(name):
+        rendered="D3D12 (Intel)" if name in ("default","d3d12_auto") else "llvmpipe"
+        return {"rc":0,"renderer":rendered}, "OpenGL renderer string: "+rendered+"\n"
+    monkeypatch.setattr(mod,"probe",dummy_probe)
+    output=tmp_path/"evidence"
+    assert mod.run(output)==0
+    summary=json.loads((output/"summary.json").read_text())
+    assert summary["gazebo_server_actual_renderer_verified"] is False
+    assert summary["actual_rtf_improved"] is False
+    archive=output/"d08_wslg_renderer_probe.zip"
+    assert archive.is_file()
+    with zipfile.ZipFile(archive) as z:
+        assert "summary.json" in z.namelist()
+        assert "glxinfo_d3d12_auto.txt" in z.namelist()
+    assert mod.run(output)==2
