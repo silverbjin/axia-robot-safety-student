@@ -1,0 +1,66 @@
+"""Original WSLg failure must separate GPU range plausibility from wall/sim RTF.
+
+No Goal, no ROS mocks. Read-only pure timing analysis of actual callback
+pairs. Do not turn a near-ring anomaly into a STOP/Goal bypass.
+"""
+import sys
+import unittest
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from g07_wslg_no_goal_sensor_probe import analyze_timing_separately
+
+def readings(rtf, front, side, wall_hz=None):
+    hz=wall_hz if wall_hz is not None else rtf*10.0
+    n=31
+    wall_step=1.0/hz
+    safe=[{"recv":i*wall_step+10.0,"stamp":i*.1+5.0,
+           "front":front,"side":side,"near":1.0 if front<.75 else .05,"beams":360}
+          for i in range(n)]
+    clock=[{"recv":10.0+i*.1,"sim":5.0+i*.1*rtf}
+           for i in range(1+int((safe[-1]["recv"]-10.)/.1))]
+    return {"safety":safe,"raw":list(safe),"odom":[],"clock":[],"clock_receipts":clock}
+
+class IndependentPhysicalAxes(unittest.TestCase):
+    def test_wslg_low_rtf_and_near_ring_have_separate_flags(self):
+        r=analyze_timing_separately(readings(.30,.526,.629))
+        self.assertAlmostEqual(r["ros_clock_rtf"],.30,places=3)
+        self.assertAlmostEqual(r["safety_source_hz"],10.0,places=3)
+        self.assertAlmostEqual(r["safety_wall_hz"],3.0,places=3)
+        self.assertEqual(r["timing_pattern"],"SIMULATION_SLOWDOWN_CONSISTENT")
+        self.assertTrue(r["distance_unsafe_independent_of_rtf"])
+        self.assertFalse(r["gpu_causality_proven"])
+
+    def test_normal_rtf_but_bad_ranges_remain_unsafe(self):
+        r=analyze_timing_separately(readings(1.,.525,.63))
+        self.assertAlmostEqual(r["ros_clock_rtf"],1.,places=3)
+        self.assertEqual(r["timing_pattern"],"RTF_NORMAL")
+        self.assertTrue(r["distance_unsafe_independent_of_rtf"])
+
+    def test_bad_wall_receipt_with_good_rtf_is_not_bad_rtf(self):
+        r=analyze_timing_separately(readings(1.,1.41,2.52,wall_hz=3.))
+        self.assertAlmostEqual(r["ros_clock_rtf"],1.,places=3)
+        self.assertAlmostEqual(r["safety_wall_hz"],3.,places=3)
+        self.assertEqual(r["timing_pattern"],"POST_SIM_DELIVERY_OR_SCHEDULING_SUSPECT")
+        self.assertFalse(r["distance_unsafe_independent_of_rtf"])
+
+    def test_slow_rtf_with_good_ranges_is_separate_performance_failure(self):
+        r=analyze_timing_separately(readings(.3,1.41,2.52))
+        self.assertEqual(r["timing_pattern"],"SIMULATION_SLOWDOWN_CONSISTENT")
+        self.assertFalse(r["distance_unsafe_independent_of_rtf"])
+
+    def test_original_archive_clock_without_host_receipts_cannot_certify_rtf(self):
+        d=readings(.3,.526,.63)
+        del d["clock_receipts"]
+        r=analyze_timing_separately(d)
+        self.assertIsNone(r["ros_clock_rtf"])
+        self.assertEqual(r["timing_pattern"],"RTF_UNMEASURED")
+
+    def test_no_sim_advance_does_not_claim_rtf(self):
+        d=readings(1.,1.4,2.5)
+        for row in d["clock_receipts"]:row["sim"]=4.0
+        r=analyze_timing_separately(d)
+        self.assertIsNone(r["ros_clock_rtf"])
+        self.assertEqual(r["timing_pattern"],"RTF_UNMEASURED")
+
+if __name__=="__main__":
+    unittest.main()
