@@ -9,6 +9,32 @@ OUT="$(cd "$OUT" && pwd -P)"
 LAUNCH_PID=''
 BAG_PID=''
 GUI_WATCH_PID=''
+MOVING_GAZEBO_GUI_PID=''
+MOVING_RVIZ_PID=''
+OWNER_MOVING="${AXIA_G07_TASK04_OWNER_MOVING_L3:-0}"
+CI_MOVING_GUI="${AXIA_G07_TASK04_CI_GUI_MOVING:-0}"
+[[ "$OWNER_MOVING" == 0 || "$OWNER_MOVING" == 1 ]] || exit 2
+[[ "$CI_MOVING_GUI" == 0 || "$CI_MOVING_GUI" == 1 ]] || exit 2
+if [[ "$OWNER_MOVING" == 1 ]];then
+  [[ "${GITHUB_ACTIONS:-}" != true
+     && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1
+     && "$CI_MOVING_GUI" == 0
+     && "${AXIA_P0_SIM_ONLY:-0}" == 1
+     && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
+     && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+     && "${AXIA_G07_CI_OWNER_BAG_PARITY:-0}" == 1
+     && -n "${DISPLAY:-}" && -t 0 && -r /dev/tty ]] || {
+    echo 'G07_TASK04_OWNER_TTY_ENV_PREGOAL_BLOCKED' >&2;exit 2;
+  }
+  unset AXIA_G07_OWNER_COMMON_RUNNER_AUTHORIZED AXIA_P2_OWNER_PINNED_SHA || true
+fi
+if [[ "$CI_MOVING_GUI" == 1 ]];then
+  [[ "${GITHUB_ACTIONS:-}" == true
+     && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+     && "$OWNER_MOVING" == 0 && -n "${DISPLAY:-}" ]] || {
+    echo 'G07_TASK04_CI_GUI_SCOPE_BLOCKED_NO_GOAL' >&2;exit 2;
+  }
+fi
 # Process clean-exit budget only; never a 150ms CM/300ms scan TTL change.
 G07_MANAGED_LAUNCH_EXIT_GRACE_SEC=26
 launch_active() {
@@ -42,6 +68,14 @@ stop_owner_parity_bag() {
 }
 cleanup() {
  local rc=$?
+ local gui_pid
+ # Clean only GUI clients owned by this run, never every Gazebo instance.
+ for gui_pid in "$MOVING_RVIZ_PID" "$MOVING_GAZEBO_GUI_PID";do
+   if [[ -n "$gui_pid" ]] && kill -0 "$gui_pid" 2>/dev/null;then
+     kill -INT -- "-$gui_pid" 2>/dev/null || true
+     wait "$gui_pid" 2>/dev/null || true
+   fi
+ done
  trap - EXIT INT TERM
  set +e
  # Exactly ONE isolated read-only GUI process group is owned by this smoke.
@@ -72,7 +106,7 @@ cleanup() {
      printf 'DISPOSABLE_NO_GOAL_DIRECT_SIGINT_CONFIRMED\n' \
        > "$OUT/task03_disposable_shutdown.marker"
      echo 'AXIA_G07_TASK03_NO_GOAL_DISPOSABLE_NATIVE_POSITIVE_SIGINT'
-   elif [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+   elif [[ ( "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 )
       && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
       && "$rc" == 0 ]]; then
      echo 'AXIA_G07_CI_MOVING_GOAL_ORDERED_SHUTDOWN_REQUIRED'
@@ -149,7 +183,7 @@ cleanup() {
  # cleanly AFTER official managed lifecycle shutdown, not just a parent
  # shell exit 0 or Gazebo NO-GOAL readiness. Preserve old success evidence.
  if [[ "${AXIA_G07_SHUTDOWN_L2_ONLY:-0}" == 1
-    || ( "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+    || ( ( "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 )
          && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
          && "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" != 1
          && "$rc" == 0 ) ]]; then
@@ -213,6 +247,9 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
     echo 'D07_H01_GUI_DISPLAY_OR_MOVING_GOAL_SCOPE_DENIED' >&2;exit 2;
   }
   export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}" LIBGL_ALWAYS_SOFTWARE=1 AXIA_P0_SIM_ONLY=1
+elif [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
+  export QT_QPA_PLATFORM=xcb AXIA_P0_SIM_ONLY=1
+  if [[ "$CI_MOVING_GUI" == 1 ]];then export LIBGL_ALWAYS_SOFTWARE=1;else unset LIBGL_ALWAYS_SOFTWARE || true;fi
 else
   export QT_QPA_PLATFORM=offscreen LIBGL_ALWAYS_SOFTWARE=1 AXIA_P0_SIM_ONLY=1
 fi
@@ -283,11 +320,13 @@ if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1 ]]; then
   # In the upstream world xacro, headless:=True removes SceneBroadcaster,
   # leaving an otherwise healthy server /scan and Nav2 but a BLANK 3D GUI.
   # Keep staged headless startup and all P2/G07 motion cases untouched.
-  if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
+  if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
+     || "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
     [[ "${AXIA_P0_SIM_ONLY:-0}" == 1
-       && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0 ]] || {
-      echo D07_H01_SCENE_BROADCASTER_SCOPE_DENIED_NO_GOAL >&2
-      exit 2
+       && ( ( "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
+              && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0 )
+            || "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ) ]] || {
+      echo 'G07_TASK04_SCENE_BROADCASTER_SCOPE_DENIED' >&2;exit 2;
     }
     python3 tools/d07_h01_scene_broadcaster_overlay.py \
       --source "$OUT/g07_world.sdf.xacro" \
@@ -349,12 +388,16 @@ LAUNCH_PID=$!
 # Owner WSL2 always runs the following real 14-topic SQLite recording
 # concurrently with Gazebo, Nav2 and its two-worker Observer.
 if [[ "${AXIA_G07_CI_OWNER_BAG_PARITY:-0}" == 1 ]]; then
-  [[ "${GITHUB_ACTIONS:-}" == true
+  [[ ( ( "${GITHUB_ACTIONS:-}" == true
+          && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 )
+        || ( "$OWNER_MOVING" == 1
+             && "${GITHUB_ACTIONS:-}" != true
+             && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1
+             && -t 0 && -r /dev/tty ) )
      && "${AXIA_P0_SIM_ONLY:-0}" == 1
      && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
-     && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
      && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]] || {
-    echo 'G07_CI_OWNER_BAG_PARITY_NOT_PUBLIC_SIMULATION_NO_GOAL' >&2
+    echo 'G07_TASK04_BAG_AUTHORITY_BLOCKED_NO_GOAL' >&2
     exit 2
   }
   # G07 CI-only: isolate heavy SQLite evidence I/O from the real
@@ -387,10 +430,15 @@ if [[ "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]]; then
       exit 2
     }
   else
-    [[ "${GITHUB_ACTIONS:-}" == true
-       && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
+    [[ ( "${GITHUB_ACTIONS:-}" == true
+          && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 )
+       || ( "$OWNER_MOVING" == 1
+            && "${GITHUB_ACTIONS:-}" != true
+            && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1
+            && -t 0 && -r /dev/tty ) ]] &&
+    [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
        && "${AXIA_P0_SIM_ONLY:-0}" == 1 ]] || {
-      echo 'G07_OWNER_STARTUP_PARITY_CI_NOT_AUTHORIZED_NO_GOAL' >&2
+      echo 'G07_TASK04_STARTUP_AUTHORITY_BLOCKED_NO_GOAL' >&2
       exit 2
     }
   fi
