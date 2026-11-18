@@ -11,6 +11,7 @@ import json
 import math
 import os
 from pathlib import Path
+import subprocess
 import time
 
 from p2_g07_relocated_no_goal_probe import DEMO_WORLD_POSE, sector_min
@@ -61,6 +62,62 @@ def save_pregoal_baseline(outdir, report):
         encoding="utf-8")
 
 
+def parse_gz_model_pose(output):
+    """Parse documented 'gz model -m NAME --pose' XYZ+RPY. Never infer poses."""
+    if not isinstance(output, str):
+        return None
+    marker = "- Pose [ XYZ (m) ] [ RPY (rad) ]:"
+    if output.count(marker) != 1:
+        return None
+    rows = output.split(marker, 1)[1].strip().splitlines()
+    if len(rows) < 2:
+        return None
+    values = []
+    for line in rows[:2]:
+        line = line.strip()
+        if not (line.startswith("[") and line.endswith("]")):
+            return None
+        parts = [p.strip() for p in line[1:-1].split("|")]
+        if len(parts) != 3:
+            return None
+        try:
+            numbers = [float(x) for x in parts]
+        except ValueError:
+            return None
+        if not all(math.isfinite(x) for x in numbers):
+            return None
+        values.extend(numbers)
+    return dict(zip(("x", "y", "z", "roll", "pitch", "yaw"), values))
+
+
+def _read_only_gazebo_world_poses(outdir):
+    """On physical clearance BLOCKED only; bounded low-priority model state.
+
+    Every query retains short stdout/stderr; an unresponsive Gazebo remains
+    UNKNOWN. Does not change world, fixture, sensors, or Goal authority.
+    """
+    result = {}
+    for model, field in (("turtlebot3_waffle", "gazebo_robot_world_pose"),
+                         ("axia_p2_g07_obstacle", "initial_obstacle_world_pose")):
+        raw = "GAZEBO_MODEL_POSE_NOT_VERIFIED"
+        try:
+            proc = subprocess.run(
+                ["nice", "-n", "19", "gz", "model", "-m", model, "--pose"],
+                text=True, capture_output=True, timeout=5, check=False)
+            raw = ("exit=" + str(proc.returncode) + "\\n" +
+                   (proc.stdout + proc.stderr)[:6000])
+            pose = (parse_gz_model_pose(proc.stdout)
+                    if proc.returncode == 0 and "- Name: " + model in proc.stdout
+                    else None)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            pose = None
+            raw = type(exc).__name__ + ":GAZEBO_MODEL_POSE_NOT_VERIFIED"
+        (outdir / ("gz_pose_" + model + ".log")).write_text(
+            raw + "\\n", encoding="utf-8")
+        result[field] = pose
+    return result
+
+
 def run(outdir):
     if (os.environ.get("ROS_DISTRO")!="jazzy" or
         os.environ.get("AXIA_P0_SIM_ONLY")!="1" or
@@ -75,6 +132,7 @@ def run(outdir):
     rclpy.init()
     node=rclpy.create_node("axia_g07_owner_pregoal_l2_observer")
     scans=deque(maxlen=80)
+    raw_scans=deque(maxlen=80)
     speeds=deque(maxlen=80)
     def on_scan(msg):
         side=sector_min(msg)
@@ -86,12 +144,28 @@ def run(outdir):
         stamp=msg.header.stamp.sec+msg.header.stamp.nanosec*1e-9
         if math.isfinite(stamp):
             scans.append((time.monotonic(),stamp,min(values),side,
-                          msg.header.frame_id,time.time()))
+                          msg.header.frame_id,time.time(),
+                          msg.angle_min,msg.angle_max,msg.angle_increment))
+    def on_raw_scan(msg):
+        side=sector_min(msg)
+        values=[v for i,v in enumerate(msg.ranges)
+                if abs(msg.angle_min+i*msg.angle_increment)<=.18
+                and type(v) in (int,float) and math.isfinite(v)
+                and msg.range_min<=v<=msg.range_max]
+        if side is not None and values:
+            raw_scans.append({
+                "scan_topic":"/scan", "frame_id":msg.header.frame_id,
+                "stamp":msg.header.stamp.sec + msg.header.stamp.nanosec*1e-9,
+                "host_receive_time":time.time(),
+                "front_m":min(values), "side_m":side,
+                "angle_min":msg.angle_min, "angle_max":msg.angle_max,
+                "angle_increment":msg.angle_increment})
     def on_odom(msg):
         speeds.append((time.monotonic(),msg.twist.twist.linear.x,
                        msg.twist.twist.angular.z))
     subs=[
         node.create_subscription(LaserScan,"/safety/scan",on_scan,qos_profile_sensor_data),
+        node.create_subscription(LaserScan,"/scan",on_raw_scan,qos_profile_sensor_data),
         node.create_subscription(Odometry,"/odom",on_odom,qos_profile_sensor_data),
     ]
     try:
@@ -110,7 +184,9 @@ def run(outdir):
         publishers=[{
             "node_name":info.node_name,
             "node_namespace":info.node_namespace,
-            "endpoint_gid":bytes(info.endpoint_gid).hex()
+            "endpoint_gid":bytes(info.endpoint_gid).hex(),
+            "qos_reliability":str(info.qos_profile.reliability),
+            "qos_durability":str(info.qos_profile.durability)
         } for info in endpoints]
         baseline=build_pregoal_baseline(
             front_m=before[2], side_m=before[3],
@@ -121,8 +197,24 @@ def run(outdir):
             scan_host_receive_time=before[5],
             gazebo_robot_world_pose=None,
             initial_obstacle_world_pose=None)
+        baseline.update({
+            "scan_angle_min":before[6], "scan_angle_max":before[7],
+            "scan_angle_increment":before[8],
+            "raw_scan":raw_scans[-1] if raw_scans else None,
+            "raw_scan_publishers":[{
+                "node_name":p.node_name,
+                "node_namespace":p.node_namespace,
+                "endpoint_gid":bytes(p.endpoint_gid).hex(),
+                "qos_reliability":str(p.qos_profile.reliability),
+                "qos_durability":str(p.qos_profile.durability)}
+                for p in node.get_publishers_info_by_topic("/scan")] or None,
+            "ros_domain_id":os.environ.get("ROS_DOMAIN_ID"),
+            "gz_partition":os.environ.get("GZ_PARTITION"),
+        })
         save_pregoal_baseline(outdir, baseline)
         if baseline["status"] != "CLEAR":
+            baseline.update(_read_only_gazebo_world_poses(outdir))
+            save_pregoal_baseline(outdir, baseline)
             raise RuntimeError("OWNER_PREGOAL_NOT_CLEAR_BEFORE_FIXTURE")
         # Exact same Owner function and coordinates; Gazebo native set_pose ACK
         # occurs BEFORE any Nav2 Goal. No second Gazebo move after this.
