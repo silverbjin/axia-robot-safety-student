@@ -53,6 +53,13 @@ class FieldPregoalTruth(unittest.TestCase):
         self.assertEqual(r["status"],"BASELINE_CLEAR_NO_GOAL")
         self.assertFalse(r["goal_sent"])
 
+    def test_post_pose_native_reader_consumes_exact_legacy_four_field_scan(self):
+        src=Path(__file__).with_name("p2_g07_owner_pregoal_l2.py").read_text()
+        self.assertIn('scans.append((time.monotonic(),stamp,min(values),side))',src)
+        self.assertIn('t,stamp,front,side=scans[-1]',src)
+        self.assertIn('scan_ring_metrics.append((near_fraction,valid_beams))',src)
+        self.assertNotIn('side,near_fraction,valid_beams))',src)
+
     def test_original_run_fail_closed_before_native_set_pose_and_writes_baseline_evidence(self):
         src=Path(__file__).with_name("p2_g07_owner_pregoal_l2.py").read_text()
         self.assertIn('owner_pregoal_baseline.json',src)
