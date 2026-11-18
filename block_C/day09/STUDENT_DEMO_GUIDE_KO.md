@@ -83,12 +83,18 @@ ros2 topic echo "$TOPIC" --once
 ros2 topic hz "$TOPIC"    # 관측 후 Ctrl+C
 ```
 
-기록이 가능한 경우에만, 별도 터미널에서 토픽을 확인한 뒤 아래 명령을 실행하고 Ctrl+C로 기록을 종료합니다.
+기록이 가능한 경우에만 **기록용 터미널**을 새로 열어 아래를 실행하세요. 터미널 간 셸 변수 `TOPIC`은 자동 공유되지 않으므로 반드시 **새 터미널에서 토픽을 다시 입력**해야 합니다. ROS_DOMAIN_ID가 설정되어 있다면 관찰 터미널과 동일한 값인지 확인합니다.
 
 ```bash
+source /opt/ros/jazzy/setup.bash
+ros2 topic list -t
+read -rp "기록할 토픽 이름 (실제로 발견한 토픽): " TOPIC
+ros2 topic info "$TOPIC"  # 토픽이 없으면 기록을 진행하지 않음
 mkdir -p "$HOME/axia_d09_lab"
-ros2 bag record -o "$HOME/axia_d09_lab/rosbag_$(date +%Y%m%d_%H%M%S)" "$TOPIC"
-# Ctrl+C 후 새로 생성된 bag 경로를 지정해 ros2 bag info 명령으로 검사
+BAG="$HOME/axia_d09_lab/rosbag_$(date +%Y%m%d_%H%M%S)"
+ros2 bag record -o "$BAG" "$TOPIC"
+# Ctrl+C로 기록을 종료한 뒤, 동일한 기록용 터미널에서:
+ros2 bag info "$BAG"
 ```
 
 주기는 수신 PC/ROS 네트워크 상황에 좌우되며, 측정되지 않은 `Hz` 수치를 성공으로 쓰면 안 됩니다. 토픽이 없다면 `TOPIC_UNAVAILABLE`로 기록하고 필수 합성 데이터 실습을 계속합니다. 이 데모는 **읽기 전용**이며 `cmd_vel`, Nav2 Goal, 인증 E-Stop 동작을 포함하지 않습니다.
