@@ -23,8 +23,6 @@ jobs:
       DEBIAN_FRONTEND: noninteractive
       MAKEFLAGS: -j2
       CMAKE_BUILD_PARALLEL_LEVEL: '2'
-      # Read-only token permits official Microsoft GitHub REST release asset API.
-      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,6 +44,15 @@ jobs:
           ros2 pkg prefix ros_gz_image
           bash -n block_B/day04/run_student_gazebo_yolo_once.sh
           AXIA_D05_LIVE=1 bash block_B/day04/run_student_gazebo_yolo_once.sh --self-check
+      - name: Prefetch verified Microsoft ONNX asset by GitHub REST (PUBLIC, before Gazebo)
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          export HOME="$RUNNER_TEMP/home"
+          python3 block_B/day04/gazebo_yolo/ci_onnxruntime_asset.py --fetch \
+            "$HOME/.cache/axia/d04_student_gazebo/onnxruntime-linux-x64-1.20.0.tgz"
       - name: REAL Gazebo camera_link RGBD + moving human + upstream C++ YOLO and GUI windows
         shell: bash
         run: |
