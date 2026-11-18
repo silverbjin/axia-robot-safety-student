@@ -249,7 +249,16 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}" LIBGL_ALWAYS_SOFTWARE=1 AXIA_P0_SIM_ONLY=1
 elif [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
   export QT_QPA_PLATFORM=xcb AXIA_P0_SIM_ONLY=1
-  if [[ "$CI_MOVING_GUI" == 1 ]];then export LIBGL_ALWAYS_SOFTWARE=1;else unset LIBGL_ALWAYS_SOFTWARE || true;fi
+  # The pinned real Gazebo+Goal CI L2 rendered gpu_lidar with software Mesa.
+  # Owner WSLg previously UNSET this, and its 360-ray /scan contained a
+  # near-complete 0.5m ring at the stationary -2,-0.5 spawn. Keep the same
+  # sensor/physics renderer for both. UI children explicitly opt OUT below
+  # and use their verified D3D12 adapter; no official Nav2/TTL changes.
+  export LIBGL_ALWAYS_SOFTWARE=1
+  if [[ "$OWNER_MOVING" == 1 ]];then
+    unset GALLIUM_DRIVER MESA_D3D12_DEFAULT_ADAPTER_NAME || true
+    echo 'AXIA_G07_OWNER_GAZEBO_LIDAR_SOFTWARE_RENDERER_SELECTED D3D12_GUI_ONLY'
+  fi
 else
   export QT_QPA_PLATFORM=offscreen LIBGL_ALWAYS_SOFTWARE=1 AXIA_P0_SIM_ONLY=1
 fi
