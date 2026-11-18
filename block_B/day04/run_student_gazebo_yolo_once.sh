@@ -172,11 +172,22 @@ if [[ ! -s "$YOLO_WS/install/setup.bash" ]]; then
   fi
   git -C "$YOLO_WS/src/yolo_ros" checkout -q --detach "$YOLO_SHA"
   [[ "$(git -C "$YOLO_WS/src/yolo_ros" rev-parse HEAD)" == "$YOLO_SHA" ]] || exit 2
+  # Public CI-only workaround for GitHub release /download/ invalid 9-byte tar.
+  # Owner WSL2 (CI_HEADLESS=0) keeps its already-successful YOLO build unchanged.
+  CI_ORT_CMAKE_ARGS=()
+  if [[ "$CI_HEADLESS" == 1 ]]; then
+    CI_ORT_TAR="$CACHE/onnxruntime-linux-x64-1.20.0.tgz"
+    python3 "$ROOT/ci_onnxruntime_asset.py" --fetch "$CI_ORT_TAR" || {
+      echo "D04_STUDENT_CI_ORT_ASSET_BLOCKED_BEFORE_GAZEBO" >&2
+      exit 2
+    }
+    CI_ORT_CMAKE_ARGS=("-DONNXRUNTIME_URL=file://$CI_ORT_TAR")
+  fi
   echo "D04_STUDENT_BUILDING_PUBLIC_YOLO_ROS SHA=$YOLO_SHA"
   (
     cd "$YOLO_WS"
     colcon build --merge-install --executor sequential --packages-up-to yolo_bringup \
-      --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF "${CI_ORT_CMAKE_ARGS[@]}" \
       --event-handlers console_direct+
   ) >"$OUT/yolo_build.log" 2>&1 || {
     echo "D04_STUDENT_YOLO_BUILD_BLOCKED"; tail -n 35 "$OUT/yolo_build.log"; exit 2;
