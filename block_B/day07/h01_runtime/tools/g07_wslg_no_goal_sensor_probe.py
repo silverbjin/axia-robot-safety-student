@@ -98,6 +98,54 @@ def analyze_timing_separately(records):
     return metric
 
 
+
+def correlate_first_raw_gap(records):
+    """Diagnose FIRST raw callback breach without relaxing raw Scan TTL.
+
+    A raw observer may start before the forwarded /safety/scan exists.
+    Distinguish that warm-up boundary from a paired-stamp safety/receiver
+    delay; never use this read-only hypothesis to authorize a Goal.
+    """
+    raw=records.get("raw",[])
+    safe=records.get("safety",[])
+    result={
+        "first_gap_index":None,
+        "first_gap_sec":None,
+        "phase":"NO_RAW_TTL_BREACH",
+        "hypothesis":"NOT_PROVEN",
+        "raw_ttl_accepted":True,
+        "upstream_lidar_fault_proven":False,
+        "gpu_causality_proven":False,
+    }
+    idx=next((i for i in range(1,len(raw))
+              if raw[i]["recv"]-raw[i-1]["recv"]>SCAN_TTL_SEC),None)
+    if idx is None:return result
+    result.update({
+        "first_gap_index":idx,
+        "first_gap_sec":round(raw[idx]["recv"]-raw[idx-1]["recv"],6),
+        "raw_ttl_accepted":False,
+        "phase":"NO_PAIRED_STAMP_EVIDENCE",
+    })
+    if not safe:return result
+    if raw[idx]["stamp"] < safe[0]["stamp"]:
+        result["phase"]="BEFORE_FIRST_SAFETY_SCAN"
+        result["hypothesis"]="STARTUP_SUBSCRIPTION_OR_SIMULATION_BOUNDARY_SUSPECT"
+        return result
+    result["phase"]="BOTH_TOPIC_ACTIVE"
+    keys=lambda rows:{round(x["stamp"],3):x for x in rows}
+    matched=keys(safe)
+    earlier=matched.get(round(raw[idx-1]["stamp"],3))
+    later=matched.get(round(raw[idx]["stamp"],3))
+    if earlier and later:
+        gap=later["recv"]-earlier["recv"]
+        result["paired_safety_receipt_gap_sec"]=round(gap,6)
+        result["hypothesis"]=(
+            "RAW_RECEIVER_PATH_DELAY_SUSPECT"
+            if 0<gap<=SCAN_TTL_SEC else "MULTI_LAYER_RECEIPT_DELAY_UNRESOLVED"
+        )
+    return result
+
+
 def assess_window(records):
     """Fail closed using host callback RECEIPT, not mixed simulation/header time.
 
@@ -251,6 +299,7 @@ def run(out, duration):
                 break
         report = assess_window(records)
         report["rtf_diagnostics"] = analyze_timing_separately(records)
+        report["raw_first_gap_diagnostics"] = correlate_first_raw_gap(records)
         report["duration_observed_sec"] = round(
             time.monotonic() - first_scan_at, 3) if first_scan_at else 0
         report["source_header_vs_host_receipt_distinct"] = True
@@ -259,7 +308,8 @@ def run(out, duration):
               json.dumps({"status": report["status"],
                           "reasons": report["reasons"],
                           "metrics": report["metrics"],
-                          "rtf_diagnostics": report["rtf_diagnostics"]},
+                          "rtf_diagnostics": report["rtf_diagnostics"],
+                          "raw_first_gap_diagnostics": report["raw_first_gap_diagnostics"]},
                          sort_keys=True), flush=True)
         print("D06_GAZEBO_LIVE_RELEASE=HOLD CERTIFIED_ESTOP=false", flush=True)
         return 0 if report["status"] == "NO_GOAL_SENSOR_WINDOW_CLEAR_CANDIDATE" else 3
