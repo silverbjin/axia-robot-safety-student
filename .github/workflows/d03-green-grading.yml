@@ -1,0 +1,46 @@
+name: D03 student submission GREEN (Python only)
+on:
+  push:
+    branches: ["work/d03-*", "submissions/d03-*", "student/d03-*"]
+  pull_request:
+    branches: [D03]
+    paths: ["block_A/day03/**", "block_A/tests/**", ".github/workflows/d03-green-grading.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  completed-student-code:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install pytest==8.3.5
+      - name: Public training assets only
+        run: |
+          python - <<'PYCODE'
+          from pathlib import Path
+          forbidden = ('hidden', 'solution', 'secret', 'private', 'instructor')
+          paths = [str(p) for p in Path('block_A').rglob('*') if p.is_file()]
+          hits = [p for p in paths if any(s in Path(p).name.lower() for s in forbidden)]
+          assert not hits, hits
+          PYCODE
+      - name: Mandatory complete-code GREEN
+        env:
+          PYTHONPATH: block_A/day03
+        run: |
+          mkdir -p results/d03
+          python -m pytest -q \
+            block_A/tests/test_safety_public.py \
+            block_A/tests/test_d03_adapter_public.py \
+            block_A/tests/test_d03_runtime_public.py \
+            --junitxml=results/d03/green.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d03-public-graded-junit
+          path: results/d03/green.xml
+          if-no-files-found: ignore

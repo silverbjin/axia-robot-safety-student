@@ -1,0 +1,34 @@
+name: Block A student skeleton static and expected RED
+on:
+  push:
+    branches: [feat/block-a-d01-d03-todo-20261106]
+permissions:
+  contents: read
+jobs:
+  student-skeleton:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest
+      - name: Verify no private training paths
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          bad=('hidden','solution','private','secret','credential','instructor')
+          hits=[str(p) for p in Path('block_A').rglob('*') if any(token in p.name.lower() for token in bad)]
+          assert not hits, hits
+          PY
+      - name: Expected RED for unfinished student TODO (NOT a passing implementation)
+        shell: bash
+        run: |
+          set +e
+          PYTHONPATH=block_A/day03 python -m pytest -q block_A/tests/test_safety_public.py > /tmp/public-red.log 2>&1
+          rc=$?
+          set -e
+          cat /tmp/public-red.log
+          test "$rc" -eq 1
+          grep -q 'TODO_NOT_IMPLEMENTED' /tmp/public-red.log

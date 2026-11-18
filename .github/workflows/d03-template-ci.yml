@@ -1,0 +1,37 @@
+name: D03 template static + expected RED (NOT grading)
+on:
+  push:
+    branches: [D03]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  template-expected-red:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pytest==8.3.5
+      - name: Runnable non-TODO harness
+        env:
+          PYTHONPATH: block_A/day03
+        run: |
+          bash block_A/day03/scripts/run_lab.sh inspect
+          python -m pytest -q block_A/tests/test_d03_runtime_public.py
+          python block_A/day03/scripts/d03_synthetic_ros_publisher.py --dry-run
+      - name: Verify known student TODO expected RED
+        shell: bash
+        env:
+          PYTHONPATH: block_A/day03
+        run: |
+          set +e
+          python -m pytest -q block_A/tests/test_safety_public.py block_A/tests/test_d03_adapter_public.py > /tmp/d03-red.log 2>&1
+          rc=$?
+          set -e
+          tail -n 6 /tmp/d03-red.log
+          test "$rc" -eq 1
+          grep -q 'TODO_NOT_IMPLEMENTED' /tmp/d03-red.log
+          echo "D03_EXPECTED_RED_CONFIRMED; GREEN_NOT_CLAIMED"
