@@ -61,7 +61,10 @@ class G07S02Witness final :
       [&](const gz::sim::Entity &,
           const gz::sim::components::ContactSensorData *_contacts,
           const gz::sim::components::Name *_name) -> bool {
-        if(_name->Data()!="axia_contact") return true;
+        // Official Gazebo Harmonic Contact::CreateSensors creates
+        // ContactSensorData on the COLLISION entity, not the sensor entity.
+        // The fixture SDF's <contact><collision>obstacle_collision</...>.
+        if(_name->Data()!="obstacle_collision") return true;
         matched=true;
         count+=_contacts->Data().contact_size();
         return true;
