@@ -50,6 +50,44 @@ class DisposableContactCalibrationCleanup(unittest.TestCase):
         self.assertNotEqual(assess_calibration_teardown(*args)["status"],
                             "CONTACT_CALIBRATION_PROVEN_DISPOSABLE_ONLY")
 
+    def test_disposable_no_goal_direct_sigint_is_only_sensor_calibration_not_nav2_l2(self):
+        # First failure #44218557392: missing Navigation get_parameters
+        # during disposal. There is NO Goal and the world will be discarded.
+        # Avoid requiring unrelated Nav2 lifecycle management for native
+        # S02 sensor calibration. Must still prove real positive contact,
+        # no forced SIGKILL, no leaked process, and literal shutdown marker.
+        args=list(self.frame())
+        args[2]={"status":"DISPOSABLE_NO_GOAL_DIRECT_SIGINT_CONFIRMED",
+                 "navigation_ack":False,"localization_ack":False}
+        args[4]=0
+        v=assess_calibration_teardown(*args)
+        self.assertEqual(v["status"],"CONTACT_CALIBRATION_PROVEN_DISPOSABLE_ONLY")
+        self.assertEqual(v["cleanup_stage"],"NO_GOAL_DISPOSABLE_DIRECT_SIGINT_NO_NAV2_ACK_CLAIM")
+        self.assertFalse(v["native_nav2_l2_pass"])
+        self.assertFalse(v["moving_goal_accepted"])
+        for problem in ("leak","force","goal","absent_positive"):
+            with self.subTest(problem=problem):
+                broken=list(args)
+                broken[0]=dict(args[0])
+                broken[1]=dict(args[1])
+                if problem=="leak":broken[5]=[18770]
+                if problem=="force":broken[3]="P2_L2_FORCED_SIGKILL"
+                if problem=="goal":broken[1]["goal_sent"]=True
+                if problem=="absent_positive":broken[0]["positive_contacts"]=0
+                self.assertNotEqual(assess_calibration_teardown(*broken)["status"],
+                                    "CONTACT_CALIBRATION_PROVEN_DISPOSABLE_ONLY")
+
+    def test_no_goal_direct_sigint_source_is_opt_in_and_never_in_moving_goal(self):
+        from pathlib import Path
+        runner=(Path(__file__).resolve().parents[1]/"scripts/p2_no_goal_smoke_ci.sh").read_text()
+        self.assertIn("AXIA_G07_TASK03_NO_GOAL_DISPOSABLE_NATIVE_POSITIVE_SIGINT",runner)
+        self.assertIn("AXIA_G07_TASK03_POSITIVE_ONLY",runner)
+        self.assertIn("GITHUB_ACTIONS",runner)
+        self.assertIn("AXIA_P0_SIM_ONLY",runner)
+        self.assertIn("AXIA_G07_CI_SIM_GOAL_ALLOWED",runner)
+        self.assertIn("G07_MOVING_GOAL_ORDERED_SHUTDOWN_ACK_BEFORE_SIGINT",runner)
+        self.assertIn("G07_REAL_SHUTDOWN_L2_CM_CLEAN_EXIT_AFTER_NAV2_ACK_PASS",runner)
+
     def test_full_native_nav2_shutdown_ack_is_stronger(self):
         args=list(self.frame())
         args[2]=dict(status="NAV2_LIFECYCLE_SHUTDOWN_ACK",
