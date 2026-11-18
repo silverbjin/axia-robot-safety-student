@@ -18,6 +18,53 @@ from p2_g07_owner_prepositioned import pregoal_side_obstacle_ready
 from p2_l3_gz_fixture import admit_preloaded as admit_preloaded_fixture
 
 
+
+def near_ring_fraction(scan):
+    """Read-only 360-degree near-ring anomaly; NOT proof of renderer fault."""
+    lo,hi=scan.range_min,scan.range_max
+    if not all(type(v) in (float,int) and math.isfinite(v)
+               for v in (lo,hi)) or not 0<=lo<hi:
+        return None,0
+    valid=[float(v) for v in scan.ranges
+           if type(v) in (float,int) and math.isfinite(v) and lo<=v<=hi]
+    if not valid:return None,0
+    return sum(.4<=v<=.85 for v in valid)/len(valid),len(valid)
+
+
+def diagnose_pregoal_baseline(*,front_m,side_m,valid_beams,
+                              near_fraction,scan_count):
+    """Preserve original >.75m front and >1.2m side safety contract.
+
+    Never infer an E-Stop/Goal/physical collision from a GPU LaserScan.
+    Return a causal record even when baseline fails BEFORE Gazebo set_pose.
+    """
+    scalar=lambda v: type(v) in (float,int) and math.isfinite(v)
+    good=(scalar(front_m) and scalar(side_m)
+          and type(valid_beams) is int and valid_beams>=1
+          and type(scan_count) is int and scan_count>=3)
+    clear=good and front_m>.75 and side_m>1.2
+    reason=("CLEAR" if clear else
+            "INVALID_SENSOR_BASELINE" if not good else
+            "FRONT_AND_SIDE_NOT_CLEAR" if front_m<=.75 and side_m<=1.2 else
+            "FRONT_NOT_CLEAR" if front_m<=.75 else "SIDE_NOT_CLEAR")
+    ring=(scalar(near_fraction) and type(valid_beams) is int
+          and valid_beams>=300 and near_fraction>=.95)
+    return {"schema":"axia_g07_owner_pregoal_baseline_truth_v1",
+            "status":"BASELINE_CLEAR_NO_GOAL" if clear else "NO_GOAL_BASELINE_UNSAFE",
+            "reason":reason,
+            "front_m":front_m if scalar(front_m) else None,
+            "side_m":side_m if scalar(side_m) else None,
+            "valid_beams":valid_beams if type(valid_beams) is int else None,
+            "near_ring_fraction":near_fraction if scalar(near_fraction) else None,
+            "near_ring_diagnostic":("ALL_AZIMUTHS_NEAR_UNEXPLAINED"
+                                  if ring else "NOT_PROVEN"),
+            "scan_count":scan_count,
+            "safe_to_reposition_fixture":bool(clear),
+            "goal_sent":False,"gate_accepted":False,"certified_estop":False,
+            "gpu_causation_proven":False}
+
+
+
 def run(outdir):
     if (os.environ.get("ROS_DISTRO")!="jazzy" or
         os.environ.get("AXIA_P0_SIM_ONLY")!="1" or
@@ -42,7 +89,9 @@ def run(outdir):
         if side is None or not values:return
         stamp=msg.header.stamp.sec+msg.header.stamp.nanosec*1e-9
         if math.isfinite(stamp):
-            scans.append((time.monotonic(),stamp,min(values),side))
+            near_fraction,valid_beams=near_ring_fraction(msg)
+            scans.append((time.monotonic(),stamp,min(values),side,
+                          near_fraction,valid_beams))
     def on_odom(msg):
         speeds.append((time.monotonic(),msg.twist.twist.linear.x,
                        msg.twist.twist.angular.z))
@@ -57,7 +106,20 @@ def run(outdir):
         if len(scans)<3 or len(speeds)<3:
             raise RuntimeError("OWNER_PREGOAL_BASELINE_SCAN_ODOM_ABSENT")
         before=scans[-1]
-        if before[2] <= .75 or before[3] <= 1.2:
+        baseline=diagnose_pregoal_baseline(
+            front_m=before[2],side_m=before[3],near_fraction=before[4],
+            valid_beams=before[5],scan_count=len(scans))
+        # Write this small, read-only causal evidence BEFORE any native
+        # Gazebo set_pose or Goal. Real WSLg scan may differ from Xvfb CI;
+        # never weaken .75m/1.2m thresholds to make a demo pass.
+        (outdir/"owner_pregoal_baseline.json").write_text(
+            json.dumps(baseline,sort_keys=True,indent=2)+"\n")
+        print("AXIA_G07_OWNER_PREG0AL_BASELINE_TRUTH "+
+              json.dumps({key:baseline[key] for key in
+                          ("status","reason","front_m","side_m",
+                           "near_ring_diagnostic","near_ring_fraction")},
+                         sort_keys=True),flush=True)
+        if not baseline["safe_to_reposition_fixture"]:
             raise RuntimeError("OWNER_PREGOAL_NOT_CLEAR_BEFORE_FIXTURE")
         # Exact same Owner function and coordinates; Gazebo native set_pose ACK
         # occurs BEFORE any Nav2 Goal. No second Gazebo move after this.
