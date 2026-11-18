@@ -18,8 +18,7 @@ SENSOR_NO_GOAL="${AXIA_G07_OWNER_SENSOR_TRUTH_NO_GOAL:-0}"
 if [[ "$SENSOR_NO_GOAL" == 1 ]];then
   # Actual WSL2 sensor only. Never borrow Owner Moving/CI Goal authorization
   # or D07's altered Gaussian-free Waffle noise profile.
-  [[ "${GITHUB_ACTIONS:-}" != true
-     && "$OWNER_MOVING" == 0 && "$CI_MOVING_GUI" == 0
+  [[ "$OWNER_MOVING" == 0 && "$CI_MOVING_GUI" == 0
      && "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 0
      && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0
      && "${AXIA_G07_CI_OWNER_BAG_PARITY:-0}" == 0
@@ -28,13 +27,23 @@ if [[ "$SENSOR_NO_GOAL" == 1 ]];then
      && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
      && "${AXIA_P2_G07_RELOCATED_OBSTACLE:-0}" == 1
      && "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 0
-     && "${LIBGL_ALWAYS_SOFTWARE:-0}" != 1
      && "${ROS_DISTRO:-}" == jazzy ]] || {
     echo 'G07_WSLG_SENSOR_NO_GOAL_AUTHORITY_DENIED' >&2;exit 2;
   }
-  grep -qiE 'microsoft|wsl' /proc/sys/kernel/osrelease || {
-    echo 'G07_WSLG_SENSOR_REAL_WSL2_REQUIRED' >&2;exit 2;
-  }
+  if [[ "${GITHUB_ACTIONS:-}" == true ]];then
+    # Separate public CI simulation-only diagnostics. Never CI Goal authority.
+    [[ "${AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL:-0}" == 1 ]] || {
+      echo 'G07_NO_GOAL_CI_SCOPE_DENIED' >&2;exit 2;
+    }
+  else
+    [[ "${AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL:-0}" == 0
+       && "${LIBGL_ALWAYS_SOFTWARE:-0}" != 1 ]] || {
+      echo 'G07_WSLG_SENSOR_SOFTWARE_OR_CI_SCOPE_DENIED' >&2;exit 2;
+    }
+    grep -qiE 'microsoft|wsl' /proc/sys/kernel/osrelease || {
+      echo 'G07_WSLG_SENSOR_REAL_WSL2_REQUIRED' >&2;exit 2;
+    }
+  fi
 fi
 [[ "$OWNER_MOVING" == 0 || "$OWNER_MOVING" == 1 ]] || exit 2
 [[ "$CI_MOVING_GUI" == 0 || "$CI_MOVING_GUI" == 1 ]] || exit 2
@@ -446,7 +455,10 @@ fi
 # The only admitted platform variance is offscreen CI vs WSLg Owner GUI.
 if [[ "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]]; then
   if [[ "$SENSOR_NO_GOAL" == 1 ]];then
-    [[ "${GITHUB_ACTIONS:-}" != true
+    [[ ( ( "${GITHUB_ACTIONS:-}" != true
+              && "${AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL:-0}" == 0 )
+           || ( "${GITHUB_ACTIONS:-}" == true
+                && "${AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL:-0}" == 1 ) )
        && "$OWNER_MOVING" == 0 && "$CI_MOVING_GUI" == 0
        && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0
        && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
