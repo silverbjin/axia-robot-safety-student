@@ -485,6 +485,28 @@ else
   fi
   exit 2
 fi
+# Exact D06 public-CI-only pre-Goal display contract. Do not send a
+# real Goal if either the integrated Gazebo or read-only RViz window is
+# absent. This checks X11 windows, NOT physical GPU/WSLg content.
+if [[ "${AXIA_D06_G07_CI_MOVING_GUI:-0}" == 1 ]];then
+  command -v xwininfo >/dev/null 2>&1 || {
+    echo 'D06_G07_CI_DISPLAY_INSPECTOR_UNAVAILABLE_NO_GOAL' >&2;exit 3;
+  }
+  D06_GUI_BOTH_READY=0
+  for ((d06_i=0;d06_i<40;d06_i++));do
+    timeout 4s xwininfo -root -tree > "$OUT/d06_gui_x11_tree.txt" 2>&1 || true
+    if grep -Eiq 'Gazebo' "$OUT/d06_gui_x11_tree.txt" &&
+       grep -Eiq 'RViz' "$OUT/d06_gui_x11_tree.txt";then
+      D06_GUI_BOTH_READY=1
+      break
+    fi
+    sleep 1
+  done
+  [[ "$D06_GUI_BOTH_READY" == 1 ]] || {
+    echo 'D06_G07_CI_TWO_GUI_WINDOWS_ABSENT_NO_GOAL' >&2;exit 3;
+  }
+  echo 'D06_G07_CI_GAZEBO_RVIZ_X11_READY_BEFORE_REAL_GOAL'
+fi
 # D07-H01 GUI renderers AFTER Nav2 readiness, NOT during CM get_state or
 # lifecycle bond startup. Gazebo Harmonic -g is a GUI-only client joining
 # the existing isolated GZ_PARTITION, never a second simulation server.
