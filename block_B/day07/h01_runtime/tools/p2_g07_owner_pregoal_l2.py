@@ -57,7 +57,7 @@ def build_pregoal_baseline(*, front_m, side_m, scan_topic,
 def save_pregoal_baseline(outdir, report):
     """Persist source evidence before any clearance exception is raised."""
     (outdir / "pregoal_baseline.json").write_text(
-        json.dumps(report, sort_keys=True, indent=2) + "\\n",
+        json.dumps(report, sort_keys=True, indent=2) + "\n",
         encoding="utf-8")
 
 
