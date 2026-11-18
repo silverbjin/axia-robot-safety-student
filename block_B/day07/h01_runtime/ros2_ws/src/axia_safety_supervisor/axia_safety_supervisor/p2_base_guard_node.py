@@ -4,6 +4,7 @@ Single ROS /cmd_vel publisher; if Supervisor or Collision Monitor stops while
 moving, host-monotonic timeout latches ZERO. Guard's own death is NOT covered.
 """
 import json
+import os
 import time
 
 import rclpy
@@ -130,7 +131,7 @@ class P2BaseCommandGuard(Node):
             self._request_cancel()
         self._final.publish(_twist(out))
         status = String()
-        status.data = json.dumps({
+        status_fields = {
             'latched': self._policy.latched,
             'cancel_acknowledged': self._cancel_acknowledged,
             'goal_terminal_verified': False,
@@ -138,7 +139,17 @@ class P2BaseCommandGuard(Node):
             'first_latch_trace': self._first_latch_trace,
             'sim_only': True,
             'certified_estop': False,
-        }, sort_keys=True)
+        }
+        # Task03 PUBLIC SIM only: expose the Guard's own actual steady
+        # monotonic receive ages on the EXISTING 20Hz status topic.
+        # This is read-only evidence. Never change CM/Guard TTL or ZERO.
+        if (os.environ.get('GITHUB_ACTIONS') == 'true'
+                and os.environ.get('AXIA_P0_SIM_ONLY') == '1'
+                and os.environ.get('AXIA_G07_TASK03_FORMAL_CI') == '1'):
+            snapshot = self._policy.diagnostic_snapshot(tick_mono)
+            status_fields['cm_age_sec'] = snapshot['cm_age_sec']
+            status_fields['supervisor_age_sec'] = snapshot['supervisor_age_sec']
+        status.data = json.dumps(status_fields, sort_keys=True)
         self._status.publish(status)
 
 
