@@ -27,7 +27,8 @@ def test_ci_only_uses_api_asset_and_vendor_local_url_no_owner_change():
     assert TOOL.is_file()
     t=TOOL.read_text()
     s=LAUNCH.read_text()
-    assert "https://api.github.com/repos/microsoft/onnxruntime/releases/tags/v1.20.0" in t
+    assert 'BASE = "https://api.github.com/repos/microsoft/onnxruntime"' in t
+    assert 'RELEASE_URL = f"{BASE}/releases/tags/v{ONNXRUNTIME_VERSION}"' in t
     assert "/releases/assets/" in t
     assert "application/octet-stream" in t
     assert "sha256" in t
