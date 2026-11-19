@@ -25,6 +25,16 @@ class TestD08SingleSessionHook(unittest.TestCase):
         self.assertIn('D08_G07_SINGLE_WORLD_SOURCE_OVERLAY_READY_NO_GOAL',SHELL)
         self.assertEqual(SHELL.count('setsid ros2 launch "$LAUNCH" "${LAUNCH_ARGS[@]}"'),1)
 
+    def test_readonly_d04_d05_d07_phase_must_precede_any_moving_goal(self):
+        self.assertIn("AXIA_D08_G07_READONLY_STAGE",SHELL)
+        self.assertIn("AXIA_D08_G07_READONLY_SCRIPT",SHELL)
+        self.assertIn("D08_G07_READONLY_PREGOAL_COMPLETE_NO_GOAL",SHELL)
+        self.assertIn("ros_gz_image image_bridge",SHELL)
+        before=SHELL.index("D08_G07_READONLY_PREGOAL_COMPLETE_NO_GOAL")
+        self.assertLess(before,SHELL.index("axia_owner_tty_consent 180"))
+        self.assertLess(before,SHELL.index("python3 tools/p2_g07_ci_moving_goal.py"))
+        self.assertIn("D08_G07_READONLY_STAGE_BLOCKED_NO_GOAL",SHELL)
+
     def test_d08_hook_precedes_ros_launch_and_manual_goal_consent(self):
         idx=SHELL.index('D08_G07_SINGLE_WORLD_SOURCE_OVERLAY_READY_NO_GOAL')
         self.assertLess(idx,SHELL.index('setsid ros2 launch "$LAUNCH"'))
