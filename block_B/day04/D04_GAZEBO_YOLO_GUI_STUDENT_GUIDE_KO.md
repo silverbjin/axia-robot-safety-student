@@ -4,44 +4,16 @@
 
 **환경:** Windows 10/11 + WSL2 Ubuntu 24.04 + ROS 2 Jazzy + Gazebo Harmonic + WSLg DISPLAY. 첫 실행은 인터넷, ROS 패키지와 C++ yolo_ros 컴파일, ONNX 모델/사람 Actor 다운로드가 필요할 수 있습니다. 공개 소스만 이용하며 `gh auth`나 비공개 강사 저장소는 불필요합니다. 학생이 ROS 2의 Overlay를 독립적으로 빌드합니다.
 
-## 1. 기존 학생 저장소 보존 후 시연 코드 받기
+## 1. 가장 먼저 실행할 명령 — 설치·업데이트 후 실제 Gazebo + YOLO GUI 실행
 
-이미 `~/axia-robot-safety-student-d04`가 있다면 재복제·reset하지 않고, 기존 작업 파일을 보존하면서 별도 Git worktree를 만듭니다.
+**첫 번째 Bash 블록 자체가 실제 GUI 실행까지 수행합니다.** 아래 명령을 끝까지 실행하면 마지막에 --run을 호출합니다. --self-check의 GAZEBO_NOT_RUN은 사전검사 단계의 정상 메시지이며, 이 줄만 보고 시연 성공/실패를 판정하지 않습니다.
+
+기존 학생 TODO 디렉터리와 가상환경은 건드리지 않습니다. 개인 소스가 있는 경우 독립 Git worktree를 만들고, 전혀 없다면 학생 공개 저장소 main을 별도 폴더에 복제합니다. 같은 명령을 재실행할 때 수정된 체크아웃은 자동 reset/clean하지 않고 중단합니다.
 
 ~~~bash
 (
   set -Eeuo pipefail
   BASE="$HOME/axia-robot-safety-student-d04"
-  DEMO="$HOME/axia_d04_student_gazebo_demo_main"
-  test -d "$BASE/.git"
-  git -C "$BASE" fetch origin main
-  if [[ ! -e "$DEMO" ]]; then
-    git -C "$BASE" worktree add --detach "$DEMO" FETCH_HEAD
-  fi
-  cd "$DEMO"
-  bash block_B/day04/run_student_gazebo_yolo_once.sh --self-check
-  bash block_B/day04/run_student_gazebo_yolo_once.sh --doctor
-)
-~~~
-
-새로운 PC에서 학생 저장소가 전혀 없다면 다음 최초 설치 명령을 대신 실행합니다.
-
-~~~bash
-git clone --single-branch --branch main \
-  https://github.com/silverbjin/axia-robot-safety-student.git \
-  "$HOME/axia_d04_student_gazebo_demo_main"
-~~~
-
-**`--self-check`:** 파일·정적 구문만 확인하며 Gazebo/YOLO는 실행하지 않습니다. **`--doctor`:** WSL2·DISPLAY·ROS 2·공식 패키지 준비를 점검하며 누락될 경우 중단할 수 있습니다. 의존성 설치는 다음 `--run`에서 수행합니다.
-
-### 설치부터 GUI 실행까지 한 번에 처리 (기존 개인 작업 보호)
-
-다음 명령은 기존 `~/axia-robot-safety-student-d04` 저장소의 내용 및 `.venv`를 지우지 않고, 독립된 공개 시연 worktree만 구성합니다. 이미 worktree가 있다면 수정사항이 없을 때 fast-forward로 업데이트하고, 이후 Gazebo와 YOLO GUI를 실행합니다.
-
-~~~bash
-(
-  set -Eeuo pipefail
-  SOURCE="$HOME/axia-robot-safety-student-d04"
   DEMO="$HOME/axia_d04_student_gazebo_demo_main"
   BRANCH="main"
 
@@ -53,16 +25,28 @@ git clone --single-branch --branch main \
     git -C "$DEMO" merge --ff-only FETCH_HEAD
   elif [[ -e "$DEMO" ]]; then
     echo "D04_STUDENT_GUI_DIRECTORY_NOT_GIT=$DEMO"; exit 2
-  elif git -C "$SOURCE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git -C "$SOURCE" fetch origin "$BRANCH"
-    git -C "$SOURCE" worktree add --detach "$DEMO" FETCH_HEAD
+  elif git -C "$BASE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$BASE" fetch origin main
+    git -C "$BASE" worktree add --detach "$DEMO" FETCH_HEAD
   else
-    git clone --single-branch --branch "$BRANCH" \
+    git clone --single-branch --branch main \
       https://github.com/silverbjin/axia-robot-safety-student.git "$DEMO"
   fi
 
-  bash "$DEMO/block_B/day04/run_student_gazebo_yolo_once.sh" --run
+  cd "$DEMO"
+  bash block_B/day04/run_student_gazebo_yolo_once.sh --self-check
+  echo "D04_STUDENT_GUIDE_LIVE_RUN_REQUESTED"
+  AXIA_D04_STUDENT_GUI=1 bash block_B/day04/run_student_gazebo_yolo_once.sh --run
 )
+~~~
+
+**판정 기준:** D04_STUDENT_GUIDE_LIVE_RUN_REQUESTED는 **실제 실행을 요청했다는 뜻**이지 GUI 성공 판정이 아닙니다. 이어서 출력되는 실제 카메라·YOLO·GUI 상태와 종료 코드를 확인해야 합니다. D04_STUDENT_GAZEBO_YOLO_LIVE_PASS가 없거나 GUI가 보이지 않으면 미인수입니다. --run은 필요할 경우 공식 ROS 의존성·YOLO·모델을 준비할 수 있으며 네트워크 및 sudo 인증이 필요할 수 있습니다.
+
+사전진단만 별도로 하고 싶다면 다음 명령을 사용합니다. **이 명령은 Gazebo를 열지 않습니다.**
+
+~~~bash
+cd "$HOME/axia_d04_student_gazebo_demo_main"
+bash block_B/day04/run_student_gazebo_yolo_once.sh --doctor
 ~~~
 
 ## 2. 학생 PC에서 Gazebo+YOLO 시연 (한 번 실행)
