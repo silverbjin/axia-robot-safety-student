@@ -301,6 +301,35 @@ def assess_window(records):
     }
 
 
+def enrich_scan_geometry(records):
+    """Enrich immutable-arrival Scan rows after subscriptions have stopped.
+
+    Receipt monotonic timestamps stay exactly as measured on callback entry;
+    pure front/side/near geometry is identical to the original callback.
+    Invalid geometry is not reclassified CLEAR: its row remains disallowed,
+    which can only reduce readiness and force a NO_GOAL HOLD.
+    """
+    for kind in ("raw", "safety"):
+        rows=[]
+        for row in records.get(kind, []):
+            msg=row.pop("_laser_msg",None)
+            if msg is None:
+                continue
+            front=[float(v) for i,v in enumerate(msg.ranges)
+                   if abs(msg.angle_min+i*msg.angle_increment)<=.18
+                   and type(v) in (float,int) and math.isfinite(v)
+                   and msg.range_min<=v<=msg.range_max]
+            side=sector_min(msg)
+            if not front or side is None:
+                continue
+            near,beams=near_ring_fraction(msg)
+            row.update({"front":min(front), "side":side,
+                        "near":near, "beams":beams})
+            rows.append(row)
+        records[kind]=rows
+    return records
+
+
 def run(out, duration):
     if (os.environ.get("ROS_DISTRO") != "jazzy"
             or os.environ.get("AXIA_P0_SIM_ONLY") != "1"
@@ -346,27 +375,21 @@ def run(out, duration):
 
     def scan_callback(msg, kind):
         nonlocal first_scan_at, dual_ready_at
-        # First executable callback instruction after scope declaration:
-        # measure ROS callback entry, not distance/sector computation latency.
-        # This is receive-layer evidence, not an upstream DDS send timestamp.
+        # FIRST operation measures the ROS callback host receipt. C08 real
+        # L2 #44563618730: native 89.281ms, independent ROS Safety 86.495ms,
+        # Student Safety 403.214ms. Keep this hot path limited to arrival
+        # stamp/metadata only. Move unchanged geometry after executor exit.
         now = time.monotonic()
-        front = [float(v) for i, v in enumerate(msg.ranges)
-                 if abs(msg.angle_min + i * msg.angle_increment) <= .18
-                 and type(v) in (float, int) and math.isfinite(v)
-                 and msg.range_min <= v <= msg.range_max]
-        side = sector_min(msg)
-        if not front or side is None:
-            return
         stamp = float(msg.header.stamp.sec) + msg.header.stamp.nanosec * 1e-9
         if not math.isfinite(stamp) or stamp <= 0:
             return
         if first_scan_at is None:
             first_scan_at = now
-        near, beams = near_ring_fraction(msg)
-        records[kind].append({"recv": now, "stamp": stamp,
-                               "stamp_ns":int(msg.header.stamp.sec)*1000000000+int(msg.header.stamp.nanosec),
-                              "front": min(front), "side": side,
-                              "near": near, "beams": beams})
+        records[kind].append({
+            "recv":now,"stamp":stamp,
+            "stamp_ns":int(msg.header.stamp.sec)*1000000000+int(msg.header.stamp.nanosec),
+            "_laser_msg":msg,
+        })
         rows=records[kind]
         if qualified_ready_at[kind] is None and len(rows)>=2:
             a,b=rows[-2],rows[-1]
@@ -423,8 +446,11 @@ def run(out, duration):
         deadline = time.monotonic() + duration + 8
         while time.monotonic() < deadline:
             scan_executor.spin_once(timeout_sec=.08)
+            # Extra 200ms is observation budget, NOT Scan300 TTL. Final
+            # qualification uses actual last ROS callback receipt timestamps,
+            # never time elapsed during deferred geometry computation.
             if first_scan_at and dual_ready_at is not None and (
-                    time.monotonic() - dual_ready_at >= duration):
+                    time.monotonic() - dual_ready_at >= duration + .2):
                 break
         # Keep scan callback stamps on its own executor. Stop and join the
         # high-rate /clock,/odom observer before reading the shared record.
@@ -438,6 +464,14 @@ def run(out, duration):
         scan_stopped=scan_executor.shutdown(timeout_sec=3.0)
         if not aux_stopped or not scan_stopped:
             raise RuntimeError("G07_READONLY_EXECUTOR_DID_NOT_STOP")
+        # Geometry must be applied only after both executors are stopped.
+        # Recheck readiness on VALID distance rows; a rejected message can
+        # never falsely qualify a Scan TTL window.
+        enrich_scan_geometry(records)
+        raw_ready=qualified_second_receipt(records["raw"])
+        safe_ready=qualified_second_receipt(records["safety"])
+        dual_ready_at=max(raw_ready,safe_ready) if (
+            raw_ready is not None and safe_ready is not None) else None
         stable=select_dual_topic_window(records)
         report=assess_window(stable["records"])
         report["rtf_diagnostics"]=analyze_timing_separately(stable["records"])
@@ -454,7 +488,9 @@ def run(out, duration):
             "pre_ready_breach_evidence_retained":stable["pre_ready_breach_evidence_retained"],
             "pre_ready_observations_not_motion_authority":True,
         }
-        observed=(time.monotonic()-dual_ready_at if dual_ready_at is not None else 0.)
+        # Report true callback-to-callback dwell, not wall time while
+        # offline geometry ran after the subscriptions had stopped.
+        observed=stable["observed_dwell_sec"]
         report["duration_observed_sec"]=round(max(0.,observed),3)
         report["dual_topic_required_observation_sec"]=duration
         report["dual_topic_actual_wall_observation_sec"]=round(max(0.,observed),3)
