@@ -157,10 +157,21 @@ class Observer:
         # A newly admitted G07 observer uses the real retained AMCL map pose,
         # never a fabricated TF or raw /odom-as-map fallback.
         if os.environ.get("AXIA_G07_OWNER_STARTUP_PARITY")=="1":
-            amcl_qos=QoSProfile(depth=1)
-            amcl_qos.reliability=QoSReliabilityPolicy.RELIABLE
-            amcl_qos.durability=QoSDurabilityPolicy.TRANSIENT_LOCAL
-            sub(PoseWithCovarianceStamped,'/amcl_pose',self._amcl_map_pose,amcl_qos)
+            # Public real Gazebo CI only: recreate vJpsc6Wy's late
+            # Observer with no delivered AMCL pose. The nav2 AMCL publisher
+            # and TF remain real; Owner WSL2 and default CI do not skip.
+            ci_force_real_tf=(os.environ.get('GITHUB_ACTIONS')=='true'
+                and os.environ.get('AXIA_G07_CI_SIM_GOAL_ALLOWED')=='1'
+                and os.environ.get('AXIA_G07_CI_FORCE_MAP_TF_FALLBACK')=='1'
+                and os.environ.get('AXIA_G07_TASK04_OWNER_MOVING_L3')!='1')
+            if ci_force_real_tf:
+                print('G07_CI_REAL_MAP_TF_FALLBACK_REQUIRED NO_AMCL_OBSERVER_SUBSCRIPTION',
+                      flush=True)
+            else:
+                amcl_qos=QoSProfile(depth=1)
+                amcl_qos.reliability=QoSReliabilityPolicy.RELIABLE
+                amcl_qos.durability=QoSDurabilityPolicy.TRANSIENT_LOCAL
+                sub(PoseWithCovarianceStamped,'/amcl_pose',self._amcl_map_pose,amcl_qos)
 
 
     def _write(self,kind,*,at=None,**kv):
