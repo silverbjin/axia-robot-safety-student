@@ -106,7 +106,13 @@ def review(root,witness,expected_sha,gui_windows):
         result.update(checks=checks,first_failure=next((k for k,v in checks.items() if not v),"NONE"),
           cm120={"status":cm.get("status"),"source_gap_max_ms":cm.get("source_gap_max_ms"),
                  "observer_gap_max_ms":cm.get("observer_gap_max_ms"),
-                 "actual_publisher_pairs":cm.get("actual_publisher_pairs")},
+                 "actual_publisher_pairs":cm.get("actual_publisher_pairs"),
+                 # Never discard the original WSL2 RMW wall-clock step while
+                 # reporting a scoped guest-monotonic numerical candidate.
+                 "source_raw_gap_max_ms":cm.get("source_raw_gap_max_ms"),
+                 "clock_step_pairs":cm.get("clock_step_pairs"),
+                 "clock_step_evidence":cm.get("clock_step_evidence"),
+                 "host_external_clock_verified":cm.get("host_external_clock_verified")},
           guard_internal_cm_age_max_ms=guard.get("max_cm_age_ms"),
           goal_uuid=uuid if isinstance(uuid,str) and len(uuid)==32 else None,
           odom_moved_m=report.get("observed_odom_moved_m"),
