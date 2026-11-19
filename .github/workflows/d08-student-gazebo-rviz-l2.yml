@@ -37,8 +37,18 @@ jobs:
         shell: bash
         run: |
           set -eo pipefail
-          apt-get update -qq -o APT::Update::Error-Mode=any -o Acquire::Retries=1
-          apt-get install -y -qq --no-install-recommends \
+          # Prior L2 failed before Gazebo: archive.ubuntu.com:80 timeout (apt exit 100).
+          # Keep ROS/Gazebo packages unchanged; use HTTPS for Ubuntu mirrors only.
+          for sources in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
+            [[ -f "$sources" ]] || continue
+            sed -i \
+              -e 's|http://archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+              -e 's|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' \
+              "$sources"
+          done
+          echo D08_PUBLIC_APT_HTTPS_UBUNTU_MIRRORS_APPLIED
+          apt-get update -qq -o APT::Update::Error-Mode=any -o Acquire::Retries=3
+          apt-get install -y -qq -o Acquire::Retries=3 --no-install-recommends \
             git curl xz-utils python3-colcon-common-extensions \
             ros-jazzy-nav2-bringup ros-jazzy-nav2-minimal-tb3-sim \
             ros-jazzy-turtlebot3-gazebo ros-jazzy-ros-gz \
