@@ -123,7 +123,7 @@ def main(argv=None):
         if args.require_d08_g07_tf_wait:
             print("D08_G07_REAL_CM_TF_WAIT_READBACK_PASS 0.02S SHIFT_FALSE SOURCE_TIMEOUT_1.0 GUARD_150MS_UNCHANGED",flush=True)
         else:
-    print("AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_READBACK_PASS SHIFT_FALSE TF_TOL_0.2 SOURCE_TIMEOUT_1.0 GUARD_150MS_UNCHANGED",flush=True)
+            print("AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_READBACK_PASS SHIFT_FALSE TF_TOL_0.2 SOURCE_TIMEOUT_1.0 GUARD_150MS_UNCHANGED",flush=True)
     return 0
 
 if __name__=="__main__":
