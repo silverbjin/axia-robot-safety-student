@@ -38,6 +38,14 @@ class OwnerN7GuardTelemetryRegression(unittest.TestCase):
             with self.subTest(invalid=invalid):
                 self.assertFalse(allowed(invalid))
 
+    def test_owner_numeric_report_preserves_unmodified_wallclock_gap(self):
+        # Owner small diagnostics must retain the raw RMW 2.964s jump as
+        # evidence, not silently present only the normalized 38ms envelope.
+        src=(ROOT/"tools/p2_g07_task04_moving_review.py").read_text()
+        for key in ('"source_raw_gap_max_ms"', '"clock_step_pairs"',
+                    '"clock_step_evidence"', '"host_external_clock_verified"'):
+            self.assertIn('cm.get('+key+')',src)
+
     def test_owner_numeric_review_is_scoped_to_actual_timing_oracle(self):
         import sys
         sys.path.insert(0, str(ROOT / "tools"))
