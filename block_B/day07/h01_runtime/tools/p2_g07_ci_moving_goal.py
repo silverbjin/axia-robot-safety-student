@@ -305,7 +305,8 @@ def run(args):
         # spawn are required before the Goal, not inferred from raw /odom.
         world_anchor=make_frame_anchor(
             _map_robot_pose(node,obs),start_pose,official_tb3_spawn(),
-            map_pose_source='amcl_pose_map_transient_local')
+            map_pose_source=getattr(obs,'map_pose_source',
+                                    'amcl_pose_map_transient_local'))
         _call_start(node,obs)
         wait(lambda s,d: True if d["supervisor"].get("state")=="NORMAL" else None,
              5,"SUPERVISOR_START")
