@@ -29,6 +29,8 @@ jobs:
       MAKEFLAGS: -j2
       CMAKE_BUILD_PARALLEL_LEVEL: '2'
       EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      # Only public CI tests the PR head; classroom guides still default to main.
+      AXIA_D08_RELEASE_BRANCH: ${{ github.head_ref || 'main' }}
     steps:
       - uses: actions/checkout@v4
         with:
