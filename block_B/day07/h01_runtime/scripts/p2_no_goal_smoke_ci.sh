@@ -592,6 +592,32 @@ else
   fi
   exit 2
 fi
+# Cycle36 prior-G07 real L2 success: CPU role partition is a CI-only
+# candidate for D08's first shared CM→Guard 150ms gap. Scope this BEFORE
+# any Goal, AFTER original Nav2 readiness; no change to 120/150/300ms TTL.
+# Owner WSL2 is not admitted to this experiment and uses original policies.
+if [[ "${AXIA_D08_G07_CPU_ROLE_C36:-0}" == 1 ]]; then
+  [[ "${AXIA_D08_G07_SINGLE_SESSION:-0}" == 1
+     && "${AXIA_P0_SIM_ONLY:-0}" == 1
+     && "${AXIA_G07_TASK04_CI_GUI_MOVING:-0}" == 1
+     && "${GITHUB_ACTIONS:-}" == true
+     && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+     && "$OWNER_MOVING" == 0
+     && "$LAUNCH_PID" =~ ^[0-9]+$
+     && "$D08_STUDENT_SHA" =~ ^[a-f0-9]{40}$ ]] || {
+    echo D08_G07_C36_CPU_ROLE_SCOPE_DENIED_BEFORE_GOAL >&2;exit 2;
+  }
+  timeout --signal=TERM --kill-after=2s 12s \
+    python3 tools/d08_g07_prior_proven_cpu_roles.py \
+      --launch-pgid "$LAUNCH_PID" --expected-sha "$D08_STUDENT_SHA" \
+      --output "$OUT/d08_c36_cpu_roles.json" \
+      > "$OUT/d08_c36_cpu_roles.log" 2>&1 || {
+    cat "$OUT/d08_c36_cpu_roles.log" >&2 || true
+    echo D08_G07_C36_CPU_ROLE_READBACK_BLOCKED_BEFORE_GOAL >&2;exit 2;
+  }
+  cat "$OUT/d08_c36_cpu_roles.log"
+  echo D08_G07_C36_SCHEDULER_CANDIDATE_ONLY_NOT_CM120_ACCEPTANCE
+fi
 # D07-H01 GUI renderers AFTER Nav2 readiness, NOT during CM get_state or
 # lifecycle bond startup. Gazebo Harmonic -g is a GUI-only client joining
 # the existing isolated GZ_PARTITION, never a second simulation server.
