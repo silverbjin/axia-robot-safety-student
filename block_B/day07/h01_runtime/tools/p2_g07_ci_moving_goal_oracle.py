@@ -423,6 +423,17 @@ def _blocked(reason):
             "gate_accepted":False,"owner_l3_accepted":False,
             "certified_estop":False,"collision_ground_truth":False}
 
+def clear_action_evidence_valid(status_at_clear, same_goal_executing_after_clear):
+    """A delayed ActionStatus callback cannot erase measured post-Goal cruise.
+
+    The caller must later observe EXECUTING for the same single Goal UUID.
+    Terminal or unknown action statuses never count as CLEAR evidence.
+    """
+    return (same_goal_executing_after_clear is True
+            and (status_at_clear is None
+                 or (type(status_at_clear) is int and status_at_clear in (1, 2))))
+
+
 def assess(v, *, owner_authorized=False):
     if not isinstance(v,dict):
         return _blocked("INVALID_EVIDENCE")
@@ -448,8 +459,12 @@ def assess(v, *, owner_authorized=False):
         or not isinstance(v.get("goal_uuid"),str)
         or len(v["goal_uuid"])!=32
         or v.get("goal_status_executing") is not True
-        or any(v.get(k)!=2 for k in ("goal_status_at_clear",
-                                      "goal_status_at_slow",
+        or not (v.get("goal_status_at_clear")==2 or (
+            v.get("clear_before_action_ack") is True
+            and clear_action_evidence_valid(
+                v.get("goal_status_at_clear"),
+                v.get("same_goal_executing_after_clear"))))
+        or any(v.get(k)!=2 for k in ("goal_status_at_slow",
                                       "goal_status_at_stop"))):
         return _blocked("MOVING_NAV2_GOAL_EXECUTING_NOT_PROVEN")
     if v.get("guard_latched") is not False:

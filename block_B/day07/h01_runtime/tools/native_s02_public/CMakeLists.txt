@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.16)
+project(axia_g07_s02_ecm_witness LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+find_package(gz-sim8 REQUIRED)
+add_library(axia_g07_s02_ecm_witness SHARED s02_witness.cc)
+target_link_libraries(axia_g07_s02_ecm_witness PRIVATE gz-sim8::gz-sim8)
+target_compile_options(axia_g07_s02_ecm_witness PRIVATE -Wall -Wextra -Werror)

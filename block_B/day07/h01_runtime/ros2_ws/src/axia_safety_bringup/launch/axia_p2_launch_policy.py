@@ -53,10 +53,19 @@ def apply_g07_task02_simple_tf_candidate(params, env):
         raise ValueError("G07_TASK02_SIMPLE_TF_BAD_INPUT")
     if env.get("AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE") != "1":
         return False
-    required={"GITHUB_ACTIONS":"true","AXIA_P0_SIM_ONLY":"1",
-              "AXIA_G07_CI_SIM_GOAL_ALLOWED":"1",
-              "AXIA_G07_OWNER_STARTUP_PARITY":"1"}
-    if any(env.get(k)!=v for k,v in required.items()):
+    # Same exact Gazebo simulation profile in real CI and manual Owner L3.
+    # The Owner never borrows CI credentials; all Goal TTY/PID consent is
+    # still independently enforced by p2_g07_ci_moving_goal.run().
+    core=(env.get("AXIA_P0_SIM_ONLY")=="1"
+          and env.get("AXIA_G07_OWNER_STARTUP_PARITY")=="1"
+          and env.get("AXIA_P2_G07_PHYSICAL_PREFLIGHT")=="1")
+    ci=(env.get("GITHUB_ACTIONS")=="true"
+        and env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1")
+    owner=(env.get("GITHUB_ACTIONS")!="true"
+           and env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")!="1"
+           and env.get("AXIA_G07_TASK04_OWNER_MOVING_L3")=="1"
+           and env.get("AXIA_P2_G07_RELOCATED_OBSTACLE")=="1")
+    if not core or not (ci or owner):
         raise ValueError("G07_TASK02_SIMPLE_TF_SIM_ONLY_AUTHORITY_DENIED")
     cm=params.get("collision_monitor",{}).get("ros__parameters")
     if not isinstance(cm,dict):

@@ -9,6 +9,32 @@ OUT="$(cd "$OUT" && pwd -P)"
 LAUNCH_PID=''
 BAG_PID=''
 GUI_WATCH_PID=''
+MOVING_GAZEBO_GUI_PID=''
+MOVING_RVIZ_PID=''
+OWNER_MOVING="${AXIA_G07_TASK04_OWNER_MOVING_L3:-0}"
+CI_MOVING_GUI="${AXIA_G07_TASK04_CI_GUI_MOVING:-0}"
+[[ "$OWNER_MOVING" == 0 || "$OWNER_MOVING" == 1 ]] || exit 2
+[[ "$CI_MOVING_GUI" == 0 || "$CI_MOVING_GUI" == 1 ]] || exit 2
+if [[ "$OWNER_MOVING" == 1 ]];then
+  [[ "${GITHUB_ACTIONS:-}" != true
+     && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1
+     && "$CI_MOVING_GUI" == 0
+     && "${AXIA_P0_SIM_ONLY:-0}" == 1
+     && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
+     && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+     && "${AXIA_G07_CI_OWNER_BAG_PARITY:-0}" == 1
+     && -n "${DISPLAY:-}" && -t 0 && -r /dev/tty ]] || {
+    echo 'G07_TASK04_OWNER_TTY_ENV_PREGOAL_BLOCKED' >&2;exit 2;
+  }
+  unset AXIA_G07_OWNER_COMMON_RUNNER_AUTHORIZED AXIA_P2_OWNER_PINNED_SHA || true
+fi
+if [[ "$CI_MOVING_GUI" == 1 ]];then
+  [[ "${GITHUB_ACTIONS:-}" == true
+     && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+     && "$OWNER_MOVING" == 0 && -n "${DISPLAY:-}" ]] || {
+    echo 'G07_TASK04_CI_GUI_SCOPE_BLOCKED_NO_GOAL' >&2;exit 2;
+  }
+fi
 # Process clean-exit budget only; never a 150ms CM/300ms scan TTL change.
 G07_MANAGED_LAUNCH_EXIT_GRACE_SEC=26
 launch_active() {
@@ -42,8 +68,6 @@ stop_owner_parity_bag() {
 }
 cleanup() {
  local rc=$?
- trap - EXIT INT TERM
- set +e
  # Exactly ONE isolated read-only GUI process group is owned by this smoke.
  # A watcher sleeps until the verified free baseline; NO GUI renders before.
  if [[ -n "$GUI_WATCH_PID" ]]; then
@@ -58,7 +82,21 @@ cleanup() {
  if [[ -n "$LAUNCH_PID" ]]; then
    # Identical to G07 WSL2 Owner: Nav2 lifecycle before launch SIGINT.
    # Only after the already-successful CI simulation Goal and odom dwell.
-   if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+   # Task03 disposable native sensor-only positive control has NOT sent
+   # any Goal: skip unrelated managed Nav2 lifecycle shutdown. This avoids
+   # a race in a world that is about to be discarded. Actual Moving Goal
+   # still MUST obtain both lifecycle ACKs and CM child clean exit.
+   if [[ "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" == 1
+      && "${GITHUB_ACTIONS:-}" == true
+      && "${AXIA_P0_SIM_ONLY:-0}" == 1
+      && "${AXIA_G07_TASK03_ECM_WITNESS:-0}" == 1
+      && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+      && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+      && "$rc" == 0 ]]; then
+     printf 'DISPOSABLE_NO_GOAL_DIRECT_SIGINT_CONFIRMED\n' \
+       > "$OUT/task03_disposable_shutdown.marker"
+     echo 'AXIA_G07_TASK03_NO_GOAL_DISPOSABLE_NATIVE_POSITIVE_SIGINT'
+   elif [[ ( "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 )
       && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
       && "$rc" == 0 ]]; then
      echo 'AXIA_G07_CI_MOVING_GOAL_ORDERED_SHUTDOWN_REQUIRED'
@@ -79,6 +117,12 @@ cleanup() {
    if ! stop_owner_parity_bag; then rc=3; fi
    kill -INT -- "-$LAUNCH_PID" 2>/dev/null || true
    local launch_grace_steps=25
+   if [[ "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" == 1
+      && -f "$OUT/task03_disposable_shutdown.marker" ]]; then
+     # Process exit budget only, NOT CM/Scan watchdog expansion.
+     launch_grace_steps=$((G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2))
+     echo 'AXIA_G07_TASK03_NO_GOAL_DISPOSABLE_SIGINT_EXIT_BUDGET_26S'
+   fi
    if [[ "${AXIA_G07_CI_OWNER_BAG_PARITY:-0}" == 1
       && "$rc" == 0
       && -f "$OUT/g07_ordered_shutdown.json" ]]; then
@@ -111,13 +155,27 @@ cleanup() {
      rc=3
    fi
    wait "$LAUNCH_PID" 2>/dev/null || true
+   # Real public Gazebo #44220702329: the disposable NO_GOAL marker
+   # previously existed only as .marker; downstream expected JSON.
+   # Emit distinct NO_GOAL evidence AFTER actual graceful SIGINT teardown,
+   # never implying Navigation/Localization lifecycle ACKs or moving L2.
+   if [[ "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" == 1
+      && -f "$OUT/task03_disposable_shutdown.marker"
+      && "$rc" -eq 0
+      && -f "$OUT/teardown.txt" ]] &&
+      grep -Fxq 'P2_L2_GRACEFUL_TEARDOWN' "$OUT/teardown.txt"; then
+     printf '%s\n' '{"schema":"axia.g07.task03.disposable_no_goal_sigint_v1","status":"DISPOSABLE_NO_GOAL_DIRECT_SIGINT_CONFIRMED","navigation_ack":false,"localization_ack":false,"goal_sent":false,"native_nav2_l2_pass":false,"certified_estop":false}' \
+       > "$OUT/g07_ordered_shutdown.json"
+     echo 'AXIA_G07_TASK03_NO_GOAL_DISPOSABLE_SIGINT_GRACEFUL_EVIDENCE_WRITTEN'
+   fi
  fi
  # New exact-SHA, public-only simulation: evidence that CM truly exits
  # cleanly AFTER official managed lifecycle shutdown, not just a parent
  # shell exit 0 or Gazebo NO-GOAL readiness. Preserve old success evidence.
  if [[ "${AXIA_G07_SHUTDOWN_L2_ONLY:-0}" == 1
-    || ( "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+    || ( ( "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 )
          && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+         && "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" != 1
          && "$rc" == 0 ) ]]; then
    if [[ ! -f "$OUT/g07_ordered_shutdown.json" ]]; then
      echo 'G07_REAL_SHUTDOWN_L2_NO_NAV2_ACK' >&2
@@ -153,6 +211,16 @@ for name in need:
 print('G07_CI_OWNER_BAG_REAL_TOPIC_MESSAGES '+json.dumps({k:counts[k] for k in need},sort_keys=True))
 PY
   fi
+ local gui_pid
+ # Clean only GUI clients owned by this run, never every Gazebo instance.
+ for gui_pid in "$MOVING_RVIZ_PID" "$MOVING_GAZEBO_GUI_PID";do
+   if [[ -n "$gui_pid" ]] && kill -0 "$gui_pid" 2>/dev/null;then
+     kill -INT -- "-$gui_pid" 2>/dev/null || true
+     wait "$gui_pid" 2>/dev/null || true
+   fi
+ done
+ trap - EXIT INT TERM
+ set +e
  (cd "$OUT" && find . -type f -not -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 -r sha256sum > SHA256SUMS)
  printf 'P2_L2_SMOKE_RC=%s\nEVIDENCE=%s\nG05_G06_G07_ACCEPTED=false\n' "$rc" "$OUT"
  exit "$rc"
@@ -179,6 +247,18 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
     echo 'D07_H01_GUI_DISPLAY_OR_MOVING_GOAL_SCOPE_DENIED' >&2;exit 2;
   }
   export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}" LIBGL_ALWAYS_SOFTWARE=1 AXIA_P0_SIM_ONLY=1
+elif [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
+  export QT_QPA_PLATFORM=xcb AXIA_P0_SIM_ONLY=1
+  # The pinned real Gazebo+Goal CI L2 rendered gpu_lidar with software Mesa.
+  # Owner WSLg previously UNSET this, and its 360-ray /scan contained a
+  # near-complete 0.5m ring at the stationary -2,-0.5 spawn. Keep the same
+  # sensor/physics renderer for both. UI children explicitly opt OUT below
+  # and use their verified D3D12 adapter; no official Nav2/TTL changes.
+  export LIBGL_ALWAYS_SOFTWARE=1
+  if [[ "$OWNER_MOVING" == 1 ]];then
+    unset GALLIUM_DRIVER MESA_D3D12_DEFAULT_ADAPTER_NAME || true
+    echo 'AXIA_G07_OWNER_GAZEBO_LIDAR_SOFTWARE_RENDERER_SELECTED D3D12_GUI_ONLY'
+  fi
 else
   export QT_QPA_PLATFORM=offscreen LIBGL_ALWAYS_SOFTWARE=1 AXIA_P0_SIM_ONLY=1
 fi
@@ -249,11 +329,13 @@ if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1 ]]; then
   # In the upstream world xacro, headless:=True removes SceneBroadcaster,
   # leaving an otherwise healthy server /scan and Nav2 but a BLANK 3D GUI.
   # Keep staged headless startup and all P2/G07 motion cases untouched.
-  if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
+  if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
+     || "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
     [[ "${AXIA_P0_SIM_ONLY:-0}" == 1
-       && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0 ]] || {
-      echo D07_H01_SCENE_BROADCASTER_SCOPE_DENIED_NO_GOAL >&2
-      exit 2
+       && ( ( "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
+              && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0 )
+            || "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ) ]] || {
+      echo 'G07_TASK04_SCENE_BROADCASTER_SCOPE_DENIED' >&2;exit 2;
     }
     python3 tools/d07_h01_scene_broadcaster_overlay.py \
       --source "$OUT/g07_world.sdf.xacro" \
@@ -315,12 +397,16 @@ LAUNCH_PID=$!
 # Owner WSL2 always runs the following real 14-topic SQLite recording
 # concurrently with Gazebo, Nav2 and its two-worker Observer.
 if [[ "${AXIA_G07_CI_OWNER_BAG_PARITY:-0}" == 1 ]]; then
-  [[ "${GITHUB_ACTIONS:-}" == true
+  [[ ( ( "${GITHUB_ACTIONS:-}" == true
+          && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 )
+        || ( "$OWNER_MOVING" == 1
+             && "${GITHUB_ACTIONS:-}" != true
+             && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1
+             && -t 0 && -r /dev/tty ) )
      && "${AXIA_P0_SIM_ONLY:-0}" == 1
      && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
-     && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
      && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]] || {
-    echo 'G07_CI_OWNER_BAG_PARITY_NOT_PUBLIC_SIMULATION_NO_GOAL' >&2
+    echo 'G07_TASK04_BAG_AUTHORITY_BLOCKED_NO_GOAL' >&2
     exit 2
   }
   # G07 CI-only: isolate heavy SQLite evidence I/O from the real
@@ -353,10 +439,15 @@ if [[ "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]]; then
       exit 2
     }
   else
-    [[ "${GITHUB_ACTIONS:-}" == true
-       && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
+    [[ ( "${GITHUB_ACTIONS:-}" == true
+          && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 )
+       || ( "$OWNER_MOVING" == 1
+            && "${GITHUB_ACTIONS:-}" != true
+            && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1
+            && -t 0 && -r /dev/tty ) ]] &&
+    [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
        && "${AXIA_P0_SIM_ONLY:-0}" == 1 ]] || {
-      echo 'G07_OWNER_STARTUP_PARITY_CI_NOT_AUTHORIZED_NO_GOAL' >&2
+      echo 'G07_TASK04_STARTUP_AUTHORITY_BLOCKED_NO_GOAL' >&2
       exit 2
     }
   fi
@@ -533,6 +624,43 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   fi
   echo "D07_H01_GUI_RENDERERS_AFTER_NAV2_READY watcher_pid=$GUI_WATCH_PID awaiting_stable_free_baseline=1 NO_GOAL"
 fi
+# Client-only GUI: attach after real shared staged Nav2 readiness.
+# Gazebo SERVER remains owned solely by the original ros2 launch process.
+if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
+  [[ -r "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" ]] || {
+    echo 'G07_TASK04_RVIZ_CONFIG_MISSING_NO_GOAL' >&2;exit 2;
+  }
+  # The original D07 NO_GOAL WSLg success scoped Mesa D3D12 ONLY to
+  # the GUI children. Do not inherit GPU renderer override into the
+  # Gazebo physics/sensor server or ROS safety nodes.
+  if [[ "$OWNER_MOVING" == 1 ]];then
+    case "${AXIA_G07_TASK04_GUI_D3D12_ADAPTER:-}" in
+      NVIDIA|Intel) ;;
+      *) echo 'G07_TASK04_GUI_D3D12_ADAPTER_NOT_VERIFIED_NO_GOAL' >&2;exit 2 ;;
+    esac
+    setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
+      MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
+      gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+    MOVING_GAZEBO_GUI_PID=$!
+    setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
+      MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
+      rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
+    MOVING_RVIZ_PID=$!
+  else
+    # Preserve the already L2-verified Xvfb/llvmpipe client process flow.
+    setsid nice -n 10 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+    MOVING_GAZEBO_GUI_PID=$!
+    setsid nice -n 10 rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
+    MOVING_RVIZ_PID=$!
+  fi
+  sleep 3
+  kill -0 "$MOVING_GAZEBO_GUI_PID" "$MOVING_RVIZ_PID" 2>/dev/null || {
+    echo 'G07_TASK04_GUI_CLIENT_DIED_BEFORE_GOAL' >&2;exit 2;
+  }
+  echo 'AXIA_G07_TASK04_GAZEBO_SERVER_SINGLE_GUI_CLIENTS_ATTACHED'
+fi
 # New G07 shutdown-only regression: reuse the staged REAL Gazebo/Nav2
 # no-Goal session, avoid re-running the previously successful moving L2.
 # Explicit public Actions-only admission; never use this shortcut on Owner.
@@ -648,54 +776,38 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   exit 0
 fi
 
-# Isolated GitHub Actions SIMULATION-ONLY moving Goal, unrelated to Owner L3.
-# The existing Owner runner *still* requires its controlling TTY; this branch
-# is never reachable in Owner WSL2 or ordinary no-Goal smoke runs.
-if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 ]]; then
-  [[ "${GITHUB_ACTIONS:-}" == true
+# Owner Moving reuses the unchanged public-CI physical scenario.
+# CI authority and Owner controlling-TTY authority never overlap.
+if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
+  [[ ( ( "${GITHUB_ACTIONS:-}" == true
+          && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+          && "$OWNER_MOVING" == 0 )
+        || ( "${GITHUB_ACTIONS:-}" != true
+             && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1
+             && "$OWNER_MOVING" == 1
+             && -t 0 && -r /dev/tty ) )
      && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
      && "${AXIA_P0_SIM_ONLY:-0}" == 1 ]] || {
     echo 'AXIA_G07_CI_MOVING_GOAL_SCOPE_NOT_AUTHORIZED' >&2
     exit 2
   }
-  # Confirm the real lifecycle node loaded the G07-only window from its
-  # generated Nav2 parameters BEFORE issuing any moving Goal. A static YAML
-  # unit test alone cannot establish this runtime delivery contract.
-  CM_ZERO_PARAM="$(timeout 12s ros2 param get /collision_monitor stop_pub_timeout)" || {
-    echo 'AXIA_G07_CI_REAL_CM_ZERO_PARAM_READBACK_FAILED' >&2
-    exit 2
-  }
-  printf '%s\n' "$CM_ZERO_PARAM"
-  if ! python3 -c 'import re,sys; s=sys.stdin.read(); assert re.search(r"(?m)(?:Double value is:|Double value:)\s*5(?:\.0+)?\s*$",s), "CM_STOP_ZERO_WINDOW_NOT_FIVE_SEC"' <<< "$CM_ZERO_PARAM"; then
-    echo 'AXIA_G07_CI_REAL_CM_ZERO_PARAM_MISMATCH_NO_GOAL' >&2
+  # Verify the FOUR actual Collision Monitor parameters via ONE bounded
+  # native rclpy GetParameters request. Native #44263077295: first separate
+  # ros2 param CLI replied, the second new DDS CLI participant timed out.
+  # Never infer a live parameter from YAML or relax safety timing limits.
+  CM_GATE_ARGS=()
+  if [[ "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1 ]];then
+    CM_GATE_ARGS+=(--require-simple-tf)
+  fi
+  if ! timeout --signal=TERM --kill-after=2s 18s \
+       python3 tools/p2_g07_cm_active_param_readback.py \
+         --output "$OUT/g07_active_cm_native_parameters.json" \
+         "${CM_GATE_ARGS[@]}" > "$OUT/g07_active_cm_native_parameters.log" 2>&1;then
+    cat "$OUT/g07_active_cm_native_parameters.log" >&2 || true
+    echo 'AXIA_G07_TASK04_FIRST_FAILURE=CM_NATIVE_ACTIVE_PARAM_PREGOAL_BLOCKED' >&2
     exit 2
   fi
-  echo 'AXIA_G07_CI_REAL_CM_STOP_ZERO_WINDOW_5S_GUARD_TTL_150MS_UNCHANGED'
-  # Task02 CI-only: read back the active official CM simple-TF option.
-  # Reject any missing runtime override BEFORE publishing a real Goal.
-  if [[ "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1 ]]; then
-    TF_SHIFT="$(timeout 12s ros2 param get /collision_monitor base_shift_correction)" || {
-      echo 'AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_PARAM_MISSING_NO_GOAL' >&2;exit 2;
-    }
-    TF_TIMEOUT="$(timeout 12s ros2 param get /collision_monitor transform_tolerance)" || {
-      echo 'AXIA_G07_TASK02_SIMPLE_TF_TIMEOUT_READBACK_MISSING_NO_GOAL' >&2;exit 2;
-    }
-    TF_SOURCE="$(timeout 12s ros2 param get /collision_monitor source_timeout)" || {
-      echo 'AXIA_G07_TASK02_SIMPLE_TF_SOURCE_TIMEOUT_MISSING_NO_GOAL' >&2;exit 2;
-    }
-    if ! python3 - "$TF_SHIFT" "$TF_TIMEOUT" "$TF_SOURCE" <<'PY'
-import sys
-shift,tol,source=(x.strip() for x in sys.argv[1:])
-assert shift.startswith('Boolean value') and shift.rsplit(':',1)[-1].strip().lower()=='false'
-assert tol.startswith('Double value') and abs(float(tol.rsplit(':',1)[-1])-0.2)<1e-9
-assert source.startswith('Double value') and abs(float(source.rsplit(':',1)[-1])-1.0)<1e-9
-PY
-    then
-      echo 'AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_SAFETY_READBACK_MISMATCH_NO_GOAL' >&2
-      exit 2
-    fi
-    echo 'AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_READBACK_PASS SHIFT_FALSE TF_TOL_0.2 SOURCE_TIMEOUT_1.0 GUARD_150MS_UNCHANGED'
-  fi
+  cat "$OUT/g07_active_cm_native_parameters.log"
   echo 'AXIA_G07_CI_MOVING_GOAL_PREG0AL_NATIVE_FIXTURE_BEGIN'
   timeout --signal=TERM --kill-after=5s 70s \
     python3 tools/p2_g07_owner_pregoal_l2.py --output "$OUT/g07_ci_pregoal" \
@@ -706,6 +818,28 @@ PY
   }
   cat "$OUT/g07_ci_pregoal.log"
   EXPECTED_CI_SHA="$(git -c safe.directory="$ROOT" rev-parse HEAD)"
+
+  # Task03 disposable ECM positive calibration only. A real Gazebo
+  # obstacle/robot contact is deliberately introduced with NO ROS Goal;
+  # this world is destroyed before the independent moving-Goal run.
+  if [[ "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" == 1 ]]; then
+    [[ "${GITHUB_ACTIONS:-}" == true
+       && "${AXIA_P0_SIM_ONLY:-0}" == 1
+       && "${AXIA_G07_TASK03_ECM_WITNESS:-0}" == 1
+       && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+       && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+       && "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1 ]] || {
+      echo 'AXIA_G07_TASK03_POSITIVE_SCOPE_NOT_AUTHORIZED_NO_GOAL' >&2; exit 2;
+    }
+    timeout --signal=TERM --kill-after=5s 40s python3 tools/p2_g07_task03_ecm_positive.py \
+      --source-sha "$EXPECTED_CI_SHA" \
+      --startup "$OUT/startup_verdict.json" \
+      --pregoal "$OUT/g07_ci_pregoal/owner_pregoal_l2.json" || {
+      echo 'AXIA_G07_TASK03_ECM_POSITIVE_CALIBRATION_FAILED_NO_GOAL' >&2; exit 2;
+    }
+    echo 'AXIA_G07_TASK03_NO_GOAL_POSITIVE_CONTROL_COMPLETE_DISCARD_WORLD'
+    exit 0
+  fi
 
   # D07 H01 optional read-only ROS/Gazebo callback timing. NO moving Goal.
   # Callback gaps are NOT causal CM→Guard delivery or ROS sensor header proof.
@@ -911,12 +1045,39 @@ PY
     echo 'AXIA_P3_S05_ACTUAL_GAZEBO_SW_STOP_SCOPED_CANDIDATE_FORMAL_HOLD'
     exit 0
   fi
+  # The real Owner shell must read the exact consent phrase from /dev/tty.
+  # The single Goal is sent later by the existing Python Supervisor path.
+  OWNER_GOAL_ARGS=()
+  if [[ "$OWNER_MOVING" == 1 ]];then
+    [[ -n "${AXIA_G07_TASK04_EXPECTED_STUDENT_SHA:-}"
+       && "$EXPECTED_CI_SHA" == "$AXIA_G07_TASK04_EXPECTED_STUDENT_SHA"
+       && "$EXPECTED_CI_SHA" =~ ^[a-f0-9]{40}$ ]] || {
+      echo 'G07_TASK04_OWNER_EXACT_SHA_PREGOAL_BLOCKED' >&2;exit 2;
+    }
+    [[ -t 0 && -r /dev/tty ]] || {
+      echo 'G07_TASK04_OWNER_CONTROLLING_TTY_MISSING' >&2;exit 2;
+    }
+    printf '%s\n' 'Simulation-only Moving Goal: type YES-P2-G07-GOAL to approve exactly one Goal:' > /dev/tty
+    owner_answer=''
+    IFS= read -r -t 180 owner_answer < /dev/tty || {
+      echo 'G07_TASK04_OWNER_TTY_APPROVAL_TIMEOUT_OR_EOF_NO_GOAL' >&2;exit 2;
+    }
+    [[ "$owner_answer" == 'YES-P2-G07-GOAL' ]] || {
+      echo 'G07_TASK04_OWNER_GOAL_DENIED_BY_TTY_NO_GOAL' >&2;exit 2;
+    }
+    unset owner_answer
+    export AXIA_G07_OWNER_COMMON_RUNNER_AUTHORIZED=1
+    export AXIA_P2_OWNER_PINNED_SHA="$EXPECTED_CI_SHA"
+    OWNER_GOAL_ARGS=(--owner-launch-pid "$LAUNCH_PID")
+    echo 'AXIA_G07_TASK04_OWNER_MANUAL_CONTROLLING_TTY_GOAL_CONSENT_PASS'
+  fi
   timeout --signal=TERM --kill-after=7s 132s \
     python3 tools/p2_g07_ci_moving_goal.py \
       --startup "$OUT/startup_verdict.json" \
       --pregoal "$OUT/g07_ci_pregoal/owner_pregoal_l2.json" \
       --source-sha "$EXPECTED_CI_SHA" \
       --output "$OUT/g07_ci_moving" \
+      "${OWNER_GOAL_ARGS[@]}" \
     > "$OUT/g07_ci_moving.log" 2>&1 || {
     tail -n 100 "$OUT/g07_ci_moving.log" >&2 || true
     echo 'AXIA_G07_CI_MOVING_GOAL_ACTUAL_NAV2_BLOCKED' >&2

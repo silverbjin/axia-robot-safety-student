@@ -27,6 +27,7 @@ def authorized():
     return {"GITHUB_ACTIONS":"true","AXIA_P0_SIM_ONLY":"1",
      "AXIA_G07_CI_SIM_GOAL_ALLOWED":"1",
      "AXIA_G07_OWNER_STARTUP_PARITY":"1",
+     "AXIA_P2_G07_PHYSICAL_PREFLIGHT":"1",
      "AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE":"1"}
 
 
@@ -56,6 +57,30 @@ class OneSimpleTfCandidate(unittest.TestCase):
             with self.subTest(key=key),self.assertRaises(ValueError):
                 module.apply_g07_task02_simple_tf_candidate(x,e)
             self.assertIs(x["collision_monitor"]["ros__parameters"]["base_shift_correction"],True)
+
+    def test_owner_manual_sim_parity_without_ci_goal_spoof(self):
+        owner={"GITHUB_ACTIONS":"false","AXIA_P0_SIM_ONLY":"1",
+               "AXIA_G07_CI_SIM_GOAL_ALLOWED":"0",
+               "AXIA_G07_OWNER_STARTUP_PARITY":"1",
+               "AXIA_P2_G07_PHYSICAL_PREFLIGHT":"1",
+               "AXIA_P2_G07_RELOCATED_OBSTACLE":"1",
+               "AXIA_G07_TASK04_OWNER_MOVING_L3":"1",
+               "AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE":"1"}
+        x=cfg()
+        self.assertTrue(module.apply_g07_task02_simple_tf_candidate(x,owner))
+        self.assertIs(x["collision_monitor"]["ros__parameters"]["base_shift_correction"],False)
+        for key in ("AXIA_P0_SIM_ONLY", "AXIA_G07_OWNER_STARTUP_PARITY",
+                    "AXIA_P2_G07_RELOCATED_OBSTACLE",
+                    "AXIA_G07_TASK04_OWNER_MOVING_L3",
+                    "AXIA_P2_G07_PHYSICAL_PREFLIGHT"):
+            bad=dict(owner);bad.pop(key)
+            with self.subTest(key=key),self.assertRaises(ValueError):
+                module.apply_g07_task02_simple_tf_candidate(cfg(),bad)
+        for update in ({"GITHUB_ACTIONS":"true"},
+                       {"AXIA_G07_CI_SIM_GOAL_ALLOWED":"1"}):
+            bad={**owner,**update}
+            with self.subTest(update=update),self.assertRaises(ValueError):
+                module.apply_g07_task02_simple_tf_candidate(cfg(),bad)
 
     def test_source_timeout_and_polygon_geometry_cannot_be_weakened(self):
         for key,value in (("transform_tolerance",.02),("source_timeout",0.0),
