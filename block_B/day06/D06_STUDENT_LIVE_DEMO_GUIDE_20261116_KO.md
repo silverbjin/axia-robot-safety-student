@@ -18,23 +18,28 @@ PC 간 ROS_DOMAIN_ID는 자동 공유되지 않는다. 강사의 G07은 LOCALHOS
 
 ## 2. 학생 터미널 A — 독립 Gazebo Live 원샷 (수업 전 준비 권장)
 
-요구 환경: WSL2 Ubuntu 24.04, ROS 2 Jazzy, Gazebo Harmonic, WSLg. 학생용 공개 D05 Gazebo Live의 기존 검증 소스 SHA `1c03c9bfb4b41e2726a7c1d2f47d65496bdaa474`를 고정하고 별도 폴더를 사용한다. 처음 실행 때 공개 YOLO/모델 의존성 다운로드·빌드가 발생할 수 있다.
+요구 환경: WSL2 Ubuntu 24.04, ROS 2 Jazzy, Gazebo Harmonic, WSLg. 학생용 공개 저장소의 현재 `main`을 별도 폴더에 복제하거나 fast-forward로 갱신한다. 기존 실기 SHA는 과거 증거이며 이번 실행 결과로 승계하지 않는다. 처음 실행 때 공개 YOLO/모델 의존성 다운로드·빌드가 발생할 수 있다.
 
 ~~~bash
 (
   set -Eeuo pipefail
-  SHA="1c03c9bfb4b41e2726a7c1d2f47d65496bdaa474"
-  LAB="$HOME/axia_d06_student_gazebo_live"
-  if [[ ! -e "$LAB" ]]; then
-    git clone --quiet --no-checkout \
+  LAB="$HOME/axia_d06_student_gazebo_live_main"
+  BRANCH="main"
+  if [[ -e "$LAB" ]]; then
+    git -C "$LAB" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+      echo "D06_STUDENT_DEMO_DIRECTORY_NOT_GIT"; exit 2; }
+    [[ "$(git -C "$LAB" branch --show-current)" == "$BRANCH" ]] || {
+      echo "D06_STUDENT_EXISTING_BRANCH_PRESERVED"; exit 2; }
+    [[ -z "$(git -C "$LAB" status --porcelain --untracked-files=no)" ]] || {
+      echo "D06_STUDENT_LOCAL_CHANGES_PRESERVED"; exit 2; }
+    git -C "$LAB" fetch origin main
+    git -C "$LAB" merge --ff-only FETCH_HEAD
+  else
+    git clone --single-branch --branch main \
       https://github.com/silverbjin/axia-robot-safety-student.git "$LAB"
   fi
-  test -d "$LAB/.git"
-  git -C "$LAB" fetch --quiet --depth 1 origin "$SHA"
-  git -C "$LAB" checkout --quiet --detach "$SHA"
-  test "$(git -C "$LAB" rev-parse HEAD)" = "$SHA"
-  test -z "$(git -C "$LAB" status --porcelain --untracked-files=no)"
   cd "$LAB"
+  echo "D06_STUDENT_MAIN_SOURCE_SHA=$(git rev-parse HEAD)"
   AXIA_D05_LIVE=1 bash block_B/day04/run_student_gazebo_yolo_once.sh --self-check
   AXIA_D05_LIVE=1 AXIA_D05_SENSOR_ONLY=1 \
     AXIA_D04_STUDENT_GUI=1 AXIA_D04_STUDENT_DOMAIN_ID=49 \
