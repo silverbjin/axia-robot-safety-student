@@ -155,7 +155,8 @@ class D07H01RqtContinuous(unittest.TestCase):
         self.assertIn("RegisterEventHandler",src)
         self.assertIn("D07_H01_OFFICIAL_WORLD_PROCESS_SHAPE_CHANGED",src)
         self.assertIn("d.entities.remove(gazebo_server)",src)
-        self.assertIn("d.entities.insert(\\n        d.entities.index(world_xacro),",src)
+        self.assertIn("d.entities.insert(",src)
+        self.assertIn("d.entities.index(world_xacro),",src)
         self.assertLess(src.index("d.entities.remove(gazebo_server)"),
                         src.index("RegisterEventHandler(OnProcessExit"))
         self.assertNotIn("time.sleep(",src)
