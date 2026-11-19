@@ -30,7 +30,7 @@ def _local_public_git(tmp_path):
     runner.parent.mkdir(parents=True)
     runner.write_text(
         '#!/usr/bin/env bash\n'
-        'printf "mode=%s d05=%s\\n" "$1" "\${AXIA_D05_LIVE:-0}" >> "$AXIA_TEST_TRACE"\n',
+        'printf "mode=%s d05=%s\\n" "$1" "${AXIA_D05_LIVE:-0}" >> "$AXIA_TEST_TRACE"\n',
         encoding="utf-8",
     )
     _cmd("git", "add", ".", cwd=work)
