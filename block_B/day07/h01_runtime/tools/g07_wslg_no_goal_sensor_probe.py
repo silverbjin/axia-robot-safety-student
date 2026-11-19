@@ -146,6 +146,26 @@ def correlate_first_raw_gap(records):
     return result
 
 
+def first_receipt_breach_pair(rows):
+    """Only the first raw/safety host 300ms breach, with exact ROS source stamp.
+
+    Preserve original sensor verdict; no logging of all LaserScan ranges.
+    """
+    for a,b in zip(rows,rows[1:]):
+        delta=b["recv"]-a["recv"]
+        if delta>SCAN_TTL_SEC:
+            def sample(x):
+                return {
+                    "host_monotonic_sec":round(float(x["recv"]),6),
+                    "source_stamp_ns":int(x.get("stamp_ns",round(x["stamp"]*1e9))),
+                }
+            return {
+                "before":sample(a),"after":sample(b),
+                "gap_sec":round(delta,6),
+            }
+    return None
+
+
 def assess_window(records):
     """Fail closed using host callback RECEIPT, not mixed simulation/header time.
 
@@ -203,6 +223,11 @@ def assess_window(records):
         "status": "NO_GOAL_SENSOR_WINDOW_CLEAR_CANDIDATE" if not reasons else "NO_GOAL_SENSOR_UNSAFE_HOLD",
         "reasons": list(dict.fromkeys(reasons)),
         "metrics": metrics,
+        "scan_receipts_compact": {
+            "schema":"axia.g07.first_ttl_host_pair.v1",
+            "raw":first_receipt_breach_pair(raw),
+            "safety":first_receipt_breach_pair(safe),
+        },
         "odom_count": len(odom),
         "clock_count": len(clock),
         "scan_ttl_limit_sec": SCAN_TTL_SEC,
@@ -259,6 +284,7 @@ def run(out, duration):
             first_scan_at = now
         near, beams = near_ring_fraction(msg)
         records[kind].append({"recv": now, "stamp": stamp,
+                               "stamp_ns":int(msg.header.stamp.sec)*1000000000+int(msg.header.stamp.nanosec),
                               "front": min(front), "side": side,
                               "near": near, "beams": beams})
 
