@@ -486,6 +486,8 @@ def run(args):
             # The exact active Goal UUID is canceled immediately AFTER real
             # STOP and >=1s odom ZERO, BEFORE a diagnostic TTL oracle can
             # raise and skip cleanup. Retain the original strict TTL gate.
+            report["goal_cancel_attempted"]=True
+            save()
             task03_goal=_task03_exact_goal_terminal(node,obs,goal_uuid)
             report.update(goal_cancel_ack=True,goal_cancel_uuid=goal_uuid,
                           goal_cancel_status=5,
@@ -622,7 +624,9 @@ def run(args):
         report["best_effort_cancel_attempted"]=False
         # If an authorized single Goal remains active, try its EXACT UUID
         # once. No synthetic ACK, new Goal, cmd_vel or safety rearm.
-        if report.get("goal_sent") is True and report.get("goal_cancel_ack") is not True:
+        if (report.get("goal_sent") is True
+                and report.get("goal_cancel_attempted") is not True
+                and report.get("goal_cancel_ack") is not True):
             live=obs.data()
             identifier=report.get("goal_uuid")
             status=(live.get("goals") or {}).get(identifier)
@@ -630,6 +634,8 @@ def run(args):
             if (isinstance(identifier,str) and len(identifier)==32
                     and status==2 and guard_latched is False):
                 report["best_effort_cancel_attempted"]=True
+                report["goal_cancel_attempted"]=True
+                save()
                 try:
                     audit=_task03_exact_goal_terminal(node,obs,identifier)
                     report.update(goal_cancel_ack=True,goal_cancel_uuid=identifier,
