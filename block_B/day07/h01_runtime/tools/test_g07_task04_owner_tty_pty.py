@@ -93,6 +93,34 @@ class ConsentPTY(unittest.TestCase):
         self.assertNotIn('read -r -t 180 owner_answer',s)
         self.assertIn('AXIA_G07_TASK04_OWNER_MANUAL_CONTROLLING_TTY_GOAL_CONSENT_PASS',s)
 
+    def test_post_consent_real_sensor_ttl_and_guard_latch_are_fail_closed(self):
+        import ast
+        import math
+        src=(HERE/"p2_g07_ci_moving_goal.py").read_text()
+        root=ast.parse(src)
+        defs=[n for n in root.body if isinstance(n,ast.FunctionDef)
+              and n.name in ("_fresh","_pre_goal_safety_fresh")]
+        self.assertEqual({x.name for x in defs},
+                         {"_fresh","_pre_goal_safety_fresh"})
+        namespace={"math":math}
+        exec(compile(ast.Module(body=defs,type_ignores=[]),
+                     "p2_g07_ci_moving_goal.py","exec"),namespace)
+        fn=namespace["_pre_goal_safety_fresh"]
+        snap={"mono":10.0,"clock_advancing":True,
+              "scan_at":9.91,"odom_at":9.92,
+              "guard_at":9.93,"clock_at":9.90}
+        data={"scan":1.5,"guard":{"latched":False}}
+        self.assertTrue(fn(snap,data))
+        for key in ("scan","odom","guard","clock"):
+            stale=dict(snap)
+            stale[key+"_at"]=9.6
+            with self.subTest(topic=key):
+                self.assertIsNone(fn(stale,data))
+        self.assertIsNone(fn(dict(snap,clock_advancing=False),data))
+        self.assertIsNone(fn(snap,dict(data,guard={"latched":True})))
+        self.assertIsNone(fn(snap,dict(data,scan=float("nan"))))
+        self.assertIsNone(fn(snap,dict(data,scan=.10)))
+
     def test_goal_requires_fresh_post_consent_observer_data(self):
         s=(HERE/"p2_g07_ci_moving_goal.py").read_text()
         self.assertIn("def _pre_goal_safety_fresh(",s)
