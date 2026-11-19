@@ -36,3 +36,22 @@
 - Public CI 엄격 인수 게이트(센서 TTL PASS+20초+CM0+gz0) 보강 실행은 별도 결과로 추적합니다.
 
 **검증 소스 기준**: 학생용 런타임 소스 `f1f5d932de831d3dabedf9a44a5fa27cf5705f42`. 학생 브랜치 `fix/g07-nogoal-ordered-cm-shutdown-20261119`, 공개 CI 브랜치 `fix/d06-wslg-lidar-vs-rtf-ci-20261118`. 두 저장소 모두 main 미병합. SW STOP은 인증된 E-Stop이 아닙니다.
+
+
+---
+
+## 5. 추가 실제 오류 — 계측 프로세스와 Nav2 종료 요청의 경합
+
+[엄격 실제 CI #44459901466](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44459901466)은 Raw/Safety 본시험에 문제가 없는데도 `Navigation ManageLifecycleNodes SHUTDOWN SERVICE_TIMEOUT`, Collision Monitor `exit -11`으로 FAIL하였다. 최초 오류를 먼저 보면 **두 개의 독립 read-only Scan 진단 노드가 Nav2 종료 서비스와 동시에 계속 실행되는 경계**가 확인된다. 이것이 SIGSEGV의 직접 원인임을 stack trace로 입증하지는 못했으며, 우선 **프로세스 수명 경합 가설**로 한정한다.
+
+승인된 MVP 원칙에 따라 공식 Nav2/CM/Waffle/Gazebo source는 수정하지 않는다. `scripts/p2_no_goal_smoke_ci.sh`에 NO_GOAL + 공식 Nav2 ordered-shutdown 전용 **`AXIA_G07_NO_GOAL_WITNESS_HANDOFF=1`** 조건부 증거 핸드오프를 추가했다. 학생 probe가 양쪽 토픽 20초 Scan300 검사를 완료하면 `g07_witness_probe_complete.signal`을 기록하고, CI 또는 Owner wrapper가 소유한 두 별도 구독 프로세스에 종료 요청을 전달해 실제 exit0를 기다린다. 두 PID가 모두 정상 종료된 사실을 확인한 후 `g07_witness_stopped.ack`에 `G07_READONLY_WITNESSES_STOPPED`를 기록한다. 그 ACK가 없으면 fail-closed, Goal 없음. 이후 기존 공식 navigation→localization shutdown 및 Gazebo WorldControl pause, launch SIGINT 경로를 재사용한다.
+
+### 실제 GREEN 증거
+
+- [#44461092763](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44461092763): Raw 최대142.175ms/192개, Safety 최대141.016ms/191개·CLEAR191/191, 이중 토픽 20.005초, Navigation+Localization ACK, CM exit0, Gazebo server exit0, RViz/Gazebo GUI 창 모두 확인.
+- [#44461627846](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44461627846): 독립 cold-run Raw 최대127.526ms/196개, Safety 최대125.545ms/196개·CLEAR196/196, 이중 토픽 20.003초, 두 observer stop 증거, Nav2 ACK, CM exit0, Gazebo server exit0. 두 실행 모두 Goal/Twist 신규 발행 없음.
+- 공개 CI L0 [#44462067138](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44462067138): 71개 모의/순수 파이썬 계약 PASS. GitHub 원본 아티팩트 2개에서 JSON 및 실제 child exit log 검증.
+
+**기준 소스 커밋:** `8e19742fd7bd80db73a37dc7b1d798768dc33e2a`, 학생 smoke blob `9cb5baf6c766a79cf6fd5134707981e32bb23e85`. Classroom 기본 실행에는 opt-in 조건이 없으므로 종료 핸드오프 기능이 개입하지 않는다. 학생 정답으로 인증된 EStop을 주장하지 않는다.
+
+**인수 미완료:** 강사 Windows11/WSL2/WSLg NVIDIA 실제 `--nvidia-causal` 실행은 아직 안 했으므로 이 공개 L2를 L3라고 보고하지 않는다. Moving Goal/CM120/Guard150과 전체 데모 데이터 전달 안전 TTL은 별도, CI+현장 검증 범위 명시 전까지 `AXIA_MVP_DEMO_ACCEPTED=HOLD`. main 미병합.
