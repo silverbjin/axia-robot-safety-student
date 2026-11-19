@@ -24,6 +24,9 @@ from p2_g07_ci_stop_stage import plan_stop_fixture
 from p2_l3_acceptance_contract import zone_phase_sample
 from p2_g07_ci_moving_goal_oracle import assess, first_delivery_breach, first_pre_latch_delivery_timing, guard_cm_receive_skew, post_stop_odom_zero_dwell
 
+# G07 classroom only: improve visible cruise before moving the same fixture.
+CLEAR_MIN_TRAVEL_M = 0.12
+
 def _require_ci_only(expected_sha):
     assert os.environ.get("GITHUB_ACTIONS")=="true", "NOT_PUBLIC_GITHUB_ACTIONS"
     assert os.environ.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1", "NO_SCOPED_SIM_GOAL_OPT_IN"
@@ -379,18 +382,48 @@ def run(args):
         report["goal_uuid"]=goal_uuid
         report["same_goal_executing_after_clear"]=True
         print("AXIA_G07_PUBLIC_CI_ACTUAL_NAV2_GOAL_EXECUTING "+goal_uuid,flush=True)
+        # Real odom displacement, not elapsed sleep or a fabricated /scan.
+        # The same authorized Goal stays EXECUTING and all safety streams
+        # must still be fresh while showing a longer CLEAR cruise.
+        def clear_motion_ready(s,d):
+            pose=d.get("pose")
+            if (s.get("action_status")!=2
+                    or not isinstance(pose,(tuple,list)) or len(pose)!=3
+                    or any(type(v) not in (int,float) or not math.isfinite(v)
+                           for v in pose)
+                    or s.get("guard",{}).get("latched") is not False
+                    or _fresh(s,("scan","odom","guard","clock",
+                                 "supervised","pre_guard","final")) is None
+                    or not isinstance(d.get("scan"),(float,int))
+                    or d["scan"]<=.75):
+                return None
+            distance=math.hypot(pose[0]-start_pose[0],pose[1]-start_pose[1])
+            return distance if distance>=CLEAR_MIN_TRAVEL_M else None
+        clear_travel=wait(clear_motion_ready,8,"CLEAR_DISTANCE")
+        report["clear_odom_travel_m"]=round(clear_travel,6)
+        print("AXIA_G07_MVP_VISIBLE_CLEAR_ODOM_CONFIRMED "+
+              json.dumps({"distance_m":clear_travel,
+                          "required_m":CLEAR_MIN_TRAVEL_M}),flush=True)
+        save()
         # Keep the original pre-Goal side/LiDAR proof, then move that same
         # physical cylinder into the visible SLOW sector. No synthetic Scan.
         slow_target=obstacle_world_pose(
             world_anchor,obs.data().get("pose"),.62,.07,demo_corridor=True)
+        slow_request_started=time.monotonic()
+        report["slow_native_request_started_monotonic"]=slow_request_started
         slow_ack=move_ci_verified(*slow_target,sim_env=os.environ,
             pregoal_native_verified=(pregoal.get("native_set_pose_ack") is True),
             owner_admitted=(owner_scope is not None))
+        slow_ack_at=time.monotonic()
         (args.output/"ci_slow_native_gazebo_set_pose_ack.log").write_text(slow_ack)
-        report.update(slow_native_set_pose_ack=True,slow_world_xy=list(slow_target))
+        report.update(slow_native_set_pose_ack=True,slow_world_xy=list(slow_target),
+                      slow_native_ack_at_monotonic=slow_ack_at,
+                      slow_native_service_duration_sec=round(
+                          slow_ack_at-slow_request_started,6))
         print("AXIA_G07_MVP_SLOW_PHYSICAL_FIXTURE_ACK "+
-              json.dumps({"world_xy":slow_target,"surface_m":.62},
-                         sort_keys=True),flush=True)
+              json.dumps({"world_xy":slow_target,"surface_m":.62,
+                          "request_started_monotonic":slow_request_started,
+                          "ack_at_monotonic":slow_ack_at},sort_keys=True),flush=True)
         save()
         rows["slow"]=wait(phase("slow"),35,"SLOW")
         report["slow"]=rows["slow"]
@@ -450,6 +483,14 @@ def run(args):
             if not owner_mode and os.environ.get("AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE")!="1":
                 raise RuntimeError("TASK03_PUBLIC_SIM_ONLY_CANDIDATE_REQUIRED")
             obs._write("task03_motion_window_end",at=t1)
+            # The exact active Goal UUID is canceled immediately AFTER real
+            # STOP and >=1s odom ZERO, BEFORE a diagnostic TTL oracle can
+            # raise and skip cleanup. Retain the original strict TTL gate.
+            task03_goal=_task03_exact_goal_terminal(node,obs,goal_uuid)
+            report.update(goal_cancel_ack=True,goal_cancel_uuid=goal_uuid,
+                          goal_cancel_status=5,
+                          task03_exact_goal_terminal=task03_goal)
+            save()
         # Complete read-only host-monotonic callback evidence through t1
         # before assessing required delivery intervals. Owner mode still
         # line-flushes every event; CI buffered evidence flushes once here.
@@ -553,12 +594,6 @@ def run(args):
                   "workers=2 buffered=true bounded_flush_sec=0.75 native_crash=false",
                   flush=True)
             save()
-        if owner_mode or os.environ.get("AXIA_G07_TASK03_FORMAL_CI")=="1":
-            task03_goal=_task03_exact_goal_terminal(node,obs,goal_uuid)
-            report.update(goal_cancel_ack=True,goal_cancel_uuid=goal_uuid,
-                          goal_cancel_status=5,
-                          task03_exact_goal_terminal=task03_goal)
-            save()
         if owner_mode:
             # CI safety verdict is reused verbatim, but never claim an
             # accepted Owner L3 or hardware E-Stop from one demo run.
@@ -582,6 +617,34 @@ def run(args):
                   +" OWNER_L3_NOT_RUN CERTIFIED_ESTOP=false",flush=True)
         return 0
     except Exception as exc:
+        # Do not conceal the original failure with cleanup diagnostics.
+        report["first_failure_preserved"]=type(exc).__name__+":"+str(exc)[:220]
+        report["best_effort_cancel_attempted"]=False
+        # If an authorized single Goal remains active, try its EXACT UUID
+        # once. No synthetic ACK, new Goal, cmd_vel or safety rearm.
+        if report.get("goal_sent") is True and report.get("goal_cancel_ack") is not True:
+            live=obs.data()
+            identifier=report.get("goal_uuid")
+            status=(live.get("goals") or {}).get(identifier)
+            guard_latched=(live.get("guard") or {}).get("latched")
+            if (isinstance(identifier,str) and len(identifier)==32
+                    and status==2 and guard_latched is False):
+                report["best_effort_cancel_attempted"]=True
+                try:
+                    audit=_task03_exact_goal_terminal(node,obs,identifier)
+                    report.update(goal_cancel_ack=True,goal_cancel_uuid=identifier,
+                                  goal_cancel_status=5,
+                                  best_effort_cancel_verified=True,
+                                  task03_exact_goal_terminal=audit)
+                    print("AXIA_G07_MVP_EXCEPTION_EXACT_UUID_CANCEL_VERIFIED",
+                          flush=True)
+                except Exception as cancel_exc:
+                    report["best_effort_cancel_failure"]=(
+                        type(cancel_exc).__name__+":"+str(cancel_exc)[:120])
+                    print("AXIA_G07_MVP_EXCEPTION_EXACT_UUID_CANCEL_HOLD "+
+                          type(cancel_exc).__name__,flush=True)
+            else:
+                report["best_effort_cancel_failure"]="NOT_ACTIVE_OR_SAFE_TO_CANCEL"
         # Preserve all callback records before classifying earliest real
         # Guard/CM/FSM timing failure; do not imply a buffered PASS.
         obs.flush_events()
