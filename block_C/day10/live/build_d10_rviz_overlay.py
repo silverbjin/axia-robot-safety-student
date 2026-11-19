@@ -27,10 +27,12 @@ ANCHOR = "  Enabled: true\n  Global Options:\n"
 def build_profile(d08_profile: str) -> str:
     if d08_profile.count(ANCHOR) != 1:
         raise ValueError("D10_RVIZ_BASE_STRUCTURE_CHANGED")
-    for topic in ("/scan", "/odom", "/tf", "/axia/d05/rgbd/image",
+    for topic in ("/scan", "/odom", "/axia/d05/rgbd/image",
                   "/axia/d05/rgbd/depth_image", "/yolo/cam0/debug_image"):
         if topic not in d08_profile:
             raise ValueError(f"D10_RVIZ_MISSING_BASE_TOPIC:{topic}")
+    if "rviz_default_plugins/TF" not in d08_profile:
+        raise ValueError("D10_RVIZ_MISSING_TF_DISPLAY")
     if "D10 SYNTHETIC IF" in d08_profile:
         raise ValueError("D10_RVIZ_ALREADY_OVERLAY")
     return d08_profile.replace(ANCHOR, MARKER_DISPLAY + ANCHOR, 1)
