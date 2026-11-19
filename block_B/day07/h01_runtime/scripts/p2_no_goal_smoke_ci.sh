@@ -17,6 +17,12 @@ SENSOR_NO_GOAL="${AXIA_G07_OWNER_SENSOR_TRUTH_NO_GOAL:-0}"
 [[ "$SENSOR_NO_GOAL" == 0 || "$SENSOR_NO_GOAL" == 1 ]] || exit 2
 NO_GOAL_ORDERED="${AXIA_G07_NO_GOAL_ORDERED_SHUTDOWN:-0}"
 NO_GOAL_GZ_PAUSE="${AXIA_G07_NO_GOAL_GZ_PAUSE_BEFORE_SIGINT:-0}"
+NO_GOAL_WITNESS_HANDOFF="${AXIA_G07_NO_GOAL_WITNESS_HANDOFF:-0}"
+[[ "$NO_GOAL_WITNESS_HANDOFF" == 0 || "$NO_GOAL_WITNESS_HANDOFF" == 1 ]] || exit 2
+if [[ "$NO_GOAL_WITNESS_HANDOFF" == 1 &&
+      ( "$NO_GOAL_ORDERED" != 1 || "$SENSOR_NO_GOAL" != 1 ) ]];then
+  echo G07_READONLY_WITNESS_HANDOFF_SCOPE_DENIED >&2;exit 2
+fi
 [[ "$NO_GOAL_GZ_PAUSE" == 0 || "$NO_GOAL_GZ_PAUSE" == 1 ]] || exit 2
 if [[ "$NO_GOAL_GZ_PAUSE" == 1
    && ( "$NO_GOAL_ORDERED" != 1 || "$SENSOR_NO_GOAL" != 1 ) ]];then
@@ -767,6 +773,26 @@ if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1
     echo 'G07_WSLG_SENSOR_GAZEBO_RVIZ_REAL_WINDOWS_READY_BEFORE_SCAN_NO_GOAL'
   fi
 fi
+witness_handoff_before_shutdown() {
+  # This synchronization is ONLY for two external read-only diagnostic
+  # processes. They must be stopped after the actual 20s probe and BEFORE
+  # official Nav2 lifecycle shutdown, otherwise their ROS/Gz subscriptions
+  # can compete with the lifecycle client while no Goal is being sent.
+  [[ "$NO_GOAL_WITNESS_HANDOFF" == 1 ]] || return 0
+  [[ "$NO_GOAL_ORDERED" == 1 && "$SENSOR_NO_GOAL" == 1 ]] || return 3
+  printf '%s\\n' 'G07_READONLY_SENSOR_PROBE_FINISHED' \\
+     > "$OUT/g07_witness_probe_complete.signal"
+  for ((witness_i=0;witness_i<120;witness_i++));do
+    if [[ -s "$OUT/g07_witness_stopped.ack" ]] &&
+       grep -Fxq 'G07_READONLY_WITNESSES_STOPPED' "$OUT/g07_witness_stopped.ack";then
+      echo 'G07_READONLY_WITNESS_HANDOFF_ACK_BEFORE_SHUTDOWN'
+      return 0
+    fi
+    sleep .1
+  done
+  echo 'G07_READONLY_WITNESS_HANDOFF_MISSING_HOLD' >&2
+  return 3
+}
 # Bounded Owner WSLg LiDAR truth: THE original G07 physical world, original
 # 10Hz Waffle profile, no D07 sensor noise overlay, no Gazebo pose change,
 # no Nav2 Goal and no CI/Owner Moving authority. Clean up only owned PIDs.
@@ -781,10 +807,12 @@ if [[ "$SENSOR_NO_GOAL" == 1 ]]; then
         --output "$OUT/g07_wslg_sensor_truth.json" \
         > "$OUT/g07_wslg_sensor_truth.log" 2>&1; then
     cat "$OUT/g07_wslg_sensor_truth.log"
+    witness_handoff_before_shutdown || exit 3
     echo 'G07_WSLG_NO_GOAL_SENSOR_WINDOW_CANDIDATE_NO_MOVING_ACCEPTANCE'
     exit 0
   else
     cat "$OUT/g07_wslg_sensor_truth.log" >&2 || true
+    witness_handoff_before_shutdown || exit 3
     echo 'G07_WSLG_NO_GOAL_SENSOR_UNSAFE_HOLD' >&2
     exit 3
   fi
