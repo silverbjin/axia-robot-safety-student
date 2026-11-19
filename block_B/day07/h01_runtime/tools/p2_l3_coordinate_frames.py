@@ -157,3 +157,38 @@ def verified_amcl_map_pose(frame_id, x, y, qx, qy, qz, qw):
             and abs(_angle(yaw))<.32):
         raise ValueError('AMCL_MAP_START_OUTSIDE_KNOWN_CORRIDOR')
     return (float(x),float(y),yaw)
+
+
+def verified_live_map_tf_pose(transform, *, clock_ns):
+    """Read-only Nav2/TF2 map->base_link alternative to late /amcl_pose.
+
+    Owner vJpsc6Wy had 832 actual map->odom and 2791 odom->base_footprint
+    TF messages, but the late Owner Observer received no /amcl_pose.
+    Reject old/future TF data and untrusted geometry. This helper NEVER
+    synthesizes a map transform from odometry or Gazebo world coordinates.
+    The 3s pre-Goal TF freshness is not a change to any safety TTL.
+    """
+    if type(clock_ns) is not int or clock_ns <= 0:
+        raise ValueError('G07_MAP_TF_CLOCK_INVALID')
+    try:
+        header=transform.header
+        child=transform.child_frame_id
+        stamp=header.stamp
+        stamp_sec=stamp.sec
+        stamp_nsec=stamp.nanosec
+        trans=transform.transform.translation
+        rot=transform.transform.rotation
+    except (AttributeError,TypeError) as exc:
+        raise ValueError('G07_MAP_TF_METADATA_MISSING') from exc
+    if header.frame_id!='map' or child!='base_link':
+        raise ValueError('G07_MAP_TF_FRAME_MISMATCH')
+    if (type(stamp_sec) is not int or type(stamp_nsec) is not int
+            or stamp_sec<0 or not 0<=stamp_nsec<1_000_000_000):
+        raise ValueError('G07_MAP_TF_STAMP_INVALID')
+    age_sec=(clock_ns-(stamp_sec*1_000_000_000+stamp_nsec))/1e9
+    # AMCL can publish map->odom slightly ahead of /clock by its official
+    # transform_tolerance; accept that bounded future skew only.
+    if not -1.5<=age_sec<=3.0:
+        raise ValueError('G07_MAP_TF_NOT_FRESH')
+    return verified_amcl_map_pose(
+        header.frame_id,trans.x,trans.y,rot.x,rot.y,rot.z,rot.w)
