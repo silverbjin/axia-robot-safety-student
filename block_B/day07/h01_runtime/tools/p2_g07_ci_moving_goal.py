@@ -17,7 +17,7 @@ import threading
 import time
 
 from p2_l3_live_session import Observer, _call_start, _publish_goal, _map_robot_pose
-from p2_l3_coordinate_frames import make_frame_anchor
+from p2_l3_coordinate_frames import make_frame_anchor, obstacle_world_pose
 from p2_g07_spawn_contract import official_tb3_spawn
 from p2_l3_gz_fixture import move_ci_verified
 from p2_g07_ci_stop_stage import plan_stop_fixture
@@ -311,15 +311,16 @@ def run(args):
         report["goal_sent"]=True
         save()
         print("AXIA_G07_PUBLIC_CI_SIMULATION_ONLY_ONE_SUPERVISOR_GOAL_SENT",flush=True)
-        wait(lambda s,d: s.get("goal_uuid") if
-             s.get("action_status")==2 and s.get("goal_uuid") is not None else None,
-             15,"ACTION_EXECUTING")
-        goal_uuid=obs.snapshot()["goal_uuid"]
-        report["goal_uuid"]=goal_uuid
-        print("AXIA_G07_PUBLIC_CI_ACTUAL_NAV2_GOAL_EXECUTING "+goal_uuid,flush=True)
+        # The Owner WSL2 action status arrived ~2s after real cruise began.
+        # Observe the real CLEAR motion before the delayed status callback.
         def phase(name):
             def check(s,d):
-                if s.get("action_status")!=2:return None
+                action_status=s.get("action_status")
+                if name=="clear":
+                    # One already-issued Goal; no prior command publisher.
+                    # Terminal statuses never admit a CLEAR observation.
+                    if action_status not in (None,1,2):return None
+                elif action_status!=2:return None
                 age=_fresh(s,("scan","supervised","pre_guard","final","odom","guard","clock"))
                 if age is None:return None
                 vin=s.get("supervised_speed")
@@ -362,50 +363,77 @@ def run(args):
                         "final_vx":final,"age_sec":age}
             return check
         rows={}
-        for name,secs in (("clear",8),("slow",35),("stop",40)):
-            rows[name]=wait(phase(name),secs,name.upper())
-            report[name]=rows[name]
-            report["goal_status_at_"+name]=2
-            print("AXIA_G07_PUBLIC_CI_MOVING_"+name.upper()+"_REAL_GAZEBO_LIDAR_CM_PASS "
-                  +json.dumps(rows[name],sort_keys=True),flush=True)
-            save()
-            if name=="slow":
-                # One simulation-only dynamic physical STOP intrusion. Real
-                # Nav2 previously turned away from the prepositioned cylinder
-                # (CI #42971453613, min front=0.6545m), never entering STOP.
-                # Keep Owner's controlling-TTY path and its explicit no-moving-
-                # set_pose policy unchanged. Never publish synthetic LaserScan.
-                snap=obs.snapshot()
-                stop_pre_move_front=obs.data().get("scan")
-                if not isinstance(stop_pre_move_front,(float,int)):
-                    raise RuntimeError("STOP_PREPOSITION_REAL_SCAN_MISSING")
-                target=plan_stop_fixture(
-                    world_anchor,obs.data().get("pose"),
-                    goal_status=snap.get("action_status"),
-                    guard_latched=snap.get("guard",{}).get("latched"),
-                    real_slow_observed=True)
-                native_request_started=time.monotonic()
-                ack=move_ci_verified(*target,sim_env=os.environ,
-                    pregoal_native_verified=(pregoal.get("native_set_pose_ack") is True),
-                    owner_admitted=(owner_scope is not None))
-                stop_ack_at=time.monotonic()
-                report["stop_native_service_duration_sec"]=round(
-                    stop_ack_at-native_request_started,6)
-                (args.output/"ci_stop_native_gazebo_set_pose_ack.log").write_text(ack)
-                report.update(
-                    stop_native_set_pose_ack=True,
-                    stop_world_xy=list(target),
-                    stop_pre_move_front_m=stop_pre_move_front)
-                save()
-                print("AXIA_G07_CI_MOVING_REAL_GAZEBO_STOP_INTRUSION_ACK "
-                      +json.dumps({"world_xy":target,
-                                  "pre_front_m":stop_pre_move_front,
-                                  "native_service_duration_sec":
-                                      report["stop_native_service_duration_sec"]},
-                                 sort_keys=True),flush=True)
-            if name=="stop":
-                report["stop_post_ack_distinct_ros_scan_count"]=len(distinct_stop_scans)
-                save()
+        rows["clear"]=wait(phase("clear"),8,"CLEAR")
+        report["clear"]=rows["clear"]
+        report["goal_status_at_clear"]=obs.snapshot().get("action_status")
+        report["clear_before_action_ack"]=(report["goal_status_at_clear"]!=2)
+        print("AXIA_G07_PUBLIC_CI_MOVING_CLEAR_REAL_GAZEBO_LIDAR_CM_PASS "+
+              json.dumps(rows["clear"],sort_keys=True),flush=True)
+        save()
+        # Validate the SAME Goal as EXECUTING before any moving obstacle stage.
+        # Delayed status receipt cannot erase previously observed real cruise.
+        wait(lambda s,d: s.get("goal_uuid") if
+             s.get("action_status")==2 and s.get("goal_uuid") is not None else None,
+             15,"ACTION_EXECUTING")
+        goal_uuid=obs.snapshot()["goal_uuid"]
+        report["goal_uuid"]=goal_uuid
+        report["same_goal_executing_after_clear"]=True
+        print("AXIA_G07_PUBLIC_CI_ACTUAL_NAV2_GOAL_EXECUTING "+goal_uuid,flush=True)
+        # Keep the original pre-Goal side/LiDAR proof, then move that same
+        # physical cylinder into the visible SLOW sector. No synthetic Scan.
+        slow_target=obstacle_world_pose(
+            world_anchor,obs.data().get("pose"),.62,.07,demo_corridor=True)
+        slow_ack=move_ci_verified(*slow_target,sim_env=os.environ,
+            pregoal_native_verified=(pregoal.get("native_set_pose_ack") is True),
+            owner_admitted=(owner_scope is not None))
+        (args.output/"ci_slow_native_gazebo_set_pose_ack.log").write_text(slow_ack)
+        report.update(slow_native_set_pose_ack=True,slow_world_xy=list(slow_target))
+        print("AXIA_G07_MVP_SLOW_PHYSICAL_FIXTURE_ACK "+
+              json.dumps({"world_xy":slow_target,"surface_m":.62},
+                         sort_keys=True),flush=True)
+        save()
+        rows["slow"]=wait(phase("slow"),35,"SLOW")
+        report["slow"]=rows["slow"]
+        report["goal_status_at_slow"]=2
+        print("AXIA_G07_PUBLIC_CI_MOVING_SLOW_REAL_GAZEBO_LIDAR_CM_PASS "+
+              json.dumps(rows["slow"],sort_keys=True),flush=True)
+        save()
+        # Reuse the existing single STOP fixture planner and real Gazebo ACK.
+        snap=obs.snapshot()
+        stop_pre_move_front=obs.data().get("scan")
+        if not isinstance(stop_pre_move_front,(float,int)):
+            raise RuntimeError("STOP_PREPOSITION_REAL_SCAN_MISSING")
+        target=plan_stop_fixture(
+            world_anchor,obs.data().get("pose"),
+            goal_status=snap.get("action_status"),
+            guard_latched=snap.get("guard",{}).get("latched"),
+            real_slow_observed=True)
+        native_request_started=time.monotonic()
+        ack=move_ci_verified(*target,sim_env=os.environ,
+            pregoal_native_verified=(pregoal.get("native_set_pose_ack") is True),
+            owner_admitted=(owner_scope is not None))
+        stop_ack_at=time.monotonic()
+        report["stop_native_service_duration_sec"]=round(
+            stop_ack_at-native_request_started,6)
+        (args.output/"ci_stop_native_gazebo_set_pose_ack.log").write_text(ack)
+        report.update(
+            stop_native_set_pose_ack=True,
+            stop_world_xy=list(target),
+            stop_pre_move_front_m=stop_pre_move_front)
+        save()
+        print("AXIA_G07_CI_MOVING_REAL_GAZEBO_STOP_INTRUSION_ACK "
+              +json.dumps({"world_xy":target,
+                          "pre_front_m":stop_pre_move_front,
+                          "native_service_duration_sec":
+                              report["stop_native_service_duration_sec"]},
+                         sort_keys=True),flush=True)
+        rows["stop"]=wait(phase("stop"),40,"STOP")
+        report["stop"]=rows["stop"]
+        report["goal_status_at_stop"]=2
+        print("AXIA_G07_PUBLIC_CI_MOVING_STOP_REAL_GAZEBO_LIDAR_CM_PASS "+
+              json.dumps(rows["stop"],sort_keys=True),flush=True)
+        report["stop_post_ack_distinct_ros_scan_count"]=len(distinct_stop_scans)
+        save()
         def dwell(s,d):
             if _fresh(s,("odom","guard","clock")) is None:return None
             # Only real consecutive /odom callbacks after the physical
