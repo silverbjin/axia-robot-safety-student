@@ -15,6 +15,31 @@ OWNER_MOVING="${AXIA_G07_TASK04_OWNER_MOVING_L3:-0}"
 CI_MOVING_GUI="${AXIA_G07_TASK04_CI_GUI_MOVING:-0}"
 SENSOR_NO_GOAL="${AXIA_G07_OWNER_SENSOR_TRUTH_NO_GOAL:-0}"
 [[ "$SENSOR_NO_GOAL" == 0 || "$SENSOR_NO_GOAL" == 1 ]] || exit 2
+NO_GOAL_ORDERED="${AXIA_G07_NO_GOAL_ORDERED_SHUTDOWN:-0}"
+NO_GOAL_GZ_PAUSE="${AXIA_G07_NO_GOAL_GZ_PAUSE_BEFORE_SIGINT:-0}"
+NO_GOAL_GZ_STOP="${AXIA_G07_NO_GOAL_GZ_STOP_BEFORE_SIGINT:-0}"
+[[ "$NO_GOAL_GZ_STOP" == 0 || "$NO_GOAL_GZ_STOP" == 1 ]] || exit 2
+if [[ "$NO_GOAL_GZ_STOP" == 1
+   && ( "$NO_GOAL_ORDERED" != 1 || "$SENSOR_NO_GOAL" != 1
+        || "$NO_GOAL_GZ_PAUSE" != 1 ) ]];then
+  echo G07_NO_GOAL_GAZEBO_SERVER_STOP_SCOPE_DENIED_NO_GOAL >&2
+  exit 2
+fi
+NO_GOAL_WITNESS_HANDOFF="${AXIA_G07_NO_GOAL_WITNESS_HANDOFF:-0}"
+[[ "$NO_GOAL_WITNESS_HANDOFF" == 0 || "$NO_GOAL_WITNESS_HANDOFF" == 1 ]] || exit 2
+if [[ "$NO_GOAL_WITNESS_HANDOFF" == 1 &&
+      ( "$NO_GOAL_ORDERED" != 1 || "$SENSOR_NO_GOAL" != 1 ) ]];then
+  echo G07_READONLY_WITNESS_HANDOFF_SCOPE_DENIED >&2;exit 2
+fi
+[[ "$NO_GOAL_GZ_PAUSE" == 0 || "$NO_GOAL_GZ_PAUSE" == 1 ]] || exit 2
+if [[ "$NO_GOAL_GZ_PAUSE" == 1
+   && ( "$NO_GOAL_ORDERED" != 1 || "$SENSOR_NO_GOAL" != 1 ) ]];then
+  echo G07_NO_GOAL_GAZEBO_PAUSE_SCOPE_DENIED_NO_GOAL >&2;exit 2
+fi
+[[ "$NO_GOAL_ORDERED" == 0 || "$NO_GOAL_ORDERED" == 1 ]] || exit 2
+if [[ "$NO_GOAL_ORDERED" == 1 && "$SENSOR_NO_GOAL" != 1 ]];then
+  echo 'G07_NO_GOAL_ORDERED_REQUIRES_SENSOR_NO_GOAL' >&2;exit 2
+fi
 if [[ "$SENSOR_NO_GOAL" == 1 ]];then
   # Actual WSL2 sensor only. Never borrow Owner Moving/CI Goal authorization
   # or D07's altered Gaussian-free Waffle noise profile.
@@ -138,6 +163,23 @@ cleanup() {
      printf 'DISPOSABLE_NO_GOAL_DIRECT_SIGINT_CONFIRMED\n' \
        > "$OUT/task03_disposable_shutdown.marker"
      echo 'AXIA_G07_TASK03_NO_GOAL_DISPOSABLE_NATIVE_POSITIVE_SIGINT'
+   elif [[ "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1
+      && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]];then
+     # Reuse the existing official Nav2 lifecycle shutdown before launch
+     # SIGINT even when sensor TTL failed. A sensor failure MUST remain rc=3.
+     echo 'G07_NO_GOAL_NAV2_ORDERED_SHUTDOWN_REQUESTED_BEFORE_SIGINT'
+     if timeout --signal=TERM --kill-after=3s 82s \
+          python3 tools/p2_g07_ordered_shutdown.py \
+            --output "$OUT/g07_ordered_shutdown.json" --timeout-sec 60 \
+            > "$OUT/g07_ordered_shutdown.log" 2>&1; then
+       cat "$OUT/g07_ordered_shutdown.log"
+       echo 'G07_NO_GOAL_NATIVE_NAV2_ORDERED_SHUTDOWN_ACK'
+       nav_ack_for_gz_stop=1
+     else
+       cat "$OUT/g07_ordered_shutdown.log" >&2 || true
+       echo 'G07_NO_GOAL_NATIVE_NAV2_ORDERED_SHUTDOWN_BLOCKED' >&2
+       rc=3
+     fi
    elif [[ ( "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 )
       && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
       && "$rc" == 0 ]]; then
@@ -152,6 +194,54 @@ cleanup() {
      else
        cat "$OUT/g07_ordered_shutdown.log"
        echo 'G07_MOVING_GOAL_ORDERED_SHUTDOWN_ACK_BEFORE_SIGINT'
+     fi
+   fi
+   # Optional NO_GOAL teardown-only mitigation: Gazebo 8 documented WorldControl
+   # pause request after official Nav2 ACK and before full launch SIGINT.
+   # This is NOT a simulator-side safety STOP or a change to Scan/CM/Guard TTL.
+   if [[ "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1 &&
+         "$NO_GOAL_GZ_PAUSE" == 1 ]];then
+     local ctl='' reply='' services=''
+     services="$(timeout 6s gz service -l 2>"$OUT/g07_gz_world_pause_err.log")" || services=''
+     ctl="$(printf '%s\n' "$services" |
+       awk '/^\/world\/[^/]+\/control$/ {n++;name=$0} END{if(n==1) print name}')"
+     if [[ -z "$ctl" ]];then
+       echo 'G07_NO_GOAL_GAZEBO_PAUSE_FAILED_HOLD no_single_world_control' >&2
+       rc=3
+     elif reply="$(timeout 8s gz service -s "$ctl" \
+         --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
+         --timeout 3000 --req 'pause: true' 2>&1)" &&
+         grep -Eq '(^|[[:space:]])data:[[:space:]]*true([[:space:]]|$)' <<< "$reply";then
+       printf '%s\n' "$reply" > "$OUT/g07_gz_world_pause.log"
+       printf 'G07_NO_GOAL_GAZEBO_PAUSE_ACK_BEFORE_SIGINT service=%s\n' "$ctl"
+       pause_ack_for_gz_stop=1
+     else
+       printf '%s\n' "$reply" > "$OUT/g07_gz_world_pause.log"
+       echo 'G07_NO_GOAL_GAZEBO_PAUSE_FAILED_HOLD service_unresponsive' >&2
+       rc=3
+     fi
+   fi
+   # Documented Gazebo 8 ServerControl stop:true, NO_GOAL only.
+   # Avoid a second SIGINT racing GPU LiDAR render thread cleanup.
+   # This does not change Scan300/CM120/Guard150 or E-Stop authority.
+   if [[ "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1
+      && "$NO_GOAL_GZ_STOP" == 1 ]];then
+     local server_reply=''
+     if [[ "${nav_ack_for_gz_stop:-0}" != 1 ||
+           "${pause_ack_for_gz_stop:-0}" != 1 ]];then
+       echo 'G07_NO_GOAL_GAZEBO_SERVER_STOP_FAILED_HOLD nav_or_pause_ack_missing' >&2
+       rc=3
+     elif server_reply="$(timeout 8s gz service -s /server_control \
+         --reqtype gz.msgs.ServerControl --reptype gz.msgs.Boolean \
+         --timeout 3000 --req 'stop: true' 2>&1)" &&
+         grep -Eq '(^|[[:space:]])data:[[:space:]]*true([[:space:]]|$)' <<< "$server_reply";then
+       printf '%s\n' "$server_reply" > "$OUT/g07_gz_server_stop.log"
+       echo 'G07_NO_GOAL_GAZEBO_SERVER_STOP_ACK_BEFORE_SIGINT'
+       sleep .7  # server process drain, not a safety watchdog
+     else
+       printf '%s\n' "$server_reply" > "$OUT/g07_gz_server_stop.log"
+       echo 'G07_NO_GOAL_GAZEBO_SERVER_STOP_FAILED_HOLD no_server_control_ack' >&2
+       rc=3
      fi
    fi
    # Owner parity: recorder remains active until official Nav2 shutdown;
@@ -170,6 +260,11 @@ cleanup() {
       && -f "$OUT/g07_ordered_shutdown.json" ]]; then
      launch_grace_steps=$((G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2))
      echo 'G07_CI_MANAGED_LAUNCH_EXIT_26S Nav2_ACK_REQUIRED'
+   fi
+   if [[ "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1 ]];then
+     # Process teardown grace only, NOT Scan300/CM120/Guard150 change.
+     launch_grace_steps=$((G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2))
+     echo 'G07_NO_GOAL_NATIVE_MANAGED_LAUNCH_EXIT_26S'
    fi
    # Actual student H01 rqt loop L2 #44063399501: all 4 Gazebo physical
    # stages and official Nav2 Path succeeded, but GUI+Nav2 teardown took
@@ -214,7 +309,8 @@ cleanup() {
  # New exact-SHA, public-only simulation: evidence that CM truly exits
  # cleanly AFTER official managed lifecycle shutdown, not just a parent
  # shell exit 0 or Gazebo NO-GOAL readiness. Preserve old success evidence.
- if [[ "${AXIA_G07_SHUTDOWN_L2_ONLY:-0}" == 1
+ if [[ ( "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1 )
+    || "${AXIA_G07_SHUTDOWN_L2_ONLY:-0}" == 1
     || ( ( "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 )
          && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
          && "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" != 1
@@ -228,6 +324,9 @@ cleanup() {
         --output "$OUT/g07_shutdown_audit.json"; then
      echo 'G07_REAL_SHUTDOWN_L2_CM_PROCESS_NONCLEAN' >&2
      rc=3
+   elif [[ "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1 ]];then
+     # Per-layer success is not overall sensor acceptance.
+     echo 'G07_NO_GOAL_NATIVE_CM_CHILD_EXIT0_SCAN_VERDICT_UNCHANGED'
    elif [[ "$rc" -eq 0 ]];then
      echo 'G07_REAL_SHUTDOWN_L2_CM_CLEAN_EXIT_AFTER_NAV2_ACK_PASS'
      if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 ]]; then
@@ -538,6 +637,29 @@ finally:
     rclpy.shutdown()
 PY
 fi
+# C08 CI Xvfb-only candidate: attach existing viewers before Nav2 READY.
+# Native Scan source pair 36.801->36.900 from L2 #44561289931 stalled
+# within one second after READY when GUI viewers were attaching.
+# No second simulation server: gz sim -g starts a GUI-only client.
+CI_PRE_READY_GUI=0
+if [[ "$SENSOR_NO_GOAL" == 1
+   && "${GITHUB_ACTIONS:-}" == true
+   && "${AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL:-0}" == 1
+   && "${AXIA_D06_L2_GUI_NICE_ONLY:-0}" == 15
+   && "${AXIA_D06_L2_GUI_PRE_NAV2_READY:-0}" == 1
+   && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0
+   && "$OWNER_MOVING" == 0 ]];then
+  [[ -r "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" ]] || {
+    echo 'D06_CI_L2_PRE_READY_RVIZ_CONFIG_MISSING'; exit 2;
+  }
+  setsid nice -n 15 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+  MOVING_GAZEBO_GUI_PID=$!
+  setsid nice -n 15 rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+    --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
+  MOVING_RVIZ_PID=$!
+  CI_PRE_READY_GUI=1
+  echo 'D06_CI_L2_GUI_PRE_NAV2_STARTED NO_GOAL'
+fi
 if "${STAGED_START[@]}" > "$OUT/staged_startup.log" 2>&1; then
   echo 'P2_NO_GOAL_STATIC_AND_RUNTIME_READINESS_OBSERVED'
 else
@@ -675,11 +797,29 @@ if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1
   [[ -r "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" ]] || {
     echo 'G07_TASK04_RVIZ_CONFIG_MISSING_NO_GOAL' >&2;exit 2;
   }
-  setsid gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
-  MOVING_GAZEBO_GUI_PID=$!
-  setsid rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
-    --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
-  MOVING_RVIZ_PID=$!
+  # CI Xvfb-only single hypothesis: software-rendered GUI clients can
+  # compete with Gazebo server physics/Clock. Nice only these two viewers,
+  # not the Gazebo server, Nav2, Supervisor, Guard or CM. Owner WSLg and
+  # ordinary Student training retain their original process priorities.
+  if [[ "$CI_PRE_READY_GUI" == 1 ]];then
+    echo 'D06_CI_L2_GUI_EARLY_REUSED_NOT_SPAWNED'
+  elif [[ "${GITHUB_ACTIONS:-}" == true
+     && "${AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL:-0}" == 1
+     && "${AXIA_D06_L2_GUI_NICE_ONLY:-0}" == 15
+     && "$SENSOR_NO_GOAL" == 1 ]];then
+    setsid nice -n 15 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+    MOVING_GAZEBO_GUI_PID=$!
+    setsid nice -n 15 rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
+    MOVING_RVIZ_PID=$!
+    echo 'D06_CI_ONLY_SOFTWARE_GUI_PRIORITY_15_ENABLED'
+  else
+    setsid gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+    MOVING_GAZEBO_GUI_PID=$!
+    setsid rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
+    MOVING_RVIZ_PID=$!
+  fi
   sleep 3
   kill -0 "$MOVING_GAZEBO_GUI_PID" "$MOVING_RVIZ_PID" 2>/dev/null || {
     echo 'G07_TASK04_GUI_CLIENT_DIED_BEFORE_GOAL' >&2;exit 2;
@@ -707,6 +847,25 @@ if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1
     echo 'G07_WSLG_SENSOR_GAZEBO_RVIZ_REAL_WINDOWS_READY_BEFORE_SCAN_NO_GOAL'
   fi
 fi
+witness_handoff_before_shutdown() {
+  # This synchronization is ONLY for two external read-only diagnostic
+  # processes. They must be stopped after the actual 20s probe and BEFORE
+  # official Nav2 lifecycle shutdown, otherwise their ROS/Gz subscriptions
+  # can compete with the lifecycle client while no Goal is being sent.
+  [[ "$NO_GOAL_WITNESS_HANDOFF" == 1 ]] || return 0
+  [[ "$NO_GOAL_ORDERED" == 1 && "$SENSOR_NO_GOAL" == 1 ]] || return 3
+  echo 'G07_READONLY_SENSOR_PROBE_FINISHED' > "$OUT/g07_witness_probe_complete.signal"
+  for ((witness_i=0;witness_i<120;witness_i++));do
+    if [[ -s "$OUT/g07_witness_stopped.ack" ]] &&
+       grep -Fxq 'G07_READONLY_WITNESSES_STOPPED' "$OUT/g07_witness_stopped.ack";then
+      echo 'G07_READONLY_WITNESS_HANDOFF_ACK_BEFORE_SHUTDOWN'
+      return 0
+    fi
+    sleep .1
+  done
+  echo 'G07_READONLY_WITNESS_HANDOFF_MISSING_HOLD' >&2
+  return 3
+}
 # Bounded Owner WSLg LiDAR truth: THE original G07 physical world, original
 # 10Hz Waffle profile, no D07 sensor noise overlay, no Gazebo pose change,
 # no Nav2 Goal and no CI/Owner Moving authority. Clean up only owned PIDs.
@@ -721,10 +880,12 @@ if [[ "$SENSOR_NO_GOAL" == 1 ]]; then
         --output "$OUT/g07_wslg_sensor_truth.json" \
         > "$OUT/g07_wslg_sensor_truth.log" 2>&1; then
     cat "$OUT/g07_wslg_sensor_truth.log"
+    witness_handoff_before_shutdown || exit 3
     echo 'G07_WSLG_NO_GOAL_SENSOR_WINDOW_CANDIDATE_NO_MOVING_ACCEPTANCE'
     exit 0
   else
     cat "$OUT/g07_wslg_sensor_truth.log" >&2 || true
+    witness_handoff_before_shutdown || exit 3
     echo 'G07_WSLG_NO_GOAL_SENSOR_UNSAFE_HOLD' >&2
     exit 3
   fi

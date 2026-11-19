@@ -146,6 +146,84 @@ def correlate_first_raw_gap(records):
     return result
 
 
+def first_receipt_breach_pair(rows):
+    """Only the first raw/safety host 300ms breach, with exact ROS source stamp.
+
+    Preserve original sensor verdict; no logging of all LaserScan ranges.
+    """
+    for a,b in zip(rows,rows[1:]):
+        delta=b["recv"]-a["recv"]
+        if delta>SCAN_TTL_SEC:
+            def sample(x):
+                return {
+                    "host_monotonic_sec":round(float(x["recv"]),6),
+                    "source_stamp_ns":int(x.get("stamp_ns",round(x["stamp"]*1e9))),
+                }
+            return {
+                "before":sample(a),"after":sample(b),
+                "gap_sec":round(delta,6),
+            }
+    return None
+
+
+def qualified_second_receipt(rows):
+    """First two consecutive healthy host receipts, still enforcing 300ms."""
+    for a,b in zip(rows,rows[1:]):
+        wall=b["recv"]-a["recv"]
+        stamp=b["stamp"]-a["stamp"]
+        if 0<wall<=SCAN_TTL_SEC and stamp>0:
+            return float(b["recv"])
+    return None
+
+
+def select_dual_topic_window(records):
+    """Full strict 20s begins only after two healthy receipts per topic.
+
+    This is a pre-Goal READY definition, not a relaxation of Scan300:
+    before readiness NO_GOAL/HOLD, all first gaps retained in evidence;
+    once qualified, ANY gap >300ms fails the entire window.
+    """
+    raw=records.get("raw",[])
+    safe=records.get("safety",[])
+    result={
+        "status":"BOTH_TOPIC_READINESS_MISSING","both_topics_ready":False,
+        "goal_allowed":False,"start_host_monotonic_sec":None,
+        "observed_dwell_sec":0.,"pre_ready_raw_first_gap_sec":None,
+        "pre_ready_safety_first_gap_sec":None,
+        "pre_ready_breach_evidence_retained":False,
+        "startup_raw_first_breach":None,
+        "startup_safety_first_breach":None,
+        "records":{**records,"raw":[],"safety":[]}
+    }
+    raw_ready=qualified_second_receipt(raw)
+    safe_ready=qualified_second_receipt(safe)
+    if raw_ready is None or safe_ready is None:return result
+    start=max(raw_ready,safe_ready)
+    if not math.isfinite(start):return result
+    before_raw=[x for x in raw if x["recv"]<start]
+    before_safe=[x for x in safe if x["recv"]<start]
+    live_raw=[x for x in raw if x["recv"]>=start]
+    live_safe=[x for x in safe if x["recv"]>=start]
+    def pre_gap(rows):
+        gaps=[b["recv"]-a["recv"] for a,b in zip(rows,rows[1:])]
+        return round(max(gaps),6) if gaps else None
+    raw_breach=first_receipt_breach_pair(before_raw)
+    safety_breach=first_receipt_breach_pair(before_safe)
+    dwell=(min(live_raw[-1]["recv"],live_safe[-1]["recv"])-start
+           if live_raw and live_safe else 0.)
+    result.update({
+        "status":"DUAL_TOPIC_READY","both_topics_ready":True,
+        "start_host_monotonic_sec":round(start,6),
+        "observed_dwell_sec":round(max(0.,dwell),6),
+        "pre_ready_raw_first_gap_sec":pre_gap(before_raw),
+        "pre_ready_safety_first_gap_sec":pre_gap(before_safe),
+        "pre_ready_breach_evidence_retained":bool(raw_breach or safety_breach),
+        "startup_raw_first_breach":raw_breach,
+        "startup_safety_first_breach":safety_breach,
+        "records":{**records,"raw":live_raw,"safety":live_safe}
+    })
+    return result
+
 def assess_window(records):
     """Fail closed using host callback RECEIPT, not mixed simulation/header time.
 
@@ -203,6 +281,11 @@ def assess_window(records):
         "status": "NO_GOAL_SENSOR_WINDOW_CLEAR_CANDIDATE" if not reasons else "NO_GOAL_SENSOR_UNSAFE_HOLD",
         "reasons": list(dict.fromkeys(reasons)),
         "metrics": metrics,
+        "scan_receipts_compact": {
+            "schema":"axia.g07.first_ttl_host_pair.v1",
+            "raw":first_receipt_breach_pair(raw),
+            "safety":first_receipt_breach_pair(safe),
+        },
         "odom_count": len(odom),
         "clock_count": len(clock),
         "scan_ttl_limit_sec": SCAN_TTL_SEC,
@@ -216,6 +299,35 @@ def assess_window(records):
         "owner_l3_accepted": False,
         "window_does_not_prove_extended_owner_ttl_stability": True,
     }
+
+
+def enrich_scan_geometry(records):
+    """Enrich immutable-arrival Scan rows after subscriptions have stopped.
+
+    Receipt monotonic timestamps stay exactly as measured on callback entry;
+    pure front/side/near geometry is identical to the original callback.
+    Invalid geometry is not reclassified CLEAR: its row remains disallowed,
+    which can only reduce readiness and force a NO_GOAL HOLD.
+    """
+    for kind in ("raw", "safety"):
+        rows=[]
+        for row in records.get(kind, []):
+            msg=row.pop("_laser_msg",None)
+            if msg is None:
+                continue
+            front=[float(v) for i,v in enumerate(msg.ranges)
+                   if abs(msg.angle_min+i*msg.angle_increment)<=.18
+                   and type(v) in (float,int) and math.isfinite(v)
+                   and msg.range_min<=v<=msg.range_max]
+            side=sector_min(msg)
+            if not front or side is None:
+                continue
+            near,beams=near_ring_fraction(msg)
+            row.update({"front":min(front), "side":side,
+                        "near":near, "beams":beams})
+            rows.append(row)
+        records[kind]=rows
+    return records
 
 
 def run(out, duration):
@@ -237,30 +349,55 @@ def run(out, duration):
     from rosgraph_msgs.msg import Clock
     out.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     rclpy.init()
-    node = rclpy.create_node("axia_g07_wslg_no_goal_scan_truth")
+    # The original single-thread spin_once executed >300Hz /clock, /odom
+    # and both 10Hz Scan callbacks in one callback pipeline. Actual public
+    # Gazebo L2 #44531611496: peer ROS received stamp 43.902 at 343.015445,
+    # Student Scan callback entered at 343.355987 (+340.542ms). Keep the
+    # read-only scan callback group isolated from clock/odom work.
+    # C05 #44538452186: independent ROS Safety received stamp 36.702
+    # at 499.176314s, Student entered its callback at 499.503779s.
+    # MultiThreadedExecutor still shares a single ready task queue for
+    # 300Hz /clock, /odom and both Scan topics. Two dedicated executors
+    # separate DISPATCH, not just callback groups; no safety authority.
+    from threading import Event, Thread
+    from rclpy.executors import SingleThreadedExecutor
+    scan_node = rclpy.create_node("axia_g07_wslg_no_goal_scan_truth")
+    aux_node = rclpy.create_node("axia_g07_wslg_no_goal_clock_odom_truth")
+    scan_executor=SingleThreadedExecutor()
+    aux_executor=SingleThreadedExecutor()
+    scan_executor.add_node(scan_node)
+    aux_executor.add_node(aux_node)
     records = {"safety": [], "raw": [], "odom": [], "clock": [],
                "clock_receipts": []}
     first_scan_at = None
+    dual_ready_at = None
+    qualified_ready_at = {"raw":None,"safety":None}
 
     def scan_callback(msg, kind):
-        nonlocal first_scan_at
-        front = [float(v) for i, v in enumerate(msg.ranges)
-                 if abs(msg.angle_min + i * msg.angle_increment) <= .18
-                 and type(v) in (float, int) and math.isfinite(v)
-                 and msg.range_min <= v <= msg.range_max]
-        side = sector_min(msg)
-        if not front or side is None:
-            return
+        nonlocal first_scan_at, dual_ready_at
+        # FIRST operation measures the ROS callback host receipt. C08 real
+        # L2 #44563618730: native 89.281ms, independent ROS Safety 86.495ms,
+        # Student Safety 403.214ms. Keep this hot path limited to arrival
+        # stamp/metadata only. Move unchanged geometry after executor exit.
+        now = time.monotonic()
         stamp = float(msg.header.stamp.sec) + msg.header.stamp.nanosec * 1e-9
         if not math.isfinite(stamp) or stamp <= 0:
             return
-        now = time.monotonic()
         if first_scan_at is None:
             first_scan_at = now
-        near, beams = near_ring_fraction(msg)
-        records[kind].append({"recv": now, "stamp": stamp,
-                              "front": min(front), "side": side,
-                              "near": near, "beams": beams})
+        records[kind].append({
+            "recv":now,"stamp":stamp,
+            "stamp_ns":int(msg.header.stamp.sec)*1000000000+int(msg.header.stamp.nanosec),
+            "_laser_msg":msg,
+        })
+        rows=records[kind]
+        if qualified_ready_at[kind] is None and len(rows)>=2:
+            a,b=rows[-2],rows[-1]
+            if 0<b["recv"]-a["recv"]<=SCAN_TTL_SEC and b["stamp"]>a["stamp"]:
+                qualified_ready_at[kind]=now
+        if (dual_ready_at is None and qualified_ready_at["raw"] is not None
+                and qualified_ready_at["safety"] is not None):
+            dual_ready_at=max(qualified_ready_at["raw"],qualified_ready_at["safety"])
 
     def on_odom(msg):
         records["odom"].append({"vx": msg.twist.twist.linear.x,
@@ -283,25 +420,85 @@ def run(out, duration):
                     CLOCK_RTF_RECEIPT_MIN_STEP_SEC):
                 records["clock_receipts"].append({"recv": recv, "sim": stamp})
 
-    subs = [
-        node.create_subscription(LaserScan, "/safety/scan",
-                                 lambda m: scan_callback(m, "safety"), qos_profile_sensor_data),
-        node.create_subscription(LaserScan, "/scan",
-                                 lambda m: scan_callback(m, "raw"), qos_profile_sensor_data),
-        node.create_subscription(Odometry, "/odom", on_odom, qos_profile_sensor_data),
-        node.create_subscription(Clock, "/clock", on_clock, qos_profile_sensor_data),
+    scan_subs = [
+        scan_node.create_subscription(LaserScan, "/safety/scan",
+                                      lambda m: scan_callback(m, "safety"), qos_profile_sensor_data),
+        scan_node.create_subscription(LaserScan, "/scan",
+                                      lambda m: scan_callback(m, "raw"), qos_profile_sensor_data),
     ]
+    aux_subs = [
+        aux_node.create_subscription(Odometry, "/odom", on_odom, qos_profile_sensor_data),
+        aux_node.create_subscription(Clock, "/clock", on_clock, qos_profile_sensor_data),
+    ]
+    scan_stopped = False
+    aux_stopped = False
+    stop_aux=Event()
+    aux_errors=[]
+    def run_aux():
+        try:
+            while not stop_aux.is_set() and rclpy.ok():
+                aux_executor.spin_once(timeout_sec=.08)
+        except Exception as exc:
+            aux_errors.append(type(exc).__name__)
+    aux_thread=Thread(target=run_aux,name="g07_no_goal_clock_odom",daemon=True)
     try:
+        aux_thread.start()
         deadline = time.monotonic() + duration + 8
         while time.monotonic() < deadline:
-            rclpy.spin_once(node, timeout_sec=.08)
-            if first_scan_at and time.monotonic() - first_scan_at >= duration:
+            scan_executor.spin_once(timeout_sec=.08)
+            # Extra 200ms is observation budget, NOT Scan300 TTL. Final
+            # qualification uses actual last ROS callback receipt timestamps,
+            # never time elapsed during deferred geometry computation.
+            if first_scan_at and dual_ready_at is not None and (
+                    time.monotonic() - dual_ready_at >= duration + .2):
                 break
-        report = assess_window(records)
-        report["rtf_diagnostics"] = analyze_timing_separately(records)
-        report["raw_first_gap_diagnostics"] = correlate_first_raw_gap(records)
-        report["duration_observed_sec"] = round(
-            time.monotonic() - first_scan_at, 3) if first_scan_at else 0
+        # Keep scan callback stamps on its own executor. Stop and join the
+        # high-rate /clock,/odom observer before reading the shared record.
+        stop_aux.set()
+        aux_thread.join(timeout=3.0)
+        if aux_thread.is_alive():
+            raise RuntimeError("G07_READONLY_AUX_EXECUTOR_DID_NOT_STOP")
+        if aux_errors:
+            raise RuntimeError("G07_READONLY_AUX_EXECUTOR_ERROR:"+aux_errors[0])
+        aux_stopped=aux_executor.shutdown(timeout_sec=3.0)
+        scan_stopped=scan_executor.shutdown(timeout_sec=3.0)
+        if not aux_stopped or not scan_stopped:
+            raise RuntimeError("G07_READONLY_EXECUTOR_DID_NOT_STOP")
+        # Geometry must be applied only after both executors are stopped.
+        # Recheck readiness on VALID distance rows; a rejected message can
+        # never falsely qualify a Scan TTL window.
+        enrich_scan_geometry(records)
+        raw_ready=qualified_second_receipt(records["raw"])
+        safe_ready=qualified_second_receipt(records["safety"])
+        dual_ready_at=max(raw_ready,safe_ready) if (
+            raw_ready is not None and safe_ready is not None) else None
+        stable=select_dual_topic_window(records)
+        report=assess_window(stable["records"])
+        report["rtf_diagnostics"]=analyze_timing_separately(stable["records"])
+        report["raw_first_gap_diagnostics"]=correlate_first_raw_gap(stable["records"])
+        report["startup_pre_both_scan_diagnostics"]={
+            "readiness_status":stable["status"],
+            "both_topics_ready":stable["both_topics_ready"],
+            "dual_topic_start_host_monotonic_sec":stable["start_host_monotonic_sec"],
+            "pre_ready_raw_first_gap_sec":stable["pre_ready_raw_first_gap_sec"],
+            "pre_ready_raw_first_breach":stable["startup_raw_first_breach"],
+            "pre_ready_safety_first_gap_sec":stable["pre_ready_safety_first_gap_sec"],
+            "pre_ready_safety_first_breach":stable["startup_safety_first_breach"],
+            "pre_ready_requires_two_healthy_receipts_per_topic":True,
+            "pre_ready_breach_evidence_retained":stable["pre_ready_breach_evidence_retained"],
+            "pre_ready_observations_not_motion_authority":True,
+        }
+        # Report true callback-to-callback dwell, not wall time while
+        # offline geometry ran after the subscriptions had stopped.
+        observed=stable["observed_dwell_sec"]
+        report["duration_observed_sec"]=round(max(0.,observed),3)
+        report["dual_topic_required_observation_sec"]=duration
+        report["dual_topic_actual_wall_observation_sec"]=round(max(0.,observed),3)
+        if dual_ready_at is None or observed<duration:
+            why=("DUAL_TOPIC_READINESS_MISSING" if dual_ready_at is None
+                 else "DUAL_TOPIC_FULL_DWELL_NOT_PROVEN")
+            report["status"]="NO_GOAL_SENSOR_UNSAFE_HOLD"
+            report["reasons"]=list(dict.fromkeys(report["reasons"]+[why]))
         report["source_header_vs_host_receipt_distinct"] = True
         out.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n")
         print("AXIA_G07_WSLG_NO_GOAL_SENSOR_TRUTH " +
@@ -314,10 +511,20 @@ def run(out, duration):
         print("D06_GAZEBO_LIVE_RELEASE=HOLD CERTIFIED_ESTOP=false", flush=True)
         return 0 if report["status"] == "NO_GOAL_SENSOR_WINDOW_CLEAR_CANDIDATE" else 3
     finally:
-        for sub in subs:
-            node.destroy_subscription(sub)
-        node.destroy_node()
-        rclpy.shutdown()
+        stop_aux.set()
+        if aux_thread.is_alive():
+            aux_thread.join(timeout=3.0)
+        if not scan_stopped:
+            scan_executor.shutdown(timeout_sec=3.0)
+        if not aux_stopped:
+            aux_executor.shutdown(timeout_sec=3.0)
+        for sub in scan_subs:
+            scan_node.destroy_subscription(sub)
+        for sub in aux_subs:
+            aux_node.destroy_subscription(sub)
+        scan_node.destroy_node()
+        aux_node.destroy_node()
+        rclpy.try_shutdown()
 
 
 def main():

@@ -144,11 +144,20 @@ class D07H01RqtContinuous(unittest.TestCase):
         self.assertIn("AXIA_P0_SIM_ONLY",src)
         self.assertIn("OnProcessExit",src)
         self.assertIn("target_action=world_xacro",src)
-        self.assertIn("on_exit=[gazebo_server]",src)
+        # Real launch guards failed/empty/invalid xacro SDF before handing
+        # the official Gazebo ExecuteProcess to OnProcessExit. Previous
+        # on_exit=[gazebo_server] contract was obsolete and unsafe because
+        # it skipped checking the xacro return code and SDF validity.
+        self.assertIn("on_exit=lambda event, context: _on_world_xacro_exit(",src)
+        self.assertIn("if event.returncode != 0:",src)
+        self.assertIn("return [gazebo_server]",src)
+        self.assertIn('root.find("world") is None',src)
         self.assertIn("RegisterEventHandler",src)
         self.assertIn("D07_H01_OFFICIAL_WORLD_PROCESS_SHAPE_CHANGED",src)
-        self.assertIn("d.entities.insert(d.entities.index(world_xacro),",src)
-        self.assertLess(src.index("d.entities.insert(d.entities.index(world_xacro),"),
+        self.assertIn("d.entities.remove(gazebo_server)",src)
+        self.assertIn("d.entities.insert(",src)
+        self.assertIn("d.entities.index(world_xacro),",src)
+        self.assertLess(src.index("d.entities.remove(gazebo_server)"),
                         src.index("RegisterEventHandler(OnProcessExit"))
         self.assertNotIn("time.sleep(",src)
 

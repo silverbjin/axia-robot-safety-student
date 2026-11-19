@@ -50,6 +50,162 @@ def shutdown_stage_budget(manager, remaining_sec):
                max(0.01, remaining_sec))
 
 
+def wait_for_service_bounded(client, remaining):
+    """Allow bounded ROS 2 discovery jitter in new shutdown observer process.
+
+    A 3s one-shot discovery missed the actually running Lifecycle Manager on
+    public Gazebo #44455727595. No Scan/CM/Guard safety TTL is affected.
+    The original global shutdown deadline and fail-closed response remain.
+    """
+    budget=min(12.0,max(0.0,float(remaining)))
+    while budget>0:
+        delta=min(1.0,budget)
+        if client.wait_for_service(timeout_sec=delta):
+            return True
+        budget-=delta
+    return False
+
+
+def _call_isolated_stage(rclpy, *, manager, timeout_sec):
+    """Reuse G07 Task04 per-manager short-lived native Nav2 service client.
+
+    Real strict L2 #44476730420 had Navigation SHUTDOWN ACK but
+    Localization SERVICE_TIMEOUT (Nav2 manager stayed alive). Eliminate
+    possible previous executor/client-graph state, preserving official ACK.
+    This issues exactly ONE request per manager, never a retry and never
+    a replacement of Scan300 / CM120 / Guard150 safety requirements.
+    """
+    node=rclpy.create_node("axia_g07_shutdown_"+manager,
+                           enable_rosout=False)
+    try:
+        return call_native_manage(node, manager=manager, command="shutdown",
+                                  timeout_sec=timeout_sec)
+    finally:
+        node.destroy_node()
+
+
+
+def probe_localization_parameter_service(rclpy, *, timeout_sec):
+    """Read-only first-failure classification after a *single* shutdown timeout.
+
+    A response from /get_parameters shows the manager's parameter callbacks
+    are servicing requests; it does NOT imply ManageLifecycleNodes SHUTDOWN ACK.
+    Never resend SHUTDOWN or extend the 60s overall deadline.
+    """
+    started=monotonic()
+    remaining=max(0.0, min(float(timeout_sec), 3.0))
+    if remaining <= 0:
+        return {"status":"NOT_RUN_DEADLINE_EXPIRED", "request_sent":False,
+                "elapsed_sec":0.0}
+    from rcl_interfaces.srv import GetParameters
+    node=None
+    client=None
+    service="/lifecycle_manager_localization/get_parameters"
+    result={"status":"PROBE_INCOMPLETE", "request_sent":False,
+            "service":service}
+    try:
+        node=rclpy.create_node("axia_g07_localization_readonly_probe",
+                               enable_rosout=False)
+        client=node.create_client(GetParameters, service)
+        if not client.wait_for_service(timeout_sec=0.5):
+            result["status"]="PARAMETER_SERVICE_MISSING"
+        else:
+            request=GetParameters.Request()
+            request.names=["node_names"]
+            future=client.call_async(request)
+            result["request_sent"]=True
+            remaining=max(0.0, min(2.0, timeout_sec-(monotonic()-started)))
+            if remaining<=0:
+                result["status"]="PROBE_GLOBAL_DEADLINE"
+            else:
+                if remaining>=2.0:
+                    rclpy.spin_until_future_complete(node, future, timeout_sec=2.0)
+                else:
+                    rclpy.spin_until_future_complete(node, future, timeout_sec=remaining)
+                if not future.done() or future.result() is None:
+                    result["status"]="PARAMETER_RESPONSE_TIMEOUT"
+                else:
+                    result["status"]="PARAMETER_SERVICE_RESPONSIVE"
+                    # Count is diagnostic only; never treat it as Shutdown ACK.
+                    values=getattr(future.result(),"values",[])
+                    result["value_count"]=len(values)
+    except Exception as exc:
+        result["status"]="PARAMETER_PROBE_ERROR"
+        result["error_type"]=type(exc).__name__
+    finally:
+        if client is not None:
+            node.destroy_client(client)
+        if node is not None:
+            node.destroy_node()
+    result["elapsed_sec"]=round(monotonic()-started,6)
+    return result
+
+
+def _probe_manage_callback_group(rclpy, *, manager, timeout_sec):
+    """Read-only /is_active shares Nav2 manager's manage_nodes callback group.
+
+    In official Nav2 Jazzy, /manage_nodes and /is_active use the same
+    MutuallyExclusive callback_group and service executor; /get_parameters
+    is on the regular node parameter callback path. This checks whether
+    the service callback group is responding after one lost SHUTDOWN ACK.
+    It NEVER retries ManageLifecycleNodes nor authorizes any motion.
+    """
+    if manager not in ("navigation","localization"):
+        raise ValueError("UNRECOGNIZED_MANAGE_PROBE_TARGET")
+    started=monotonic()
+    if timeout_sec<=0:
+        return {"status":"NOT_RUN_DEADLINE_EXPIRED","request_sent":False,
+                "elapsed_sec":0.0}
+    from std_srvs.srv import Trigger
+    service={
+        "localization":"/lifecycle_manager_localization/is_active",
+        "navigation":"/lifecycle_manager_navigation/is_active",
+    }[manager]
+    out={"status":"MANAGE_CALLBACK_GROUP_NOT_MEASURED",
+         "service":service,"request_sent":False}
+    node=None;client=None
+    try:
+        node=rclpy.create_node("axia_g07_"+manager+"_manage_readonly_probe",
+                               enable_rosout=False)
+        client=node.create_client(Trigger,service)
+        if not client.wait_for_service(timeout_sec=min(.5,timeout_sec)):
+            out["status"]="MANAGE_CALLBACK_GROUP_SERVICE_MISSING"
+        else:
+            future=client.call_async(Trigger.Request())
+            out["request_sent"]=True
+            remaining=max(0.0,min(2.0,timeout_sec-(monotonic()-started)))
+            if remaining<=0:
+                out["status"]="MANAGE_CALLBACK_GROUP_DEADLINE"
+            else:
+                rclpy.spin_until_future_complete(node,future,timeout_sec=remaining)
+                if not future.done() or future.result() is None:
+                    out["status"]="MANAGE_CALLBACK_GROUP_NO_ACK"
+                else:
+                    out["status"]="MANAGE_CALLBACK_GROUP_RESPONSIVE"
+                    out["is_active"]=bool(future.result().success)
+    except Exception as exc:
+        out["status"]="MANAGE_CALLBACK_GROUP_PROBE_EXCEPTION"
+        out["error_type"]=type(exc).__name__
+    finally:
+        if node is not None:
+            if client is not None:node.destroy_client(client)
+            node.destroy_node()
+    out["elapsed_sec"]=round(monotonic()-started,6)
+    return out
+
+
+def probe_localization_manage_callback_group(rclpy, *, timeout_sec):
+    """One read-only Trigger on official localization management service group."""
+    return _probe_manage_callback_group(rclpy, manager="localization",
+                                        timeout_sec=timeout_sec)
+
+
+def probe_navigation_manage_callback_group(rclpy, *, timeout_sec):
+    """One read-only Trigger after missing Navigation SHUTDOWN ACK; no retry."""
+    return _probe_manage_callback_group(rclpy, manager="navigation",
+                                        timeout_sec=timeout_sec)
+
+
 def run(*, limit=60.0):
     if (os.environ.get("ROS_DISTRO") != "jazzy"
             or os.environ.get("AXIA_P0_SIM_ONLY") != "1"
@@ -63,6 +219,14 @@ def run(*, limit=60.0):
     node = None
     deadline = monotonic() + limit
     stages = {}
+    # Record the actual DDS/RMW implementation used by the ROS service
+    # requester. An issue hypothesis must never be treated as a measured RMW.
+    try:
+        from rclpy.utilities import get_rmw_implementation_identifier
+        stages["rmw_implementation_identifier"]=get_rmw_implementation_identifier()
+    except (ImportError, AttributeError, RuntimeError) as exc:
+        stages["rmw_implementation_identifier"]="UNDETERMINED"
+        stages["rmw_identification_error_type"]=type(exc).__name__
     try:
         node = rclpy.create_node("axia_g07_ordered_shutdown_guard",
                                  enable_rosout=False)
@@ -72,7 +236,7 @@ def run(*, limit=60.0):
                 raise RuntimeError("ORDERED_SHUTDOWN_DEADLINE")
             client = node.create_client(kind, name)
             try:
-                if not client.wait_for_service(timeout_sec=min(3.0, remaining)):
+                if not wait_for_service_bounded(client, remaining):
                     raise RuntimeError("SERVICE_MISSING:" + name)
                 fut = client.call_async(request)
                 wait_budget = min(max_response, deadline-monotonic())
@@ -105,8 +269,30 @@ def run(*, limit=60.0):
         for key,service in (("navigation", NAV_MANAGER),
                             ("localization", LOC_MANAGER)):
             budget=shutdown_stage_budget(key, deadline-monotonic())
-            ack=call_native_manage(node, manager=key, command="shutdown",
-                                   timeout_sec=budget)
+            ack=_call_isolated_stage(rclpy, manager=key,
+                                     timeout_sec=budget)
+            # Preserve FIRST manager response boundary. A sent request
+            # without ACK stays HOLD even if process later exits cleanly.
+            stages[key+"_response_elapsed_sec"]=ack.get("elapsed_sec")
+            stages[key+"_service_request_sent"]=ack.get("request_sent",False)
+            stages[key+"_service_status"]=ack.get("status")
+            if key=="navigation" and ack["status"]=="SERVICE_TIMEOUT":
+                # The first official Navigation Manage SHUTDOWN request has
+                # already timed out. Test same callback group ONCE via
+                # /is_active; never resend SHUTDOWN or extend global deadline.
+                stages["navigation_manage_group_probe"]=(
+                    probe_navigation_manage_callback_group(
+                        rclpy, timeout_sec=max(0.0,deadline-monotonic())))
+            if key=="localization" and ack["status"]=="SERVICE_TIMEOUT":
+                stages["localization_parameter_probe"]=(
+                    probe_localization_parameter_service(
+                        rclpy, timeout_sec=max(0.0,deadline-monotonic())))
+                # Next same-group witness distinguishes a responsive default
+                # parameter executor from a blocked ManageLifecycleNodes group.
+                # One read-only Trigger only. Never retry the shutdown request.
+                stages["localization_manage_group_probe"]=(
+                    probe_localization_manage_callback_group(
+                        rclpy, timeout_sec=max(0.0,deadline-monotonic())))
             if ack["status"]!="ACK":
                 return result("BLOCKED_LIFECYCLE_"+key.upper()+"_"+ack["status"],
                               **stages)
