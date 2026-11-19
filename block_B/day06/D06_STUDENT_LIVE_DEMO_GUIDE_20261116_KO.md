@@ -39,7 +39,7 @@ PC 간 ROS_DOMAIN_ID는 자동 공유되지 않는다. 강사의 G07은 LOCALHOS
       https://github.com/silverbjin/axia-robot-safety-student.git "$LAB"
   fi
   cd "$LAB"
-  echo D06_STUDENT_MAIN_SOURCE_SHA=$(git rev-parse HEAD)"
+  echo "D06_STUDENT_MAIN_SOURCE_SHA=$(git rev-parse HEAD)"
   AXIA_D05_LIVE=1 bash block_B/day04/run_student_gazebo_yolo_once.sh --self-check
   AXIA_D05_LIVE=1 AXIA_D05_SENSOR_ONLY=1 \
     AXIA_D04_STUDENT_GUI=1 AXIA_D04_STUDENT_DOMAIN_ID=49 \
