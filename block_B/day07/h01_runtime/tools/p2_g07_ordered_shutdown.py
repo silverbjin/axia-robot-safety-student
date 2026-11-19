@@ -84,6 +84,60 @@ def _call_isolated_stage(rclpy, *, manager, timeout_sec):
         node.destroy_node()
 
 
+
+def probe_localization_parameter_service(rclpy, *, timeout_sec):
+    """Read-only first-failure classification after a *single* shutdown timeout.
+
+    A response from /get_parameters shows the manager's parameter callbacks
+    are servicing requests; it does NOT imply ManageLifecycleNodes SHUTDOWN ACK.
+    Never resend SHUTDOWN or extend the 60s overall deadline.
+    """
+    from rcl_interfaces.srv import GetParameters
+    started=monotonic()
+    remaining=max(0.0, min(float(timeout_sec), 3.0))
+    if remaining <= 0:
+        return {"status":"NOT_RUN_DEADLINE_EXPIRED", "request_sent":False,
+                "elapsed_sec":0.0}
+    node=None
+    client=None
+    service="/lifecycle_manager_localization/get_parameters"
+    result={"status":"PROBE_INCOMPLETE", "request_sent":False,
+            "service":service}
+    try:
+        node=rclpy.create_node("axia_g07_localization_readonly_probe",
+                               enable_rosout=False)
+        client=node.create_client(GetParameters, service)
+        if not client.wait_for_service(timeout_sec=0.5):
+            result["status"]="PARAMETER_SERVICE_MISSING"
+        else:
+            request=GetParameters.Request()
+            request.names=["node_names"]
+            future=client.call_async(request)
+            result["request_sent"]=True
+            remaining=max(0.0, min(2.0, timeout_sec-(monotonic()-started)))
+            if remaining<=0:
+                result["status"]="PROBE_GLOBAL_DEADLINE"
+            else:
+                rclpy.spin_until_future_complete(node, future, timeout_sec=2.0)
+                if not future.done() or future.result() is None:
+                    result["status"]="PARAMETER_RESPONSE_TIMEOUT"
+                else:
+                    result["status"]="PARAMETER_SERVICE_RESPONSIVE"
+                    # Count is diagnostic only; never treat it as Shutdown ACK.
+                    values=getattr(future.result(),"values",[])
+                    result["value_count"]=len(values)
+    except Exception as exc:
+        result["status"]="PARAMETER_PROBE_ERROR"
+        result["error_type"]=type(exc).__name__
+    finally:
+        if client is not None:
+            node.destroy_client(client)
+        if node is not None:
+            node.destroy_node()
+    result["elapsed_sec"]=round(monotonic()-started,6)
+    return result
+
+
 def run(*, limit=60.0):
     if (os.environ.get("ROS_DISTRO") != "jazzy"
             or os.environ.get("AXIA_P0_SIM_ONLY") != "1"
@@ -146,6 +200,10 @@ def run(*, limit=60.0):
             stages[key+"_response_elapsed_sec"]=ack.get("elapsed_sec")
             stages[key+"_service_request_sent"]=ack.get("request_sent",False)
             stages[key+"_service_status"]=ack.get("status")
+            if key=="localization" and ack["status"]=="SERVICE_TIMEOUT":
+                stages["localization_parameter_probe"]=(
+                    probe_localization_parameter_service(
+                        rclpy, timeout_sec=max(0.0,deadline-monotonic())))
             if ack["status"]!="ACK":
                 return result("BLOCKED_LIFECYCLE_"+key.upper()+"_"+ack["status"],
                               **stages)
