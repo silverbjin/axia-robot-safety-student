@@ -20,8 +20,14 @@ _EXPECTED = {"stop_pub_timeout": (3, 5.0),
              "source_timeout": (3, 1.0)}
 
 
-def validate_values(values, *, require_simple_tf):
-    names=list(_EXPECTED if require_simple_tf else ("stop_pub_timeout",))
+def validate_values(values, *, require_simple_tf, d08_g07_tf_wait=False):
+    if (type(d08_g07_tf_wait) is not bool or
+            (d08_g07_tf_wait and require_simple_tf is not True)):
+        raise ValueError("D08_G07_CM_TF_NATIVE_READBACK_MODE_INVALID")
+    expected=dict(_EXPECTED)
+    if d08_g07_tf_wait:
+        expected["transform_tolerance"]=(3,0.02)
+    names=list(expected if require_simple_tf else ("stop_pub_timeout",))
     result={"schema":"axia_g07_active_cm_native_parameter_readback_v1",
             "status":"ACTIVE_CM_NATIVE_PARAMETER_READBACK_BLOCKED",
             "required_simple_tf":bool(require_simple_tf),
@@ -31,7 +37,7 @@ def validate_values(values, *, require_simple_tf):
         return result
     for key in names:
         observed=values.get(key)
-        required_type,required_value=_EXPECTED[key]
+        required_type,required_value=expected[key]
         if not isinstance(observed,(tuple,list)) or len(observed)!=2:
             return {**result,"first_failure":key+"_MISSING"}
         param_type,param_value=observed
@@ -50,7 +56,7 @@ def validate_values(values, *, require_simple_tf):
             "first_failure":"NONE"}
 
 
-def read_native(*, require_simple_tf):
+def read_native(*, require_simple_tf, d08_g07_tf_wait=False):
     import rclpy
     from rcl_interfaces.srv import GetParameters
     node=None
@@ -79,7 +85,9 @@ def read_native(*, require_simple_tf):
                        bool(value.bool_value) if int(value.type)==1
                        else float(value.double_value))
                   for key,value in zip(request.names,response.values)}
-        return {**validate_values(observed,require_simple_tf=require_simple_tf),
+        return {**validate_values(
+                    observed,require_simple_tf=require_simple_tf,
+                    d08_g07_tf_wait=d08_g07_tf_wait),
                 "request_sent":True}
     finally:
         if node is not None:node.destroy_node()
@@ -90,6 +98,7 @@ def main(argv=None):
     parser=argparse.ArgumentParser()
     parser.add_argument("--output",required=True,type=Path)
     parser.add_argument("--require-simple-tf",action="store_true")
+    parser.add_argument("--require-d08-g07-tf-wait",action="store_true")
     args=parser.parse_args(argv)
     report={"status":"ACTIVE_CM_NATIVE_PARAMETER_READBACK_BLOCKED",
             "first_failure":"RUNTIME_NOT_STARTED",
@@ -100,7 +109,8 @@ def main(argv=None):
                 and os.environ.get("GZ_PARTITION","").startswith("axia_p2_")):
             report["first_failure"]="NOT_ISOLATED_JAZZY_SIMULATION"
         else:
-            report=read_native(require_simple_tf=args.require_simple_tf)
+            report=read_native(require_simple_tf=args.require_simple_tf,
+                               d08_g07_tf_wait=args.require_d08_g07_tf_wait)
     except (OSError,RuntimeError,ValueError,TypeError) as exc:
         report["first_failure"]="NATIVE_SERVICE_"+type(exc).__name__
     args.output.parent.mkdir(parents=True,exist_ok=True)
@@ -110,7 +120,10 @@ def main(argv=None):
         return 3
     print("AXIA_G07_CI_REAL_CM_STOP_ZERO_WINDOW_5S_GUARD_TTL_150MS_UNCHANGED",flush=True)
     if args.require_simple_tf:
-        print("AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_READBACK_PASS SHIFT_FALSE TF_TOL_0.2 SOURCE_TIMEOUT_1.0 GUARD_150MS_UNCHANGED",flush=True)
+        if args.require_d08_g07_tf_wait:
+            print("D08_G07_REAL_CM_TF_WAIT_READBACK_PASS 0.02S SHIFT_FALSE SOURCE_TIMEOUT_1.0 GUARD_150MS_UNCHANGED",flush=True)
+        else:
+    print("AXIA_G07_TASK02_SIMPLE_TF_ACTIVE_READBACK_PASS SHIFT_FALSE TF_TOL_0.2 SOURCE_TIMEOUT_1.0 GUARD_150MS_UNCHANGED",flush=True)
     return 0
 
 if __name__=="__main__":
