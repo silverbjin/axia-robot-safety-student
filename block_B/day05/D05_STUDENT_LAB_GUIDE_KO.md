@@ -50,7 +50,7 @@ D04 select_person()을 이미 완성했다면 **기존 checkout과 개인 수정
   set -Eeuo pipefail
   DIR="$HOME/axia-robot-safety-student-d04"
   if [[ ! -e "$DIR" ]]; then
-    git clone --single-branch --branch feature/block-b-d05-class-20261112 \
+    git clone --single-branch --branch main \
       https://github.com/silverbjin/axia-robot-safety-student.git "$DIR"
   fi
   test -f "$DIR/block_B/block_b_todo.py" || { echo "D05_REPO_PATH_CHECK_REQUIRED=$DIR"; exit 2; }
