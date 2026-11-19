@@ -258,7 +258,7 @@ def run(args):
                 result=check(snap,data)
                 if result is not None:return result
                 now=time.monotonic()
-                if label in ("SLOW","STOP") and now-last_sample>=.35:
+                if label in ("CLEAR","SLOW","STOP") and now-last_sample>=.35:
                     last_sample=now
                     front=data.get("scan")
                     pose=data.get("pose")
