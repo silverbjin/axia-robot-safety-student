@@ -118,7 +118,10 @@ def probe_localization_parameter_service(rclpy, *, timeout_sec):
             if remaining<=0:
                 result["status"]="PROBE_GLOBAL_DEADLINE"
             else:
-                rclpy.spin_until_future_complete(node, future, timeout_sec=2.0)
+                if remaining>=2.0:
+                    rclpy.spin_until_future_complete(node, future, timeout_sec=2.0)
+                else:
+                    rclpy.spin_until_future_complete(node, future, timeout_sec=remaining)
                 if not future.done() or future.result() is None:
                     result["status"]="PARAMETER_RESPONSE_TIMEOUT"
                 else:
