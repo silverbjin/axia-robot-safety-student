@@ -11,6 +11,7 @@ BAG_PID=''
 GUI_WATCH_PID=''
 MOVING_GAZEBO_GUI_PID=''
 MOVING_RVIZ_PID=''
+D08_IMAGE_BRIDGE_PID=''
 OWNER_MOVING="${AXIA_G07_TASK04_OWNER_MOVING_L3:-0}"
 CI_MOVING_GUI="${AXIA_G07_TASK04_CI_GUI_MOVING:-0}"
 [[ "$OWNER_MOVING" == 0 || "$OWNER_MOVING" == 1 ]] || exit 2
@@ -68,6 +69,12 @@ stop_owner_parity_bag() {
 }
 cleanup() {
  local rc=$?
+ # Owner only: stop the D08 read-only image bridge owned by this exact run.
+ if [[ -n "$D08_IMAGE_BRIDGE_PID" ]];then
+   kill -INT -- "-$D08_IMAGE_BRIDGE_PID" 2>/dev/null || true
+   wait "$D08_IMAGE_BRIDGE_PID" 2>/dev/null || true
+   D08_IMAGE_BRIDGE_PID=''
+ fi
  # Exactly ONE isolated read-only GUI process group is owned by this smoke.
  # A watcher sleeps until the verified free baseline; NO GUI renders before.
  if [[ -n "$GUI_WATCH_PID" ]]; then
@@ -391,6 +398,68 @@ if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1 ]]; then
     fi
   fi
 fi
+# D08 single-session opt-in: only existing G07 safety/Goal owner may launch.
+# Replace exactly ONE pending World and Waffle argument; no second Gazebo.
+D08_G07_SINGLE_SESSION="${AXIA_D08_G07_SINGLE_SESSION:-0}"
+[[ "$D08_G07_SINGLE_SESSION" == 0 || "$D08_G07_SINGLE_SESSION" == 1 ]] || {
+  echo D08_G07_SINGLE_SESSION_SCOPE_DENIED >&2;exit 2;
+}
+if [[ "$D08_G07_SINGLE_SESSION" == 1 ]];then
+  [[ "${AXIA_P0_SIM_ONLY:-0}" == 1
+     && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
+     && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+     && ( ( "${GITHUB_ACTIONS:-}" == true
+            && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+            && "$OWNER_MOVING" == 0 )
+          || ( "${GITHUB_ACTIONS:-}" != true
+               && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1
+               && "$OWNER_MOVING" == 1 && -t 0 && -r /dev/tty ) ) ]] || {
+    echo D08_G07_SINGLE_SESSION_SCOPE_DENIED >&2;exit 2;
+  }
+  D08_ADAPTER="${AXIA_D08_G07_ADAPTER_SCRIPT:-}"
+  D08_PERSON="${AXIA_D08_G07_PERSON_MESH:-}"
+  D08_STUDENT_SHA="$(git -c safe.directory="$ROOT" -C "$ROOT" rev-parse HEAD)"
+  D08_PUBLIC_SHA="${AXIA_D08_G07_EXPECTED_PUBLIC_SHA:-}"
+  [[ "$D08_ADAPTER" == /* && -f "$D08_ADAPTER" && ! -L "$D08_ADAPTER"
+     && "$D08_PERSON" == /* && -f "$D08_PERSON" && ! -L "$D08_PERSON"
+     && "$D08_STUDENT_SHA" == "${AXIA_D08_G07_EXPECTED_STUDENT_SHA:-}"
+     && "$D08_STUDENT_SHA" =~ ^[0-9a-f]{40}$
+     && "$D08_PUBLIC_SHA" =~ ^[0-9a-f]{40}$
+     && "$(git -C "$(dirname "$D08_ADAPTER")" rev-parse HEAD 2>/dev/null)" == "$D08_PUBLIC_SHA" ]] || {
+    echo D08_G07_SINGLE_SESSION_PINNED_SOURCE_MISMATCH >&2;exit 2;
+  }
+  echo '49af0df3a319d1cb8ca2cebf02dbd00f625e5d5bec820bc5e109925b18b65c6e  '"$D08_PERSON" |
+      sha256sum -c - >/dev/null || {
+    echo D08_G07_SINGLE_SESSION_PERSON_ASSET_SHA_MISMATCH >&2;exit 2;
+  }
+  WORLD_ARG_INDEX=-1;ROBOT_ARG_INDEX=-1
+  WORLD_ARG_COUNT=0;ROBOT_ARG_COUNT=0
+  for i in "${!LAUNCH_ARGS[@]}";do
+    case "${LAUNCH_ARGS[$i]}" in
+      world:=*) WORLD_ARG_INDEX="$i";WORLD_ARG_COUNT=$((WORLD_ARG_COUNT+1)) ;;
+      robot_sdf:=*) ROBOT_ARG_INDEX="$i";ROBOT_ARG_COUNT=$((ROBOT_ARG_COUNT+1)) ;;
+    esac
+  done
+  [[ "$WORLD_ARG_COUNT" == 1 && "$ROBOT_ARG_COUNT" == 1 ]] || {
+    echo D08_G07_WORLD_ROBOT_LAUNCH_ARGS_NOT_UNIQUE >&2;exit 2;
+  }
+  D08_SOURCE_WORLD="${LAUNCH_ARGS[$WORLD_ARG_INDEX]#world:=}"
+  D08_SOURCE_ROBOT="${LAUNCH_ARGS[$ROBOT_ARG_INDEX]#robot_sdf:=}"
+  D08_OVERLAY="$OUT/d08_unified"
+  python3 "$D08_ADAPTER" --world "$D08_SOURCE_WORLD" \
+    --robot "$D08_SOURCE_ROBOT" --actor "$D08_PERSON" \
+    --out "$D08_OVERLAY" --student-sha "$D08_STUDENT_SHA" \
+    > "$OUT/d08_overlay.log" 2>&1 || {
+    tail -n 35 "$OUT/d08_overlay.log" >&2 || true
+    echo D08_G07_SINGLE_WORLD_SOURCE_OVERLAY_BLOCKED_NO_GOAL >&2;exit 2;
+  }
+  [[ -s "$D08_OVERLAY/manifest.json" ]] || {
+    echo D08_G07_SINGLE_WORLD_OVERLAY_MANIFEST_MISSING >&2;exit 2;
+  }
+  LAUNCH_ARGS[$WORLD_ARG_INDEX]="world:=$D08_OVERLAY/axia_d08_p2_person_world.sdf.xacro"
+  LAUNCH_ARGS[$ROBOT_ARG_INDEX]="robot_sdf:=$D08_OVERLAY/axia_d08_waffle_rgbd.sdf.xacro"
+  echo D08_G07_SINGLE_WORLD_SOURCE_OVERLAY_READY_NO_GOAL
+fi
 setsid ros2 launch "$LAUNCH" "${LAUNCH_ARGS[@]}" \
    > "$OUT/launch.log" 2>&1 &
 LAUNCH_PID=$!
@@ -522,6 +591,32 @@ else
     echo 'AXIA_G07_CI_CLOCK_TIMEOUT_NO_GOAL' >&2
   fi
   exit 2
+fi
+# Cycle36 prior-G07 real L2 success: CPU role partition is a CI-only
+# candidate for D08's first shared CM→Guard 150ms gap. Scope this BEFORE
+# any Goal, AFTER original Nav2 readiness; no change to 120/150/300ms TTL.
+# Owner WSL2 is not admitted to this experiment and uses original policies.
+if [[ "${AXIA_D08_G07_CPU_ROLE_C36:-0}" == 1 ]]; then
+  [[ "${AXIA_D08_G07_SINGLE_SESSION:-0}" == 1
+     && "${AXIA_P0_SIM_ONLY:-0}" == 1
+     && "${AXIA_G07_TASK04_CI_GUI_MOVING:-0}" == 1
+     && "${GITHUB_ACTIONS:-}" == true
+     && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+     && "$OWNER_MOVING" == 0
+     && "$LAUNCH_PID" =~ ^[0-9]+$
+     && "$D08_STUDENT_SHA" =~ ^[a-f0-9]{40}$ ]] || {
+    echo D08_G07_C36_CPU_ROLE_SCOPE_DENIED_BEFORE_GOAL >&2;exit 2;
+  }
+  timeout --signal=TERM --kill-after=2s 12s \
+    python3 tools/d08_g07_prior_proven_cpu_roles.py \
+      --launch-pgid "$LAUNCH_PID" --expected-sha "$D08_STUDENT_SHA" \
+      --output "$OUT/d08_c36_cpu_roles.json" \
+      > "$OUT/d08_c36_cpu_roles.log" 2>&1 || {
+    cat "$OUT/d08_c36_cpu_roles.log" >&2 || true
+    echo D08_G07_C36_CPU_ROLE_READBACK_BLOCKED_BEFORE_GOAL >&2;exit 2;
+  }
+  cat "$OUT/d08_c36_cpu_roles.log"
+  echo D08_G07_C36_SCHEDULER_CANDIDATE_ONLY_NOT_CM120_ACCEPTANCE
 fi
 # D07-H01 GUI renderers AFTER Nav2 readiness, NOT during CM get_state or
 # lifecycle bond startup. Gazebo Harmonic -g is a GUI-only client joining
@@ -799,6 +894,16 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
   if [[ "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1 ]];then
     CM_GATE_ARGS+=(--require-simple-tf)
   fi
+  if [[ "${AXIA_D08_G07_CM_TF_WAIT_CANDIDATE:-0}" == 1 ]];then
+    [[ "${AXIA_D08_G07_SINGLE_SESSION:-0}" == 1
+       && "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1
+       && "${GITHUB_ACTIONS:-}" == true
+       && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+       && "$OWNER_MOVING" == 0 ]] || {
+      echo D08_G07_CM_TF_WAIT_CI_AUTHORITY_BLOCKED_NO_GOAL >&2;exit 2;
+    }
+    CM_GATE_ARGS+=(--require-d08-g07-tf-wait)
+  fi
   if ! timeout --signal=TERM --kill-after=2s 18s \
        python3 tools/p2_g07_cm_active_param_readback.py \
          --output "$OUT/g07_active_cm_native_parameters.json" \
@@ -808,6 +913,49 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
     exit 2
   fi
   cat "$OUT/g07_active_cm_native_parameters.log"
+  # D08 pregoal read-only optical/official Path observation: no Goal or
+  # /cmd_vel. Physical human is restored before G07's existing STOP fixture.
+  # Only the original G07 moving authority may ever reach this branch.
+  if [[ "${AXIA_D08_G07_READONLY_STAGE:-0}" == 1 ]];then
+    [[ "${AXIA_D08_G07_SINGLE_SESSION:-0}" == 1
+       && "${AXIA_P0_SIM_ONLY:-0}" == 1
+       && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]] || {
+      echo D08_G07_READONLY_STAGE_BLOCKED_NO_GOAL >&2;exit 2;
+    }
+    D08_RO_SCRIPT="${AXIA_D08_G07_READONLY_SCRIPT:-}"
+    [[ "$D08_RO_SCRIPT" == /* && -f "$D08_RO_SCRIPT"
+       && ! -L "$D08_RO_SCRIPT"
+       && "$(git -C "$(dirname "$D08_RO_SCRIPT")" rev-parse HEAD 2>/dev/null)" == "${AXIA_D08_G07_EXPECTED_PUBLIC_SHA:-}"
+       && -s "$OUT/d08_unified/manifest.json" ]] || {
+      echo D08_G07_READONLY_STAGE_PINNED_SOURCE_BLOCKED_NO_GOAL >&2;exit 2;
+    }
+    ros2 pkg prefix ros_gz_image >/dev/null || {
+      echo D08_G07_READONLY_IMAGE_BRIDGE_PKG_MISSING_NO_GOAL >&2;exit 2;
+    }
+    setsid ros2 run ros_gz_image image_bridge /axia/d08/rgbd/image /axia/d08/rgbd/depth_image \
+      > "$OUT/d08_image_bridge.log" 2>&1 &
+    D08_IMAGE_BRIDGE_PID=$!
+    sleep 2
+    kill -0 "$D08_IMAGE_BRIDGE_PID" || {
+      echo D08_G07_READONLY_IMAGE_BRIDGE_EXITED_NO_GOAL >&2;exit 2;
+    }
+    timeout --signal=TERM --kill-after=8s 360s python3 "$D08_RO_SCRIPT" \
+      --out "$OUT/d08_readonly" --world "$OUT/d08_unified/axia_d08_p2_person_world.sdf.xacro" \
+      --robot "$OUT/d08_unified/axia_d08_waffle_rgbd.sdf.xacro" \
+      --public-sha "${AXIA_D08_G07_EXPECTED_PUBLIC_SHA}" \
+      --student-sha "$D08_STUDENT_SHA" \
+      > "$OUT/d08_readonly.log" 2>&1 || {
+      tail -n 80 "$OUT/d08_readonly.log" >&2 || true
+      echo D08_G07_READONLY_STAGE_BLOCKED_NO_GOAL >&2;exit 2;
+    }
+    test -s "$OUT/d08_readonly/verdict.json" || {
+      echo D08_G07_READONLY_EVIDENCE_MISSING_NO_GOAL >&2;exit 2;
+    }
+    kill -INT -- "-$D08_IMAGE_BRIDGE_PID" 2>/dev/null || true
+    wait "$D08_IMAGE_BRIDGE_PID" 2>/dev/null || true
+    D08_IMAGE_BRIDGE_PID=''
+    echo D08_G07_READONLY_PREGOAL_COMPLETE_NO_GOAL
+  fi
   echo 'AXIA_G07_CI_MOVING_GOAL_PREG0AL_NATIVE_FIXTURE_BEGIN'
   timeout --signal=TERM --kill-after=5s 70s \
     python3 tools/p2_g07_owner_pregoal_l2.py --output "$OUT/g07_ci_pregoal" \

@@ -87,6 +87,47 @@ def apply_g07_task02_simple_tf_candidate(params, env):
     return True
 
 
+
+def apply_d08_g07_tf_wait_candidate(params,env):
+    """D08-only 20ms official CM TF wait candidate, never a TTL override.
+
+    Reuses the G07 simulation-only simple-TF candidate. Source invalidity
+    still causes the official CM safety STOP. This does NOT prove that CM
+    will publish inside the Guard's 150ms TTL under native Gazebo load.
+    """
+    if not isinstance(params,dict) or not isinstance(env,dict):
+        raise ValueError("D08_G07_TF_WAIT_INVALID_INPUT")
+    if env.get("AXIA_D08_G07_CM_TF_WAIT_CANDIDATE")!="1":
+        return False
+    required={
+        "AXIA_D08_G07_SINGLE_SESSION":"1",
+        "AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE":"1",
+        "AXIA_P0_SIM_ONLY":"1",
+        "AXIA_P2_G07_PHYSICAL_PREFLIGHT":"1",
+        "AXIA_G07_OWNER_STARTUP_PARITY":"1",
+        "GITHUB_ACTIONS":"true",
+        "AXIA_G07_CI_SIM_GOAL_ALLOWED":"1",
+    }
+    if any(env.get(k)!=v for k,v in required.items()):
+        raise ValueError("D08_G07_TF_WAIT_CI_SIM_ONLY_AUTHORITY_DENIED")
+    cm=params.get("collision_monitor",{}).get("ros__parameters")
+    if not isinstance(cm,dict):
+        raise ValueError("D08_G07_TF_WAIT_OFFICIAL_CM_MISSING")
+    if not (type(cm.get("transform_tolerance")) in (int,float)
+            and cm["transform_tolerance"]==0.2
+            and cm.get("base_shift_correction") is False
+            and type(cm.get("source_timeout")) in (int,float)
+            and cm["source_timeout"]==1.0
+            and type(cm.get("stop_pub_timeout")) in (int,float)
+            and cm["stop_pub_timeout"]==5.0
+            and cm.get("cmd_vel_in_topic")=="cmd_vel_supervised"
+            and cm.get("cmd_vel_out_topic")=="cmd_vel_pre_guard"
+            and cm.get("polygons",[])[:2]==["AXIA_StopFront","AXIA_SlowFront"]):
+        raise ValueError("D08_G07_TF_WAIT_FROZEN_CM_CONTRACT_MISMATCH")
+    cm["transform_tolerance"]=0.02
+    return True
+
+
 def write_p2_parameters(source):
     src = Path(source).expanduser().resolve(strict=True)
     raw = src.read_bytes()
@@ -112,6 +153,13 @@ def write_p2_parameters(source):
             'AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE base_shift_correction=false '
             'transform_tolerance=0.2 source_timeout=1.0 '
             'Guard_TTL=0.15 SIMULATION_ONLY_NOT_SAFETY_RELEASED')
+
+    if apply_d08_g07_tf_wait_candidate(p,dict(os.environ)):
+        logging.warning(
+            'D08_G07_OFFICIAL_CM_TF_WAIT_CANDIDATE=0.02s '
+            'BASE_SHIFT_FALSE SOURCE_TIMEOUT=1.0s '
+            'STOP_PUB_TIMEOUT=5.0s GUARD_TTL=0.15s '
+            'CI_SIM_ONLY_NOT_SAFETY_ACCEPTED')
 
     with tempfile.NamedTemporaryFile('w', prefix='axia_p2_nav2_', suffix='.yaml',
                                      encoding='utf-8', delete=False) as fp:
