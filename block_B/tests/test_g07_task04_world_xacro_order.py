@@ -70,6 +70,27 @@ class TestG07OwnerWorldXacroRace(unittest.TestCase):
             self.assertEqual(evidence["bytes"],sdf.stat().st_size)
             self.assertEqual(len(evidence["sha256"]),64)
 
+    def test_delayed_sdf_writer_never_unlocks_gazebo_early(self):
+        import threading
+        import time
+        check=load_helpers()["_check_world_sdf_after_xacro_exit"]
+        with tempfile.TemporaryDirectory() as td:
+            sdf=Path(td)/"nav2_delayed.sdf"
+            cmd=["xacro","-o",str(sdf),"headless:=True","world.sdf.xacro"]
+            generated=threading.Event()
+            def writer():
+                time.sleep(0.08)  # synthetic delay ONLY in unit test
+                sdf.write_text("<sdf version='1.9'><world name='test'/></sdf>")
+                generated.set()
+            t=threading.Thread(target=writer)
+            t.start()
+            try:
+                self.assertEqual(check(0,cmd)[0],"GAZEBO_WORLD_SDF_MISSING")
+                self.assertTrue(generated.wait(timeout=1))
+                self.assertEqual(check(0,cmd)[0],"WORLD_SDF_READY")
+            finally:
+                t.join(timeout=1)
+
     def test_unexpected_upstream_shape_fails_closed(self):
         check=load_helpers()["_check_world_sdf_after_xacro_exit"]
         for cmd in ([],["python","-o","/tmp/world.sdf"],["xacro","--bad"]):
