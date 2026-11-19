@@ -5,6 +5,7 @@ import time
 
 import rclpy
 from rclpy.executors import ExternalShutdownException
+from .p2_shutdown_context import is_context_waitset_shutdown
 from std_msgs.msg import String
 
 from .fsm import SafetyState, transition
@@ -122,6 +123,11 @@ def main(args=None):
         rclpy.spin(node)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
+    except Exception as exc:
+        # WSL2 Owner vJpsc6Wy: rclpy WaitSet may race the ROS SIGINT
+        # context invalidation. Never hide a still-active ROS exception.
+        if not is_context_waitset_shutdown(exc,context_ok=rclpy.ok()):
+            raise
     finally:
         if node is not None:
             node.destroy_node()
