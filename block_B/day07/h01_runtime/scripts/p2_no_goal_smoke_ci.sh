@@ -16,6 +16,12 @@ CI_MOVING_GUI="${AXIA_G07_TASK04_CI_GUI_MOVING:-0}"
 SENSOR_NO_GOAL="${AXIA_G07_OWNER_SENSOR_TRUTH_NO_GOAL:-0}"
 [[ "$SENSOR_NO_GOAL" == 0 || "$SENSOR_NO_GOAL" == 1 ]] || exit 2
 NO_GOAL_ORDERED="${AXIA_G07_NO_GOAL_ORDERED_SHUTDOWN:-0}"
+NO_GOAL_GZ_PAUSE="${AXIA_G07_NO_GOAL_GZ_PAUSE_BEFORE_SIGINT:-0}"
+[[ "$NO_GOAL_GZ_PAUSE" == 0 || "$NO_GOAL_GZ_PAUSE" == 1 ]] || exit 2
+if [[ "$NO_GOAL_GZ_PAUSE" == 1
+   && ( "$NO_GOAL_ORDERED" != 1 || "$SENSOR_NO_GOAL" != 1 ) ]];then
+  echo G07_NO_GOAL_GAZEBO_PAUSE_SCOPE_DENIED_NO_GOAL >&2;exit 2
+fi
 [[ "$NO_GOAL_ORDERED" == 0 || "$NO_GOAL_ORDERED" == 1 ]] || exit 2
 if [[ "$NO_GOAL_ORDERED" == 1 && "$SENSOR_NO_GOAL" != 1 ]];then
   echo 'G07_NO_GOAL_ORDERED_REQUIRES_SENSOR_NO_GOAL' >&2;exit 2
@@ -173,6 +179,30 @@ cleanup() {
      else
        cat "$OUT/g07_ordered_shutdown.log"
        echo 'G07_MOVING_GOAL_ORDERED_SHUTDOWN_ACK_BEFORE_SIGINT'
+     fi
+   fi
+   # Optional NO_GOAL teardown-only mitigation: Gazebo 8 documented WorldControl
+   # pause request after official Nav2 ACK and before full launch SIGINT.
+   # This is NOT a simulator-side safety STOP or a change to Scan/CM/Guard TTL.
+   if [[ "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1 &&
+         "$NO_GOAL_GZ_PAUSE" == 1 ]];then
+     local ctl='' reply='' services=''
+     services="$(timeout 6s gz service -l 2>"$OUT/g07_gz_world_pause_err.log")" || services=''
+     ctl="$(printf '%s\n' "$services" |
+       awk '/^\/world\/[^/]+\/control$/ {n++;name=$0} END{if(n==1) print name}')"
+     if [[ -z "$ctl" ]];then
+       echo 'G07_NO_GOAL_GAZEBO_PAUSE_FAILED_HOLD no_single_world_control' >&2
+       rc=3
+     elif reply="$(timeout 8s gz service -s "$ctl" \
+         --reqtype gz.msgs.WorldControl --reptype gz.msgs.Boolean \
+         --timeout 3000 --req 'pause: true' 2>&1)" &&
+         grep -Eq '(^|[[:space:]])data:[[:space:]]*true([[:space:]]|$)' <<< "$reply";then
+       printf '%s\n' "$reply" > "$OUT/g07_gz_world_pause.log"
+       printf 'G07_NO_GOAL_GAZEBO_PAUSE_ACK_BEFORE_SIGINT service=%s\n' "$ctl"
+     else
+       printf '%s\n' "$reply" > "$OUT/g07_gz_world_pause.log"
+       echo 'G07_NO_GOAL_GAZEBO_PAUSE_FAILED_HOLD service_unresponsive' >&2
+       rc=3
      fi
    fi
    # Owner parity: recorder remains active until official Nav2 shutdown;
