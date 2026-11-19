@@ -141,7 +141,7 @@ def probe_localization_parameter_service(rclpy, *, timeout_sec):
     return result
 
 
-def probe_localization_manage_callback_group(rclpy, *, timeout_sec):
+def _probe_manage_callback_group(rclpy, *, manager, timeout_sec):
     """Read-only /is_active shares Nav2 manager's manage_nodes callback group.
 
     In official Nav2 Jazzy, /manage_nodes and /is_active use the same
@@ -150,17 +150,22 @@ def probe_localization_manage_callback_group(rclpy, *, timeout_sec):
     the service callback group is responding after one lost SHUTDOWN ACK.
     It NEVER retries ManageLifecycleNodes nor authorizes any motion.
     """
+    if manager not in ("navigation","localization"):
+        raise ValueError("UNRECOGNIZED_MANAGE_PROBE_TARGET")
     started=monotonic()
     if timeout_sec<=0:
         return {"status":"NOT_RUN_DEADLINE_EXPIRED","request_sent":False,
                 "elapsed_sec":0.0}
     from std_srvs.srv import Trigger
-    service="/lifecycle_manager_localization/is_active"
+    service={
+        "localization":"/lifecycle_manager_localization/is_active",
+        "navigation":"/lifecycle_manager_navigation/is_active",
+    }[manager]
     out={"status":"MANAGE_CALLBACK_GROUP_NOT_MEASURED",
          "service":service,"request_sent":False}
     node=None;client=None
     try:
-        node=rclpy.create_node("axia_g07_localization_manage_readonly_probe",
+        node=rclpy.create_node("axia_g07_"+manager+"_manage_readonly_probe",
                                enable_rosout=False)
         client=node.create_client(Trigger,service)
         if not client.wait_for_service(timeout_sec=min(.5,timeout_sec)):
@@ -189,6 +194,18 @@ def probe_localization_manage_callback_group(rclpy, *, timeout_sec):
     return out
 
 
+def probe_localization_manage_callback_group(rclpy, *, timeout_sec):
+    """One read-only Trigger on official localization management service group."""
+    return _probe_manage_callback_group(rclpy, manager="localization",
+                                        timeout_sec=timeout_sec)
+
+
+def probe_navigation_manage_callback_group(rclpy, *, timeout_sec):
+    """One read-only Trigger after missing Navigation SHUTDOWN ACK; no retry."""
+    return _probe_manage_callback_group(rclpy, manager="navigation",
+                                        timeout_sec=timeout_sec)
+
+
 def run(*, limit=60.0):
     if (os.environ.get("ROS_DISTRO") != "jazzy"
             or os.environ.get("AXIA_P0_SIM_ONLY") != "1"
@@ -202,6 +219,14 @@ def run(*, limit=60.0):
     node = None
     deadline = monotonic() + limit
     stages = {}
+    # Record the actual DDS/RMW implementation used by the ROS service
+    # requester. An issue hypothesis must never be treated as a measured RMW.
+    try:
+        from rclpy.utilities import get_rmw_implementation_identifier
+        stages["rmw_implementation_identifier"]=get_rmw_implementation_identifier()
+    except (ImportError, AttributeError, RuntimeError) as exc:
+        stages["rmw_implementation_identifier"]="UNDETERMINED"
+        stages["rmw_identification_error_type"]=type(exc).__name__
     try:
         node = rclpy.create_node("axia_g07_ordered_shutdown_guard",
                                  enable_rosout=False)
@@ -251,6 +276,13 @@ def run(*, limit=60.0):
             stages[key+"_response_elapsed_sec"]=ack.get("elapsed_sec")
             stages[key+"_service_request_sent"]=ack.get("request_sent",False)
             stages[key+"_service_status"]=ack.get("status")
+            if key=="navigation" and ack["status"]=="SERVICE_TIMEOUT":
+                # The first official Navigation Manage SHUTDOWN request has
+                # already timed out. Test same callback group ONCE via
+                # /is_active; never resend SHUTDOWN or extend global deadline.
+                stages["navigation_manage_group_probe"]=(
+                    probe_navigation_manage_callback_group(
+                        rclpy, timeout_sec=max(0.0,deadline-monotonic())))
             if key=="localization" and ack["status"]=="SERVICE_TIMEOUT":
                 stages["localization_parameter_probe"]=(
                     probe_localization_parameter_service(
