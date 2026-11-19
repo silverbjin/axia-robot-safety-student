@@ -780,8 +780,7 @@ witness_handoff_before_shutdown() {
   # can compete with the lifecycle client while no Goal is being sent.
   [[ "$NO_GOAL_WITNESS_HANDOFF" == 1 ]] || return 0
   [[ "$NO_GOAL_ORDERED" == 1 && "$SENSOR_NO_GOAL" == 1 ]] || return 3
-  printf '%s\\n' 'G07_READONLY_SENSOR_PROBE_FINISHED' \\
-     > "$OUT/g07_witness_probe_complete.signal"
+  echo 'G07_READONLY_SENSOR_PROBE_FINISHED' > "$OUT/g07_witness_probe_complete.signal"
   for ((witness_i=0;witness_i<120;witness_i++));do
     if [[ -s "$OUT/g07_witness_stopped.ack" ]] &&
        grep -Fxq 'G07_READONLY_WITNESSES_STOPPED' "$OUT/g07_witness_stopped.ack";then
