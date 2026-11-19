@@ -391,6 +391,68 @@ if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1 ]]; then
     fi
   fi
 fi
+# D08 single-session opt-in: only existing G07 safety/Goal owner may launch.
+# Replace exactly ONE pending World and Waffle argument; no second Gazebo.
+D08_G07_SINGLE_SESSION="${AXIA_D08_G07_SINGLE_SESSION:-0}"
+[[ "$D08_G07_SINGLE_SESSION" == 0 || "$D08_G07_SINGLE_SESSION" == 1 ]] || {
+  echo D08_G07_SINGLE_SESSION_SCOPE_DENIED >&2;exit 2;
+}
+if [[ "$D08_G07_SINGLE_SESSION" == 1 ]];then
+  [[ "${AXIA_P0_SIM_ONLY:-0}" == 1
+     && "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
+     && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+     && ( ( "${GITHUB_ACTIONS:-}" == true
+            && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+            && "$OWNER_MOVING" == 0 )
+          || ( "${GITHUB_ACTIONS:-}" != true
+               && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" != 1
+               && "$OWNER_MOVING" == 1 && -t 0 && -r /dev/tty ) ) ]] || {
+    echo D08_G07_SINGLE_SESSION_SCOPE_DENIED >&2;exit 2;
+  }
+  D08_ADAPTER="${AXIA_D08_G07_ADAPTER_SCRIPT:-}"
+  D08_PERSON="${AXIA_D08_G07_PERSON_MESH:-}"
+  D08_STUDENT_SHA="$(git -c safe.directory="$ROOT" -C "$ROOT" rev-parse HEAD)"
+  D08_PUBLIC_SHA="${AXIA_D08_G07_EXPECTED_PUBLIC_SHA:-}"
+  [[ "$D08_ADAPTER" == /* && -f "$D08_ADAPTER" && ! -L "$D08_ADAPTER"
+     && "$D08_PERSON" == /* && -f "$D08_PERSON" && ! -L "$D08_PERSON"
+     && "$D08_STUDENT_SHA" == "${AXIA_D08_G07_EXPECTED_STUDENT_SHA:-}"
+     && "$D08_STUDENT_SHA" =~ ^[0-9a-f]{40}$
+     && "$D08_PUBLIC_SHA" =~ ^[0-9a-f]{40}$
+     && "$(git -C "$(dirname "$D08_ADAPTER")" rev-parse HEAD 2>/dev/null)" == "$D08_PUBLIC_SHA" ]] || {
+    echo D08_G07_SINGLE_SESSION_PINNED_SOURCE_MISMATCH >&2;exit 2;
+  }
+  echo '49af0df3a319d1cb8ca2cebf02dbd00f625e5d5bec820bc5e109925b18b65c6e  '"$D08_PERSON" |
+      sha256sum -c - >/dev/null || {
+    echo D08_G07_SINGLE_SESSION_PERSON_ASSET_SHA_MISMATCH >&2;exit 2;
+  }
+  WORLD_ARG_INDEX=-1;ROBOT_ARG_INDEX=-1
+  WORLD_ARG_COUNT=0;ROBOT_ARG_COUNT=0
+  for i in "${!LAUNCH_ARGS[@]}";do
+    case "${LAUNCH_ARGS[$i]}" in
+      world:=*) WORLD_ARG_INDEX="$i";WORLD_ARG_COUNT=$((WORLD_ARG_COUNT+1)) ;;
+      robot_sdf:=*) ROBOT_ARG_INDEX="$i";ROBOT_ARG_COUNT=$((ROBOT_ARG_COUNT+1)) ;;
+    esac
+  done
+  [[ "$WORLD_ARG_COUNT" == 1 && "$ROBOT_ARG_COUNT" == 1 ]] || {
+    echo D08_G07_WORLD_ROBOT_LAUNCH_ARGS_NOT_UNIQUE >&2;exit 2;
+  }
+  D08_SOURCE_WORLD="${LAUNCH_ARGS[$WORLD_ARG_INDEX]#world:=}"
+  D08_SOURCE_ROBOT="${LAUNCH_ARGS[$ROBOT_ARG_INDEX]#robot_sdf:=}"
+  D08_OVERLAY="$OUT/d08_unified"
+  python3 "$D08_ADAPTER" --world "$D08_SOURCE_WORLD" \
+    --robot "$D08_SOURCE_ROBOT" --actor "$D08_PERSON" \
+    --out "$D08_OVERLAY" --student-sha "$D08_STUDENT_SHA" \
+    > "$OUT/d08_overlay.log" 2>&1 || {
+    tail -n 35 "$OUT/d08_overlay.log" >&2 || true
+    echo D08_G07_SINGLE_WORLD_SOURCE_OVERLAY_BLOCKED_NO_GOAL >&2;exit 2;
+  }
+  [[ -s "$D08_OVERLAY/manifest.json" ]] || {
+    echo D08_G07_SINGLE_WORLD_OVERLAY_MANIFEST_MISSING >&2;exit 2;
+  }
+  LAUNCH_ARGS[$WORLD_ARG_INDEX]="world:=$D08_OVERLAY/axia_d08_p2_person_world.sdf.xacro"
+  LAUNCH_ARGS[$ROBOT_ARG_INDEX]="robot_sdf:=$D08_OVERLAY/axia_d08_waffle_rgbd.sdf.xacro"
+  echo D08_G07_SINGLE_WORLD_SOURCE_OVERLAY_READY_NO_GOAL
+fi
 setsid ros2 launch "$LAUNCH" "${LAUNCH_ARGS[@]}" \
    > "$OUT/launch.log" 2>&1 &
 LAUNCH_PID=$!
