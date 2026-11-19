@@ -15,6 +15,11 @@ OWNER_MOVING="${AXIA_G07_TASK04_OWNER_MOVING_L3:-0}"
 CI_MOVING_GUI="${AXIA_G07_TASK04_CI_GUI_MOVING:-0}"
 SENSOR_NO_GOAL="${AXIA_G07_OWNER_SENSOR_TRUTH_NO_GOAL:-0}"
 [[ "$SENSOR_NO_GOAL" == 0 || "$SENSOR_NO_GOAL" == 1 ]] || exit 2
+NO_GOAL_ORDERED="${AXIA_G07_NO_GOAL_ORDERED_SHUTDOWN:-0}"
+[[ "$NO_GOAL_ORDERED" == 0 || "$NO_GOAL_ORDERED" == 1 ]] || exit 2
+if [[ "$NO_GOAL_ORDERED" == 1 && "$SENSOR_NO_GOAL" != 1 ]];then
+  echo 'G07_NO_GOAL_ORDERED_REQUIRES_SENSOR_NO_GOAL' >&2;exit 2
+fi
 if [[ "$SENSOR_NO_GOAL" == 1 ]];then
   # Actual WSL2 sensor only. Never borrow Owner Moving/CI Goal authorization
   # or D07's altered Gaussian-free Waffle noise profile.
@@ -138,6 +143,22 @@ cleanup() {
      printf 'DISPOSABLE_NO_GOAL_DIRECT_SIGINT_CONFIRMED\n' \
        > "$OUT/task03_disposable_shutdown.marker"
      echo 'AXIA_G07_TASK03_NO_GOAL_DISPOSABLE_NATIVE_POSITIVE_SIGINT'
+   elif [[ "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1
+      && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]];then
+     # Reuse the existing official Nav2 lifecycle shutdown before launch
+     # SIGINT even when sensor TTL failed. A sensor failure MUST remain rc=3.
+     echo 'G07_NO_GOAL_NAV2_ORDERED_SHUTDOWN_REQUESTED_BEFORE_SIGINT'
+     if timeout --signal=TERM --kill-after=3s 82s \
+          python3 tools/p2_g07_ordered_shutdown.py \
+            --output "$OUT/g07_ordered_shutdown.json" --timeout-sec 60 \
+            > "$OUT/g07_ordered_shutdown.log" 2>&1; then
+       cat "$OUT/g07_ordered_shutdown.log"
+       echo 'G07_NO_GOAL_NATIVE_NAV2_ORDERED_SHUTDOWN_ACK'
+     else
+       cat "$OUT/g07_ordered_shutdown.log" >&2 || true
+       echo 'G07_NO_GOAL_NATIVE_NAV2_ORDERED_SHUTDOWN_BLOCKED' >&2
+       rc=3
+     fi
    elif [[ ( "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 )
       && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
       && "$rc" == 0 ]]; then
@@ -170,6 +191,11 @@ cleanup() {
       && -f "$OUT/g07_ordered_shutdown.json" ]]; then
      launch_grace_steps=$((G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2))
      echo 'G07_CI_MANAGED_LAUNCH_EXIT_26S Nav2_ACK_REQUIRED'
+   fi
+   if [[ "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1 ]];then
+     # Process teardown grace only, NOT Scan300/CM120/Guard150 change.
+     launch_grace_steps=$((G07_MANAGED_LAUNCH_EXIT_GRACE_SEC * 5 / 2))
+     echo 'G07_NO_GOAL_NATIVE_MANAGED_LAUNCH_EXIT_26S'
    fi
    # Actual student H01 rqt loop L2 #44063399501: all 4 Gazebo physical
    # stages and official Nav2 Path succeeded, but GUI+Nav2 teardown took
@@ -214,7 +240,8 @@ cleanup() {
  # New exact-SHA, public-only simulation: evidence that CM truly exits
  # cleanly AFTER official managed lifecycle shutdown, not just a parent
  # shell exit 0 or Gazebo NO-GOAL readiness. Preserve old success evidence.
- if [[ "${AXIA_G07_SHUTDOWN_L2_ONLY:-0}" == 1
+ if [[ ( "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1 )
+    || "${AXIA_G07_SHUTDOWN_L2_ONLY:-0}" == 1
     || ( ( "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 )
          && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
          && "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" != 1
@@ -228,6 +255,9 @@ cleanup() {
         --output "$OUT/g07_shutdown_audit.json"; then
      echo 'G07_REAL_SHUTDOWN_L2_CM_PROCESS_NONCLEAN' >&2
      rc=3
+   elif [[ "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1 ]];then
+     # Per-layer success is not overall sensor acceptance.
+     echo 'G07_NO_GOAL_NATIVE_CM_CHILD_EXIT0_SCAN_VERDICT_UNCHANGED'
    elif [[ "$rc" -eq 0 ]];then
      echo 'G07_REAL_SHUTDOWN_L2_CM_CLEAN_EXIT_AFTER_NAV2_ACK_PASS'
      if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 ]]; then
