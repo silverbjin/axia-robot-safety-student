@@ -17,6 +17,14 @@ SENSOR_NO_GOAL="${AXIA_G07_OWNER_SENSOR_TRUTH_NO_GOAL:-0}"
 [[ "$SENSOR_NO_GOAL" == 0 || "$SENSOR_NO_GOAL" == 1 ]] || exit 2
 NO_GOAL_ORDERED="${AXIA_G07_NO_GOAL_ORDERED_SHUTDOWN:-0}"
 NO_GOAL_GZ_PAUSE="${AXIA_G07_NO_GOAL_GZ_PAUSE_BEFORE_SIGINT:-0}"
+NO_GOAL_GZ_STOP="${AXIA_G07_NO_GOAL_GZ_STOP_BEFORE_SIGINT:-0}"
+[[ "$NO_GOAL_GZ_STOP" == 0 || "$NO_GOAL_GZ_STOP" == 1 ]] || exit 2
+if [[ "$NO_GOAL_GZ_STOP" == 1
+   && ( "$NO_GOAL_ORDERED" != 1 || "$SENSOR_NO_GOAL" != 1
+        || "$NO_GOAL_GZ_PAUSE" != 1 ) ]];then
+  echo G07_NO_GOAL_GAZEBO_SERVER_STOP_SCOPE_DENIED_NO_GOAL >&2
+  exit 2
+fi
 NO_GOAL_WITNESS_HANDOFF="${AXIA_G07_NO_GOAL_WITNESS_HANDOFF:-0}"
 [[ "$NO_GOAL_WITNESS_HANDOFF" == 0 || "$NO_GOAL_WITNESS_HANDOFF" == 1 ]] || exit 2
 if [[ "$NO_GOAL_WITNESS_HANDOFF" == 1 &&
@@ -166,6 +174,7 @@ cleanup() {
             > "$OUT/g07_ordered_shutdown.log" 2>&1; then
        cat "$OUT/g07_ordered_shutdown.log"
        echo 'G07_NO_GOAL_NATIVE_NAV2_ORDERED_SHUTDOWN_ACK'
+       nav_ack_for_gz_stop=1
      else
        cat "$OUT/g07_ordered_shutdown.log" >&2 || true
        echo 'G07_NO_GOAL_NATIVE_NAV2_ORDERED_SHUTDOWN_BLOCKED' >&2
@@ -205,9 +214,33 @@ cleanup() {
          grep -Eq '(^|[[:space:]])data:[[:space:]]*true([[:space:]]|$)' <<< "$reply";then
        printf '%s\n' "$reply" > "$OUT/g07_gz_world_pause.log"
        printf 'G07_NO_GOAL_GAZEBO_PAUSE_ACK_BEFORE_SIGINT service=%s\n' "$ctl"
+       pause_ack_for_gz_stop=1
      else
        printf '%s\n' "$reply" > "$OUT/g07_gz_world_pause.log"
        echo 'G07_NO_GOAL_GAZEBO_PAUSE_FAILED_HOLD service_unresponsive' >&2
+       rc=3
+     fi
+   fi
+   # Documented Gazebo 8 ServerControl stop:true, NO_GOAL only.
+   # Avoid a second SIGINT racing GPU LiDAR render thread cleanup.
+   # This does not change Scan300/CM120/Guard150 or E-Stop authority.
+   if [[ "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1
+      && "$NO_GOAL_GZ_STOP" == 1 ]];then
+     local server_reply=''
+     if [[ "${nav_ack_for_gz_stop:-0}" != 1 ||
+           "${pause_ack_for_gz_stop:-0}" != 1 ]];then
+       echo 'G07_NO_GOAL_GAZEBO_SERVER_STOP_FAILED_HOLD nav_or_pause_ack_missing' >&2
+       rc=3
+     elif server_reply="$(timeout 8s gz service -s /server_control \
+         --reqtype gz.msgs.ServerControl --reptype gz.msgs.Boolean \
+         --timeout 3000 --req 'stop: true' 2>&1)" &&
+         grep -Eq '(^|[[:space:]])data:[[:space:]]*true([[:space:]]|$)' <<< "$server_reply";then
+       printf '%s\n' "$server_reply" > "$OUT/g07_gz_server_stop.log"
+       echo 'G07_NO_GOAL_GAZEBO_SERVER_STOP_ACK_BEFORE_SIGINT'
+       sleep .7  # server process drain, not a safety watchdog
+     else
+       printf '%s\n' "$server_reply" > "$OUT/g07_gz_server_stop.log"
+       echo 'G07_NO_GOAL_GAZEBO_SERVER_STOP_FAILED_HOLD no_server_control_ack' >&2
        rc=3
      fi
    fi
