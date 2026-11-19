@@ -907,7 +907,7 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
       --out "$OUT/d08_readonly" --world "$OUT/d08_unified/axia_d08_p2_person_world.sdf.xacro" \
       --robot "$OUT/d08_unified/axia_d08_waffle_rgbd.sdf.xacro" \
       --public-sha "${AXIA_D08_G07_EXPECTED_PUBLIC_SHA}" \
-      --student-sha "$EXPECTED_CI_SHA" \
+      --student-sha "$D08_STUDENT_SHA" \
       > "$OUT/d08_readonly.log" 2>&1 || {
       tail -n 80 "$OUT/d08_readonly.log" >&2 || true
       echo D08_G07_READONLY_STAGE_BLOCKED_NO_GOAL >&2;exit 2;
