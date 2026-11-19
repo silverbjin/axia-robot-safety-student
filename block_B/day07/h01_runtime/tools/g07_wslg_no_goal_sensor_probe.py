@@ -166,11 +166,22 @@ def first_receipt_breach_pair(rows):
     return None
 
 
-def select_dual_topic_window(records):
-    """Only admit Scan300 evidence after BOTH required live topics appear.
+def qualified_second_receipt(rows):
+    """First two consecutive healthy host receipts, still enforcing 300ms."""
+    for a,b in zip(rows,rows[1:]):
+        wall=b["recv"]-a["recv"]
+        stamp=b["stamp"]-a["stamp"]
+        if 0<wall<=SCAN_TTL_SEC and stamp>0:
+            return float(b["recv"])
+    return None
 
-    Startup single-topic breaches remain recorded as pre-readiness evidence;
-    NO_GOAL and the original 300ms host receipt TTL are unchanged.
+
+def select_dual_topic_window(records):
+    """Full strict 20s begins only after two healthy receipts per topic.
+
+    This is a pre-Goal READY definition, not a relaxation of Scan300:
+    before readiness NO_GOAL/HOLD, all first gaps retained in evidence;
+    once qualified, ANY gap >300ms fails the entire window.
     """
     raw=records.get("raw",[])
     safe=records.get("safety",[])
@@ -178,32 +189,40 @@ def select_dual_topic_window(records):
         "status":"BOTH_TOPIC_READINESS_MISSING","both_topics_ready":False,
         "goal_allowed":False,"start_host_monotonic_sec":None,
         "observed_dwell_sec":0.,"pre_ready_raw_first_gap_sec":None,
+        "pre_ready_safety_first_gap_sec":None,
         "pre_ready_breach_evidence_retained":False,
         "startup_raw_first_breach":None,
+        "startup_safety_first_breach":None,
         "records":{**records,"raw":[],"safety":[]}
     }
-    if not raw or not safe:return result
-    start=max(float(raw[0]["recv"]),float(safe[0]["recv"]))
+    raw_ready=qualified_second_receipt(raw)
+    safe_ready=qualified_second_receipt(safe)
+    if raw_ready is None or safe_ready is None:return result
+    start=max(raw_ready,safe_ready)
     if not math.isfinite(start):return result
-    raw_before=[x for x in raw if x["recv"]<start]
-    raw_live=[x for x in raw if x["recv"]>=start]
-    safe_live=[x for x in safe if x["recv"]>=start]
-    before_gaps=[b["recv"]-a["recv"] for a,b in zip(raw_before,raw_before[1:])]
-    pre=max(before_gaps) if before_gaps else None
-    pre_breach=first_receipt_breach_pair(raw_before)
-    dwell=(min(raw_live[-1]["recv"],safe_live[-1]["recv"])-start
-           if raw_live and safe_live else 0.)
+    before_raw=[x for x in raw if x["recv"]<start]
+    before_safe=[x for x in safe if x["recv"]<start]
+    live_raw=[x for x in raw if x["recv"]>=start]
+    live_safe=[x for x in safe if x["recv"]>=start]
+    def pre_gap(rows):
+        gaps=[b["recv"]-a["recv"] for a,b in zip(rows,rows[1:])]
+        return round(max(gaps),6) if gaps else None
+    raw_breach=first_receipt_breach_pair(before_raw)
+    safety_breach=first_receipt_breach_pair(before_safe)
+    dwell=(min(live_raw[-1]["recv"],live_safe[-1]["recv"])-start
+           if live_raw and live_safe else 0.)
     result.update({
         "status":"DUAL_TOPIC_READY","both_topics_ready":True,
         "start_host_monotonic_sec":round(start,6),
         "observed_dwell_sec":round(max(0.,dwell),6),
-        "pre_ready_raw_first_gap_sec":round(pre,6) if pre is not None else None,
-        "pre_ready_breach_evidence_retained":bool(pre_breach),
-        "startup_raw_first_breach":pre_breach,
-        "records":{**records,"raw":raw_live,"safety":safe_live}
+        "pre_ready_raw_first_gap_sec":pre_gap(before_raw),
+        "pre_ready_safety_first_gap_sec":pre_gap(before_safe),
+        "pre_ready_breach_evidence_retained":bool(raw_breach or safety_breach),
+        "startup_raw_first_breach":raw_breach,
+        "startup_safety_first_breach":safety_breach,
+        "records":{**records,"raw":live_raw,"safety":live_safe}
     })
     return result
-
 
 def assess_window(records):
     """Fail closed using host callback RECEIPT, not mixed simulation/header time.
@@ -306,6 +325,7 @@ def run(out, duration):
                "clock_receipts": []}
     first_scan_at = None
     dual_ready_at = None
+    qualified_ready_at = {"raw":None,"safety":None}
 
     def scan_callback(msg, kind):
         nonlocal first_scan_at, dual_ready_at
@@ -327,8 +347,14 @@ def run(out, duration):
                                "stamp_ns":int(msg.header.stamp.sec)*1000000000+int(msg.header.stamp.nanosec),
                               "front": min(front), "side": side,
                               "near": near, "beams": beams})
-        if dual_ready_at is None and records["raw"] and records["safety"]:
-            dual_ready_at=max(records["raw"][0]["recv"],records["safety"][0]["recv"])
+        rows=records[kind]
+        if qualified_ready_at[kind] is None and len(rows)>=2:
+            a,b=rows[-2],rows[-1]
+            if 0<b["recv"]-a["recv"]<=SCAN_TTL_SEC and b["stamp"]>a["stamp"]:
+                qualified_ready_at[kind]=now
+        if (dual_ready_at is None and qualified_ready_at["raw"] is not None
+                and qualified_ready_at["safety"] is not None):
+            dual_ready_at=max(qualified_ready_at["raw"],qualified_ready_at["safety"])
 
     def on_odom(msg):
         records["odom"].append({"vx": msg.twist.twist.linear.x,
@@ -376,6 +402,9 @@ def run(out, duration):
             "dual_topic_start_host_monotonic_sec":stable["start_host_monotonic_sec"],
             "pre_ready_raw_first_gap_sec":stable["pre_ready_raw_first_gap_sec"],
             "pre_ready_raw_first_breach":stable["startup_raw_first_breach"],
+            "pre_ready_safety_first_gap_sec":stable["pre_ready_safety_first_gap_sec"],
+            "pre_ready_safety_first_breach":stable["startup_safety_first_breach"],
+            "pre_ready_requires_two_healthy_receipts_per_topic":True,
             "pre_ready_breach_evidence_retained":stable["pre_ready_breach_evidence_retained"],
             "pre_ready_observations_not_motion_authority":True,
         }
