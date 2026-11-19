@@ -50,6 +50,22 @@ def shutdown_stage_budget(manager, remaining_sec):
                max(0.01, remaining_sec))
 
 
+def wait_for_service_bounded(client, remaining):
+    """Allow bounded ROS 2 discovery jitter in new shutdown observer process.
+
+    A 3s one-shot discovery missed the actually running Lifecycle Manager on
+    public Gazebo #44455727595. No Scan/CM/Guard safety TTL is affected.
+    The original global shutdown deadline and fail-closed response remain.
+    """
+    budget=min(12.0,max(0.0,float(remaining)))
+    while budget>0:
+        delta=min(1.0,budget)
+        if client.wait_for_service(timeout_sec=delta):
+            return True
+        budget-=delta
+    return False
+
+
 def run(*, limit=60.0):
     if (os.environ.get("ROS_DISTRO") != "jazzy"
             or os.environ.get("AXIA_P0_SIM_ONLY") != "1"
@@ -72,7 +88,7 @@ def run(*, limit=60.0):
                 raise RuntimeError("ORDERED_SHUTDOWN_DEADLINE")
             client = node.create_client(kind, name)
             try:
-                if not client.wait_for_service(timeout_sec=min(3.0, remaining)):
+                if not wait_for_service_bounded(client, remaining):
                     raise RuntimeError("SERVICE_MISSING:" + name)
                 fut = client.call_async(request)
                 wait_budget = min(max_response, deadline-monotonic())
