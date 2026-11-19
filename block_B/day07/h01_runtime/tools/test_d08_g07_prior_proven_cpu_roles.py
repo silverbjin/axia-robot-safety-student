@@ -35,6 +35,7 @@ class TestG07PriorProvenCPUSeparation(unittest.TestCase):
             match_roles(records+[(47,40,["gz sim -r -s /tmp/nav2_OTHER.sdf"],1000)],40,1000)
     def test_no_goal_authorization_or_wsl2_ci_spoof(self):
         env={"GITHUB_ACTIONS":"true","AXIA_P0_SIM_ONLY":"1",
+          "AXIA_P2_G07_PHYSICAL_PREFLIGHT":"1",
           "AXIA_G07_TASK04_CI_GUI_MOVING":"1",
           "AXIA_G07_CI_SIM_GOAL_ALLOWED":"1",
           "AXIA_D08_G07_SINGLE_SESSION":"1",
