@@ -13,6 +13,17 @@ from pathlib import Path
 from p2_g07_task03_contract import audit_bag_14,audit_goal_terminal,audit_guard_internal_cm_age
 from d06.diagnostic.g07_task02_strict_gate import assess as assess_cm120
 
+def accepted_cm_scope(status, scenario_scope):
+    """Only a verified owner scenario accepts the scoped Owner CM oracle."""
+    return (
+        (scenario_scope=="ci" and
+         status=="TASK02_PUBLIC_L2_NUMERICAL_CANDIDATE")
+        or (scenario_scope=="owner" and status in (
+            "TASK02_OWNER_NATIVE_NUMERICAL_CANDIDATE",
+            "TASK02_OWNER_MONOTONIC_CLOCK_STEP_NUMERICAL_CANDIDATE"))
+    )
+
+
 def authorized_scenario_result(report):
     """Read-only CI/Owner candidate mapping; never grants Owner L3."""
     if not isinstance(report,dict):
@@ -73,7 +84,7 @@ def review(root,witness,expected_sha,gui_windows):
             "single_goal_actual_action":len(goals)==1 and bool(observed_cancel),
             "exact_goal_cancel":terminal["status"]=="EXACT_GOAL_UUID_TERMINAL_CANCELED_PASS",
             "sqlite_14":bag["status"]=="ACTUAL_SQLITE_14_TOPIC_CUSTODY_PASS",
-            "cm_source_and_observer_120ms":cm["status"]=="TASK02_PUBLIC_L2_NUMERICAL_CANDIDATE",
+            "cm_source_and_observer_120ms":accepted_cm_scope(cm.get("status"),scenario_scope),
             "guard_internal_150ms":guard["status"]=="GUARD_NATIVE_CM_AGE_TTL150_PASS",
             "s02_actual_native_contact_zero":native,
             "cli_shared_moving_result":scenario_scope is not None,
