@@ -11,6 +11,7 @@ BAG_PID=''
 GUI_WATCH_PID=''
 MOVING_GAZEBO_GUI_PID=''
 MOVING_RVIZ_PID=''
+D08_IMAGE_BRIDGE_PID=''
 OWNER_MOVING="${AXIA_G07_TASK04_OWNER_MOVING_L3:-0}"
 CI_MOVING_GUI="${AXIA_G07_TASK04_CI_GUI_MOVING:-0}"
 [[ "$OWNER_MOVING" == 0 || "$OWNER_MOVING" == 1 ]] || exit 2
@@ -68,6 +69,12 @@ stop_owner_parity_bag() {
 }
 cleanup() {
  local rc=$?
+ # Owner only: stop the D08 read-only image bridge owned by this exact run.
+ if [[ -n "$D08_IMAGE_BRIDGE_PID" ]];then
+   kill -INT -- "-$D08_IMAGE_BRIDGE_PID" 2>/dev/null || true
+   wait "$D08_IMAGE_BRIDGE_PID" 2>/dev/null || true
+   D08_IMAGE_BRIDGE_PID=''
+ fi
  # Exactly ONE isolated read-only GUI process group is owned by this smoke.
  # A watcher sleeps until the verified free baseline; NO GUI renders before.
  if [[ -n "$GUI_WATCH_PID" ]]; then
@@ -870,6 +877,49 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
     exit 2
   fi
   cat "$OUT/g07_active_cm_native_parameters.log"
+  # D08 pregoal read-only optical/official Path observation: no Goal or
+  # /cmd_vel. Physical human is restored before G07's existing STOP fixture.
+  # Only the original G07 moving authority may ever reach this branch.
+  if [[ "${AXIA_D08_G07_READONLY_STAGE:-0}" == 1 ]];then
+    [[ "${AXIA_D08_G07_SINGLE_SESSION:-0}" == 1
+       && "${AXIA_P0_SIM_ONLY:-0}" == 1
+       && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]] || {
+      echo D08_G07_READONLY_STAGE_BLOCKED_NO_GOAL >&2;exit 2;
+    }
+    D08_RO_SCRIPT="${AXIA_D08_G07_READONLY_SCRIPT:-}"
+    [[ "$D08_RO_SCRIPT" == /* && -f "$D08_RO_SCRIPT"
+       && ! -L "$D08_RO_SCRIPT"
+       && "$(git -C "$(dirname "$D08_RO_SCRIPT")" rev-parse HEAD 2>/dev/null)" == "${AXIA_D08_G07_EXPECTED_PUBLIC_SHA:-}"
+       && -s "$OUT/d08_unified/manifest.json" ]] || {
+      echo D08_G07_READONLY_STAGE_PINNED_SOURCE_BLOCKED_NO_GOAL >&2;exit 2;
+    }
+    ros2 pkg prefix ros_gz_image >/dev/null || {
+      echo D08_G07_READONLY_IMAGE_BRIDGE_PKG_MISSING_NO_GOAL >&2;exit 2;
+    }
+    setsid ros2 run ros_gz_image image_bridge /axia/d08/rgbd/image /axia/d08/rgbd/depth_image \
+      > "$OUT/d08_image_bridge.log" 2>&1 &
+    D08_IMAGE_BRIDGE_PID=$!
+    sleep 2
+    kill -0 "$D08_IMAGE_BRIDGE_PID" || {
+      echo D08_G07_READONLY_IMAGE_BRIDGE_EXITED_NO_GOAL >&2;exit 2;
+    }
+    timeout --signal=TERM --kill-after=8s 360s python3 "$D08_RO_SCRIPT" \
+      --out "$OUT/d08_readonly" --world "$OUT/d08_unified/axia_d08_p2_person_world.sdf.xacro" \
+      --robot "$OUT/d08_unified/axia_d08_waffle_rgbd.sdf.xacro" \
+      --public-sha "${AXIA_D08_G07_EXPECTED_PUBLIC_SHA}" \
+      --student-sha "$EXPECTED_CI_SHA" \
+      > "$OUT/d08_readonly.log" 2>&1 || {
+      tail -n 80 "$OUT/d08_readonly.log" >&2 || true
+      echo D08_G07_READONLY_STAGE_BLOCKED_NO_GOAL >&2;exit 2;
+    }
+    test -s "$OUT/d08_readonly/verdict.json" || {
+      echo D08_G07_READONLY_EVIDENCE_MISSING_NO_GOAL >&2;exit 2;
+    }
+    kill -INT -- "-$D08_IMAGE_BRIDGE_PID" 2>/dev/null || true
+    wait "$D08_IMAGE_BRIDGE_PID" 2>/dev/null || true
+    D08_IMAGE_BRIDGE_PID=''
+    echo D08_G07_READONLY_PREGOAL_COMPLETE_NO_GOAL
+  fi
   echo 'AXIA_G07_CI_MOVING_GOAL_PREG0AL_NATIVE_FIXTURE_BEGIN'
   timeout --signal=TERM --kill-after=5s 70s \
     python3 tools/p2_g07_owner_pregoal_l2.py --output "$OUT/g07_ci_pregoal" \
