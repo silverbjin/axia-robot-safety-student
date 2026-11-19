@@ -46,9 +46,19 @@ class Task04OwnerMovingEntry(unittest.TestCase):
                 calls = {getattr(c.func, "id", None) for c in child if isinstance(c, ast.Call)}
                 if "_task03_exact_goal_terminal" in calls:
                     checks.append(ast.unparse(n.test))
-        self.assertEqual(len(checks), 1)
-        self.assertIn("owner_mode", checks[0])
-        self.assertIn("AXIA_G07_TASK03_FORMAL_CI", checks[0])
+        # Normal post-STOP and guarded exceptional cleanup are mutually
+        # exclusive: one physical Goal, never two CancelGoal requests.
+        call_count=sum(1 for n in ast.walk(run)
+                       if isinstance(n,ast.Call)
+                       and getattr(n.func,"id",None)=="_task03_exact_goal_terminal")
+        self.assertEqual(call_count,2)
+        self.assertTrue(any("owner_mode" in cond
+                            and "AXIA_G07_TASK03_FORMAL_CI" in cond
+                            for cond in checks))
+        src=Path(moving.__file__).read_text()
+        self.assertIn('report["goal_cancel_attempted"]=True',src)
+        self.assertIn('report.get("goal_cancel_attempted") is not True',src)
+        self.assertIn('guard_latched is False',src)
 
     def test_owner_motion_window_marker_does_not_require_ci_credentials(self):
         src = Path(moving.__file__).read_text()
