@@ -18,10 +18,9 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-import time
 
-SERVER_ONE = re.compile(r"^gz sim -r -s (/tmp/nav2_[A-Za-z0-9_]+\\.sdf)$")
-SERVER_PATH = re.compile(r"^/tmp/nav2_[A-Za-z0-9_]+\\.sdf$")
+SERVER_ONE = re.compile(r"^gz sim -r -s (/tmp/nav2_[A-Za-z0-9_]+\.sdf)$")
+SERVER_PATH = re.compile(r"^/tmp/nav2_[A-Za-z0-9_]+\.sdf$")
 SHA40 = re.compile(r"^[a-f0-9]{40}$")
 
 
@@ -140,14 +139,6 @@ def run(launch_pgid,expected_sha,out,env=None):
     cm_pid,gz_pid=match_roles(_proc_rows(),launch_pgid,os.geteuid())
     cm_threads=_role_threads(cm_pid,launch_pgid)
     gz_threads=_role_threads(gz_pid,launch_pgid)
-    if not SERVER_PATH.fullmatch(
-            next((v[-1] for _,pgid,argv,uid in _proc_rows()
-                  if pgid==launch_pgid and uid==os.geteuid() and
-                  _official_server(argv) for v in [argv]),"")):
-        # The one-arg form is already validated in match_roles, but cannot
-        # yield a final argv element that is the SDF path; use /proc role
-        # ownership rather than silently admitting another process.
-        pass
     # Only after validating BOTH roles and their thread ownership: pin
     # EVERY currently existing TID of the actual official CM and gz server.
     for tid in cm_threads:
@@ -168,7 +159,7 @@ def run(launch_pgid,expected_sha,out,env=None):
          "moving_l2_accepted":False,"certified_estop":False}
     with out.open("x",encoding="utf-8") as file:
         json.dump(result,file,indent=2,sort_keys=True)
-        file.write("\\n")
+        file.write("\n")
     print("D08_G07_C36_REAL_OWNED_CM_SERVER_CPU_ROLE_PASSED_NO_GOAL "
           +json.dumps({"cm_cores":sorted(cm_cores),
                         "gz_cores":sorted(gz_cores),
