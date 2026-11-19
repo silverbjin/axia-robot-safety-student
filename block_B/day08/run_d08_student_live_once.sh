@@ -12,7 +12,7 @@ esac
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BASE="$(cd -- "$HERE/.." && pwd)"
 SOURCE="$BASE/day04/run_student_gazebo_yolo_once.sh"
-RVIZ="$HERE/live/d08_student_rgbd_monitor.rviz"
+RVIZ="${AXIA_D08_MONITOR_RVIZ:-$HERE/live/d08_student_rgbd_monitor.rviz}"
 [[ -s "$SOURCE" && -s "$RVIZ" ]] || {
   echo "D08_STUDENT_LIVE_SOURCE_MISSING" >&2; exit 2;
 }
