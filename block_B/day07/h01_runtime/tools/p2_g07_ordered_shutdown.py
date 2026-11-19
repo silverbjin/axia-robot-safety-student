@@ -66,6 +66,24 @@ def wait_for_service_bounded(client, remaining):
     return False
 
 
+def _call_isolated_stage(rclpy, *, manager, timeout_sec):
+    """Reuse G07 Task04 per-manager short-lived native Nav2 service client.
+
+    Real strict L2 #44476730420 had Navigation SHUTDOWN ACK but
+    Localization SERVICE_TIMEOUT (Nav2 manager stayed alive). Eliminate
+    possible previous executor/client-graph state, preserving official ACK.
+    This issues exactly ONE request per manager, never a retry and never
+    a replacement of Scan300 / CM120 / Guard150 safety requirements.
+    """
+    node=rclpy.create_node("axia_g07_shutdown_"+manager,
+                           enable_rosout=False)
+    try:
+        return call_native_manage(node, manager=manager, command="shutdown",
+                                  timeout_sec=timeout_sec)
+    finally:
+        node.destroy_node()
+
+
 def run(*, limit=60.0):
     if (os.environ.get("ROS_DISTRO") != "jazzy"
             or os.environ.get("AXIA_P0_SIM_ONLY") != "1"
@@ -121,8 +139,13 @@ def run(*, limit=60.0):
         for key,service in (("navigation", NAV_MANAGER),
                             ("localization", LOC_MANAGER)):
             budget=shutdown_stage_budget(key, deadline-monotonic())
-            ack=call_native_manage(node, manager=key, command="shutdown",
-                                   timeout_sec=budget)
+            ack=_call_isolated_stage(rclpy, manager=key,
+                                     timeout_sec=budget)
+            # Preserve FIRST manager response boundary. A sent request
+            # without ACK stays HOLD even if process later exits cleanly.
+            stages[key+"_response_elapsed_sec"]=ack.get("elapsed_sec")
+            stages[key+"_service_request_sent"]=ack.get("request_sent",False)
+            stages[key+"_service_status"]=ack.get("status")
             if ack["status"]!="ACK":
                 return result("BLOCKED_LIFECYCLE_"+key.upper()+"_"+ack["status"],
                               **stages)
