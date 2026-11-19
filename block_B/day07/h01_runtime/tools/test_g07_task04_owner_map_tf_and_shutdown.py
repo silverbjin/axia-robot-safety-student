@@ -54,6 +54,13 @@ class FieldMapTfFallback(unittest.TestCase):
         self.assertIn("map_pose_source=getattr(obs,'map_pose_source'",runner)
         self.assertNotIn("map_pose=obs.data()['pose']",runner)
 
+    def test_ci_can_force_real_tf_without_owner_fallback_override(self):
+        source=(TOOLS/"p2_l3_live_session.py").read_text()
+        self.assertIn("AXIA_G07_CI_FORCE_MAP_TF_FALLBACK",source)
+        self.assertIn('GITHUB_ACTIONS',source)
+        self.assertIn('AXIA_G07_CI_SIM_GOAL_ALLOWED',source)
+        self.assertIn('G07_CI_REAL_MAP_TF_FALLBACK_REQUIRED',source)
+
     def test_no_map_tf_still_blocks_goal(self):
         live=(TOOLS/"p2_l3_live_session.py").read_text()
         self.assertIn("G07_AMCL_MAP_POSE_UNAVAILABLE_BEFORE_GOAL",live)
