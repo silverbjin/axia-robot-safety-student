@@ -166,6 +166,45 @@ def first_receipt_breach_pair(rows):
     return None
 
 
+def select_dual_topic_window(records):
+    """Only admit Scan300 evidence after BOTH required live topics appear.
+
+    Startup single-topic breaches remain recorded as pre-readiness evidence;
+    NO_GOAL and the original 300ms host receipt TTL are unchanged.
+    """
+    raw=records.get("raw",[])
+    safe=records.get("safety",[])
+    result={
+        "status":"BOTH_TOPIC_READINESS_MISSING","both_topics_ready":False,
+        "goal_allowed":False,"start_host_monotonic_sec":None,
+        "observed_dwell_sec":0.,"pre_ready_raw_first_gap_sec":None,
+        "pre_ready_breach_evidence_retained":False,
+        "startup_raw_first_breach":None,
+        "records":{**records,"raw":[],"safety":[]}
+    }
+    if not raw or not safe:return result
+    start=max(float(raw[0]["recv"]),float(safe[0]["recv"]))
+    if not math.isfinite(start):return result
+    raw_before=[x for x in raw if x["recv"]<start]
+    raw_live=[x for x in raw if x["recv"]>=start]
+    safe_live=[x for x in safe if x["recv"]>=start]
+    before_gaps=[b["recv"]-a["recv"] for a,b in zip(raw_before,raw_before[1:])]
+    pre=max(before_gaps) if before_gaps else None
+    pre_breach=first_receipt_breach_pair(raw_before)
+    dwell=(min(raw_live[-1]["recv"],safe_live[-1]["recv"])-start
+           if raw_live and safe_live else 0.)
+    result.update({
+        "status":"DUAL_TOPIC_READY","both_topics_ready":True,
+        "start_host_monotonic_sec":round(start,6),
+        "observed_dwell_sec":round(max(0.,dwell),6),
+        "pre_ready_raw_first_gap_sec":round(pre,6) if pre is not None else None,
+        "pre_ready_breach_evidence_retained":bool(pre_breach),
+        "startup_raw_first_breach":pre_breach,
+        "records":{**records,"raw":raw_live,"safety":safe_live}
+    })
+    return result
+
+
 def assess_window(records):
     """Fail closed using host callback RECEIPT, not mixed simulation/header time.
 
@@ -266,9 +305,10 @@ def run(out, duration):
     records = {"safety": [], "raw": [], "odom": [], "clock": [],
                "clock_receipts": []}
     first_scan_at = None
+    dual_ready_at = None
 
     def scan_callback(msg, kind):
-        nonlocal first_scan_at
+        nonlocal first_scan_at, dual_ready_at
         front = [float(v) for i, v in enumerate(msg.ranges)
                  if abs(msg.angle_min + i * msg.angle_increment) <= .18
                  and type(v) in (float, int) and math.isfinite(v)
@@ -287,6 +327,8 @@ def run(out, duration):
                                "stamp_ns":int(msg.header.stamp.sec)*1000000000+int(msg.header.stamp.nanosec),
                               "front": min(front), "side": side,
                               "near": near, "beams": beams})
+        if dual_ready_at is None and records["raw"] and records["safety"]:
+            dual_ready_at=max(records["raw"][0]["recv"],records["safety"][0]["recv"])
 
     def on_odom(msg):
         records["odom"].append({"vx": msg.twist.twist.linear.x,
@@ -321,13 +363,31 @@ def run(out, duration):
         deadline = time.monotonic() + duration + 8
         while time.monotonic() < deadline:
             rclpy.spin_once(node, timeout_sec=.08)
-            if first_scan_at and time.monotonic() - first_scan_at >= duration:
+            if first_scan_at and dual_ready_at is not None and (
+                    time.monotonic() - dual_ready_at >= duration):
                 break
-        report = assess_window(records)
-        report["rtf_diagnostics"] = analyze_timing_separately(records)
-        report["raw_first_gap_diagnostics"] = correlate_first_raw_gap(records)
-        report["duration_observed_sec"] = round(
-            time.monotonic() - first_scan_at, 3) if first_scan_at else 0
+        stable=select_dual_topic_window(records)
+        report=assess_window(stable["records"])
+        report["rtf_diagnostics"]=analyze_timing_separately(stable["records"])
+        report["raw_first_gap_diagnostics"]=correlate_first_raw_gap(stable["records"])
+        report["startup_pre_both_scan_diagnostics"]={
+            "readiness_status":stable["status"],
+            "both_topics_ready":stable["both_topics_ready"],
+            "dual_topic_start_host_monotonic_sec":stable["start_host_monotonic_sec"],
+            "pre_ready_raw_first_gap_sec":stable["pre_ready_raw_first_gap_sec"],
+            "pre_ready_raw_first_breach":stable["startup_raw_first_breach"],
+            "pre_ready_breach_evidence_retained":stable["pre_ready_breach_evidence_retained"],
+            "pre_ready_observations_not_motion_authority":True,
+        }
+        observed=(time.monotonic()-dual_ready_at if dual_ready_at is not None else 0.)
+        report["duration_observed_sec"]=round(max(0.,observed),3)
+        report["dual_topic_required_observation_sec"]=duration
+        report["dual_topic_actual_wall_observation_sec"]=round(max(0.,observed),3)
+        if dual_ready_at is None or observed<duration:
+            why=("DUAL_TOPIC_READINESS_MISSING" if dual_ready_at is None
+                 else "DUAL_TOPIC_FULL_DWELL_NOT_PROVEN")
+            report["status"]="NO_GOAL_SENSOR_UNSAFE_HOLD"
+            report["reasons"]=list(dict.fromkeys(report["reasons"]+[why]))
         report["source_header_vs_host_receipt_distinct"] = True
         out.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n")
         print("AXIA_G07_WSLG_NO_GOAL_SENSOR_TRUTH " +
