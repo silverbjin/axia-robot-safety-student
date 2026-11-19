@@ -4,6 +4,7 @@
 - 과제: `block_C/day10/student_if_todo.py`의 **`fit_evaluate_if(feature_dir, output_dir)`를 직접 구현**합니다. 완료 이전 `NotImplementedError`는 의도된 상태입니다.
 - 강사 정답/hidden tests를 공개 저장소에 복사하지 않습니다. 학습·임계값·평가 순서는 **정상 Train만 fit → 정상 Valid만 임계값 → 고정된 Test만 평가**.
 - 목표: 단순 코드 실행뿐 아니라 **Isolation Forest 구조를 설명**하고 **초기 WARNING 시점·오탐·미탐을 근거로 조기 경고 여부를 검증**합니다.
+- **안전/인증 경계:** AI 위험점수는 **비인증 교육용 경고**이며 SW Stop 또는 실제 인증 E-Stop을 수행하지 않습니다. 안전한 정지를 증명하는 값이 아닙니다.
 
 ## 0. 사전 준비와 작업 원칙 (10분)
 
