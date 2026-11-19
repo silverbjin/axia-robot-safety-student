@@ -38,28 +38,27 @@ Gazebo 화면에서는 Actor가 x=2.8→2.0→2.8m로 접근/복귀하고 원래
 ~~~bash
 (
   set -Eeuo pipefail
-  REPO="$HOME/axia_d05_student_gazebo_live"
-  SHA="1c03c9bfb4b41e2726a7c1d2f47d65496bdaa474"
-
-  if [[ ! -e "$REPO" ]]; then
-    git clone --quiet --no-checkout \
+  REPO="$HOME/axia_d05_student_gazebo_live_main"
+  BRANCH="main"
+  if [[ -e "$REPO" ]]; then
+    git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+      echo "D05_STUDENT_DEMO_DIRECTORY_NOT_GIT"; exit 2; }
+    [[ "$(git -C "$REPO" branch --show-current)" == "$BRANCH" ]] || {
+      echo "D05_STUDENT_EXISTING_BRANCH_PRESERVED"; exit 2; }
+    [[ -z "$(git -C "$REPO" status --porcelain --untracked-files=no)" ]] || {
+      echo "D05_STUDENT_LOCAL_CHANGES_PRESERVED"; exit 2; }
+    git -C "$REPO" fetch origin main
+    git -C "$REPO" merge --ff-only FETCH_HEAD
+  else
+    git clone --single-branch --branch main \
       https://github.com/silverbjin/axia-robot-safety-student.git "$REPO"
-    git -C "$REPO" fetch --quiet --depth 1 origin "$SHA"
-    git -C "$REPO" checkout --quiet --detach "$SHA"
   fi
-
-  test -d "$REPO/.git"
-  test "$(git -C "$REPO" rev-parse HEAD)" = "$SHA" || {
-    echo "D05_STUDENT_SOURCE_SHA_MISMATCH"; exit 2; }
-  test -z "$(git -C "$REPO" status --porcelain --untracked-files=no)" || {
-    echo "D05_STUDENT_LOCAL_CHANGES_PRESERVED"; exit 2; }
-
   cd "$REPO"
+  echo D05_STUDENT_MAIN_SOURCE_SHA=$(git rev-parse HEAD)"
   AXIA_D05_LIVE=1 bash block_B/day04/run_student_gazebo_yolo_once.sh --self-check
-
   AXIA_D05_LIVE=1 AXIA_D05_SENSOR_ONLY=1 \
-  AXIA_D04_STUDENT_GUI=1 AXIA_D04_STUDENT_DOMAIN_ID=49 \
-  AXIA_D04_STUDENT_GUI_HOLD_S=180 \
+    AXIA_D04_STUDENT_GUI=1 AXIA_D04_STUDENT_DOMAIN_ID=49 \
+    AXIA_D04_STUDENT_GUI_HOLD_S=180 \
     bash block_B/day04/run_student_gazebo_yolo_once.sh --run
 )
 ~~~
@@ -120,7 +119,7 @@ ros2 topic list | grep /axia/d05/person_range_status || \
 ~~~bash
 (
   set -Eeuo pipefail
-  REPO="$HOME/axia_d05_student_gazebo_live"
+  REPO="$HOME/axia_d05_student_gazebo_live_main"
   test -f "$REPO/block_B/day04/run_student_gazebo_yolo_once.sh"
 
   LOGDIR="$HOME/axia_d05_student_live_logs"
