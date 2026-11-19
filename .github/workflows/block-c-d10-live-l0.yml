@@ -1,0 +1,49 @@
+name: AXIA D10 Gazebo RViz synthetic IF overlay L0 (not L2)
+on:
+  push:
+    branches: ['feat/d10-gazebo-rviz-*']
+    paths:
+      - 'block_C/day10/live/**'
+      - 'block_C/tests/test_d10_gazebo_rviz_l0.py'
+      - 'block_B/day08/run_d08_student_live_once.sh'
+      - '.github/workflows/block-c-d10-live-l0.yml'
+  pull_request:
+    paths:
+      - 'block_C/day10/live/**'
+      - 'block_C/tests/test_d10_gazebo_rviz_l0.py'
+      - 'block_B/day08/run_d08_student_live_once.sh'
+      - '.github/workflows/block-c-d10-live-l0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  student-synthetic-rviz-l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check pytest==8.3.5
+      - name: RED/GREEN test of source-only RViz and synthetic data boundaries
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/head.log
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
+            block_C/tests/test_d10_gazebo_rviz_l0.py \
+            --junitxml=evidence/test.xml | tee evidence/test.log
+          python block_C/fixtures/generator.py --check --fixture-dir block_C/fixtures | tee evidence/c01.log
+          bash block_C/day10/live/d10_gazebo_rviz_once.sh --self-check | tee evidence/self_check.log
+          echo D10_GAZEBO_RVIZ_L0_PASS_ROS_NOT_RUN_GAZEBO_NOT_RUN_WSL2_NOT_RUN | tee evidence/verdict.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d10-synthetic-rviz-l0-evidence
+          path: evidence/
+          retention-days: 7
+          if-no-files-found: warn
