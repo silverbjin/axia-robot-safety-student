@@ -92,12 +92,12 @@ def probe_localization_parameter_service(rclpy, *, timeout_sec):
     are servicing requests; it does NOT imply ManageLifecycleNodes SHUTDOWN ACK.
     Never resend SHUTDOWN or extend the 60s overall deadline.
     """
-    from rcl_interfaces.srv import GetParameters
     started=monotonic()
     remaining=max(0.0, min(float(timeout_sec), 3.0))
     if remaining <= 0:
         return {"status":"NOT_RUN_DEADLINE_EXPIRED", "request_sent":False,
                 "elapsed_sec":0.0}
+    from rcl_interfaces.srv import GetParameters
     node=None
     client=None
     service="/lifecycle_manager_localization/get_parameters"
