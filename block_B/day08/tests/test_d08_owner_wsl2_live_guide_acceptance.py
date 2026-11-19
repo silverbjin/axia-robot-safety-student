@@ -40,13 +40,15 @@ def test_no_misleading_live_success_claims():
     assert "Owner WSL2" in doc
     assert "RViz2" in doc
 
-def test_student_execution_is_sha_pinned_nounset_safe_and_no_destructive_reset():
+def test_student_execution_is_main_based_nounset_safe_and_no_destructive_reset():
     doc = LIVE.read_text(encoding="utf-8")
     first = re.search(r"(?ms)^\x60\x60\x60bash\n(.*?)\n\x60\x60\x60", doc)
     assert first is not None
     command = first.group(1)
     assert "run_d08_student_live_bootstrap.sh" in command
-    assert "a5f1cee52bbfa07578ddb40b9c28e8c23e742449" in command
+    assert "axia-robot-safety-student/main/block_B/day08/run_d08_student_live_bootstrap.sh" in command
+    assert "AXIA_D08_RELEASE_BRANCH=main" in command
+    assert "AXIA_D08_DEMO_DIR=" in command
     assert "source /opt/ros/jazzy/setup.bash" not in command
     assert "rm -rf" not in command and "git reset --hard" not in command
     assert "AXIA_D08_DOMAIN_ID=49" in command
