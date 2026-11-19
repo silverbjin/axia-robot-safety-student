@@ -50,6 +50,25 @@ def shutdown_stage_budget(manager, remaining_sec):
                max(0.01, remaining_sec))
 
 
+def _call_isolated_stage(rclpy, *, manager, timeout_sec):
+    """One bounded native client per manager, no reused executor state.
+
+    A real G07 public native Moving+GUI session twice reached STOP and Nav
+    SHUTDOWN ACK, then had no Localization managed transition before the
+    30s ManageLifecycleNodes response timeout. Reuse the existing official
+    native client and ACK gate; give each sequential call its own short-lived
+    rclpy node to exclude previous spin/graph state. Never retry SHUTDOWN,
+    send Goal, signal processes, or change timeout budgets.
+    """
+    node=rclpy.create_node("axia_g07_shutdown_"+manager,
+                           enable_rosout=False)
+    try:
+        return call_native_manage(node,manager=manager,command="shutdown",
+                                  timeout_sec=timeout_sec)
+    finally:
+        node.destroy_node()
+
+
 def run(*, limit=60.0):
     if (os.environ.get("ROS_DISTRO") != "jazzy"
             or os.environ.get("AXIA_P0_SIM_ONLY") != "1"
@@ -105,8 +124,8 @@ def run(*, limit=60.0):
         for key,service in (("navigation", NAV_MANAGER),
                             ("localization", LOC_MANAGER)):
             budget=shutdown_stage_budget(key, deadline-monotonic())
-            ack=call_native_manage(node, manager=key, command="shutdown",
-                                   timeout_sec=budget)
+            ack=_call_isolated_stage(rclpy, manager=key,
+                                     timeout_sec=budget)
             # Preserve FIRST lifecycle service response boundary, not just
             # the final shell rc. This is diagnostic, NEVER a substitute
             # for the required actual Navigation + Localization ACK.

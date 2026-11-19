@@ -134,6 +134,29 @@ def _pre_goal_odom_pose(snap, data):
     return tuple(pose)
 
 
+def _pre_goal_safety_fresh(snap, data):
+    """Recheck *live* 300ms Scan/Odom/Guard/Clock after human consent.
+
+    A prior PREGOAL baseline can be minutes old after the 180-second TTY
+    window; that file is geometry evidence, never permission to send a Goal
+    against stale ROS topics. This is a read-only gate and does not modify
+    any CM/Guard/Supervisor safety TTL or Nav2 state.
+    """
+    if not isinstance(snap,dict) or not isinstance(data,dict):
+        return None
+    if _fresh(snap,("scan","odom","guard","clock"),limit=.30) is None:
+        return None
+    if snap.get("clock_advancing") is not True:
+        return None
+    guard=data.get("guard")
+    if not isinstance(guard,dict) or guard.get("latched") is not False:
+        return None
+    front=data.get("scan")
+    if type(front) not in (int,float) or not math.isfinite(front) or front <= .14:
+        return None
+    return True
+
+
 def run(args):
     # Same exact Gazebo/ROS phase and stop oracle for public CI and WSL2.
     # Only PRE-GOAL authority differs; the Owner cannot set CI credentials.
@@ -298,6 +321,7 @@ def run(args):
         start_pose=wait(_pre_goal_odom_pose,4,"PRE_GOAL_ODOM")
         print("AXIA_G07_TASK04_REAL_OBSERVER_ODOM_READY_BEFORE_GOAL "
               "two_fresh_callbacks=true max_gap_sec=0.3",flush=True)
+        wait(_pre_goal_safety_fresh,5,"PRE_GOAL_SAFETY_FRESH")
         # An actual TF-derived map/odom anchor and verified official world
         # spawn are required before the Goal, not inferred from raw /odom.
         world_anchor=make_frame_anchor(
@@ -306,6 +330,10 @@ def run(args):
         _call_start(node,obs)
         wait(lambda s,d: True if d["supervisor"].get("state")=="NORMAL" else None,
              5,"SUPERVISOR_START")
+        wait(_pre_goal_safety_fresh,3,"PRE_PUBLISH_GOAL_SAFETY_FRESH")
+        if owner_mode:
+            print("AXIA_G07_TASK04_OWNER_POST_CONSENT_FRESH_SCAN_ODOM_GUARD_CLOCK_PASS",
+                  flush=True)
         published=_publish_goal(node,obs,demo_corridor=True)
         goal_sent_at=time.monotonic()
         report["goal_sent"]=True

@@ -22,9 +22,21 @@ class OwnerMovingShellContract(unittest.TestCase):
         self.assertIn("AXIA_P2_OWNER_PINNED_SHA", self.text)
 
     def test_real_controlling_tty_phrase_before_one_goal(self):
-        self.assertIn("YES-P2-G07-GOAL", self.text)
-        self.assertRegex(self.text, r"read -r[^\n]*<\s*/dev/tty")
-        self.assertIn('--owner-launch-pid "$LAUNCH_PID"', self.text)
+        # Human consent moved to a single sourced helper. Verify BOTH
+        # integration and actual controlling TTY read rather than relying
+        # on a literal phrase's previous position in the outer shell.
+        helper=ROOT/"tools/p2_g07_owner_tty_consent.sh"
+        self.assertTrue(helper.is_file())
+        self.assertIn("source tools/p2_g07_owner_tty_consent.sh",self.text)
+        self.assertIn("axia_owner_tty_consent 180",self.text)
+        self.assertIn('--owner-launch-pid "$LAUNCH_PID"',self.text)
+        source=helper.read_text(encoding="utf-8")
+        subprocess.run(["bash","-n",str(helper)],check=True)
+        self.assertIn("YES-P2-G07-GOAL",source)
+        self.assertIn("read -r -t \"$limit\" answer < /dev/tty",source)
+        self.assertIn("OWNER_GOAL_CONSENT_TIMEOUT",source)
+        self.assertIn("OWNER_GOAL_CONSENT_EOF_OR_TTY_ERROR",source)
+        self.assertIn("OWNER_GOAL_CONSENT_DENIED",source)
 
     def test_owner_reuses_bag_shutdown_and_cm_exit(self):
         self.assertIn("AXIA_G07_CI_OWNER_BAG_PARITY", self.text)

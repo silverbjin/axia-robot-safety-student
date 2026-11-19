@@ -13,6 +13,17 @@ from pathlib import Path
 from p2_g07_task03_contract import audit_bag_14,audit_goal_terminal,audit_guard_internal_cm_age
 from d06.diagnostic.g07_task02_strict_gate import assess as assess_cm120
 
+def accepted_cm_scope(status, scenario_scope):
+    """Only a verified owner scenario accepts the scoped Owner CM oracle."""
+    return (
+        (scenario_scope=="ci" and
+         status=="TASK02_PUBLIC_L2_NUMERICAL_CANDIDATE")
+        or (scenario_scope=="owner" and status in (
+            "TASK02_OWNER_NATIVE_NUMERICAL_CANDIDATE",
+            "TASK02_OWNER_MONOTONIC_CLOCK_STEP_NUMERICAL_CANDIDATE"))
+    )
+
+
 def authorized_scenario_result(report):
     """Read-only CI/Owner candidate mapping; never grants Owner L3."""
     if not isinstance(report,dict):
@@ -73,7 +84,7 @@ def review(root,witness,expected_sha,gui_windows):
             "single_goal_actual_action":len(goals)==1 and bool(observed_cancel),
             "exact_goal_cancel":terminal["status"]=="EXACT_GOAL_UUID_TERMINAL_CANCELED_PASS",
             "sqlite_14":bag["status"]=="ACTUAL_SQLITE_14_TOPIC_CUSTODY_PASS",
-            "cm_source_and_observer_120ms":cm["status"]=="TASK02_PUBLIC_L2_NUMERICAL_CANDIDATE",
+            "cm_source_and_observer_120ms":accepted_cm_scope(cm.get("status"),scenario_scope),
             "guard_internal_150ms":guard["status"]=="GUARD_NATIVE_CM_AGE_TTL150_PASS",
             "s02_actual_native_contact_zero":native,
             "cli_shared_moving_result":scenario_scope is not None,
@@ -95,7 +106,13 @@ def review(root,witness,expected_sha,gui_windows):
         result.update(checks=checks,first_failure=next((k for k,v in checks.items() if not v),"NONE"),
           cm120={"status":cm.get("status"),"source_gap_max_ms":cm.get("source_gap_max_ms"),
                  "observer_gap_max_ms":cm.get("observer_gap_max_ms"),
-                 "actual_publisher_pairs":cm.get("actual_publisher_pairs")},
+                 "actual_publisher_pairs":cm.get("actual_publisher_pairs"),
+                 # Never discard the original WSL2 RMW wall-clock step while
+                 # reporting a scoped guest-monotonic numerical candidate.
+                 "source_raw_gap_max_ms":cm.get("source_raw_gap_max_ms"),
+                 "clock_step_pairs":cm.get("clock_step_pairs"),
+                 "clock_step_evidence":cm.get("clock_step_evidence"),
+                 "host_external_clock_verified":cm.get("host_external_clock_verified")},
           guard_internal_cm_age_max_ms=guard.get("max_cm_age_ms"),
           goal_uuid=uuid if isinstance(uuid,str) and len(uuid)==32 else None,
           odom_moved_m=report.get("observed_odom_moved_m"),

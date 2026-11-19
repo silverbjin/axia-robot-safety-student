@@ -31,6 +31,21 @@ def _twist(motion):
     return msg
 
 
+def _task04_timing_evidence_enabled(environ):
+    """Read-only Guard steady-clock evidence for scoped CI OR real Owner L3.
+
+    No publisher, timeout, control, or latch behavior changes.
+    """
+    if environ.get('AXIA_P0_SIM_ONLY') != '1':
+        return False
+    ci = (environ.get('GITHUB_ACTIONS') == 'true'
+          and environ.get('AXIA_G07_TASK03_FORMAL_CI') == '1')
+    owner = (environ.get('GITHUB_ACTIONS') != 'true'
+             and environ.get('AXIA_G07_TASK04_OWNER_MOVING_L3') == '1'
+             and environ.get('AXIA_G07_OWNER_STARTUP_PARITY') == '1')
+    return ci or owner
+
+
 class P2BaseCommandGuard(Node):
     def __init__(self):
         super().__init__('axia_base_command_guard')
@@ -140,12 +155,10 @@ class P2BaseCommandGuard(Node):
             'sim_only': True,
             'certified_estop': False,
         }
-        # Task03 PUBLIC SIM only: expose the Guard's own actual steady
+        # Scoped Task03 CI or Task04 Owner SIM only: expose actual steady
         # monotonic receive ages on the EXISTING 20Hz status topic.
         # This is read-only evidence. Never change CM/Guard TTL or ZERO.
-        if (os.environ.get('GITHUB_ACTIONS') == 'true'
-                and os.environ.get('AXIA_P0_SIM_ONLY') == '1'
-                and os.environ.get('AXIA_G07_TASK03_FORMAL_CI') == '1'):
+        if _task04_timing_evidence_enabled(os.environ):
             snapshot = self._policy.diagnostic_snapshot(tick_mono)
             status_fields['cm_age_sec'] = snapshot['cm_age_sec']
             status_fields['supervisor_age_sec'] = snapshot['supervisor_age_sec']

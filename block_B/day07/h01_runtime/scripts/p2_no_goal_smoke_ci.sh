@@ -1057,15 +1057,10 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
     [[ -t 0 && -r /dev/tty ]] || {
       echo 'G07_TASK04_OWNER_CONTROLLING_TTY_MISSING' >&2;exit 2;
     }
-    printf '%s\n' 'Simulation-only Moving Goal: type YES-P2-G07-GOAL to approve exactly one Goal:' > /dev/tty
-    owner_answer=''
-    IFS= read -r -t 180 owner_answer < /dev/tty || {
-      echo 'G07_TASK04_OWNER_TTY_APPROVAL_TIMEOUT_OR_EOF_NO_GOAL' >&2;exit 2;
-    }
-    [[ "$owner_answer" == 'YES-P2-G07-GOAL' ]] || {
-      echo 'G07_TASK04_OWNER_GOAL_DENIED_BY_TTY_NO_GOAL' >&2;exit 2;
-    }
-    unset owner_answer
+    # 180s is a human-consent window only, never a safety freshness waiver.
+    # This is the only real controlling-TTY reader; CI sends no consent.
+    source tools/p2_g07_owner_tty_consent.sh
+    axia_owner_tty_consent 180 || exit 2
     export AXIA_G07_OWNER_COMMON_RUNNER_AUTHORIZED=1
     export AXIA_P2_OWNER_PINNED_SHA="$EXPECTED_CI_SHA"
     OWNER_GOAL_ARGS=(--owner-launch-pid "$LAUNCH_PID")
