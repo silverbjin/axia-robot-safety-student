@@ -526,7 +526,13 @@ def run(args):
         save()
         if verdict["status"]!="CI_GAZEBO_MOVING_GOAL_CANDIDATE":
             raise RuntimeError("ACTUAL_MOVING_GOAL_CI_ORACLE_"+verdict["reason"])
-        if owner_observer_parity:
+        # The educational MVP already proved physical CLEAR/SLOW/STOP and
+        # >1s real odom ZERO. Cancel the one live Nav2 Goal now; the legacy
+        # 15s post-STOP soak held it open until the Guard's real TTL latched.
+        # Never change the Guard timeout or force-rearm its safe latch.
+        if owner_observer_parity and report.get("slow_native_set_pose_ack") is True:
+            print("AXIA_G07_MVP_POST_STOP_SOAK_SKIPPED_GOAL_CANCEL_FIRST",flush=True)
+        if owner_observer_parity and report.get("slow_native_set_pose_ack") is not True:
             # The original Owner died 14.997s after startup, with 15s dump.
             # Keep this exact observer alive through the same boundary
             # AFTER validating real CLEAR/SLOW/STOP and the strict TTLs.
