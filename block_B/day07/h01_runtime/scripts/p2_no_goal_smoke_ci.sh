@@ -637,6 +637,29 @@ finally:
     rclpy.shutdown()
 PY
 fi
+# C08 CI Xvfb-only candidate: attach existing viewers before Nav2 READY.
+# Native Scan source pair 36.801->36.900 from L2 #44561289931 stalled
+# within one second after READY when GUI viewers were attaching.
+# No second simulation server: gz sim -g starts a GUI-only client.
+CI_PRE_READY_GUI=0
+if [[ "$SENSOR_NO_GOAL" == 1
+   && "${GITHUB_ACTIONS:-}" == true
+   && "${AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL:-0}" == 1
+   && "${AXIA_D06_L2_GUI_NICE_ONLY:-0}" == 15
+   && "${AXIA_D06_L2_GUI_PRE_NAV2_READY:-0}" == 1
+   && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0
+   && "$OWNER_MOVING" == 0 ]];then
+  [[ -r "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" ]] || {
+    echo 'D06_CI_L2_PRE_READY_RVIZ_CONFIG_MISSING'; exit 2;
+  }
+  setsid nice -n 15 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+  MOVING_GAZEBO_GUI_PID=$!
+  setsid nice -n 15 rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+    --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
+  MOVING_RVIZ_PID=$!
+  CI_PRE_READY_GUI=1
+  echo 'D06_CI_L2_GUI_PRE_NAV2_STARTED NO_GOAL'
+fi
 if "${STAGED_START[@]}" > "$OUT/staged_startup.log" 2>&1; then
   echo 'P2_NO_GOAL_STATIC_AND_RUNTIME_READINESS_OBSERVED'
 else
@@ -778,7 +801,9 @@ if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1
   # compete with Gazebo server physics/Clock. Nice only these two viewers,
   # not the Gazebo server, Nav2, Supervisor, Guard or CM. Owner WSLg and
   # ordinary Student training retain their original process priorities.
-  if [[ "${GITHUB_ACTIONS:-}" == true
+  if [[ "$CI_PRE_READY_GUI" == 1 ]];then
+    echo 'D06_CI_L2_GUI_EARLY_REUSED_NOT_SPAWNED'
+  elif [[ "${GITHUB_ACTIONS:-}" == true
      && "${AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL:-0}" == 1
      && "${AXIA_D06_L2_GUI_NICE_ONLY:-0}" == 15
      && "$SENSOR_NO_GOAL" == 1 ]];then
