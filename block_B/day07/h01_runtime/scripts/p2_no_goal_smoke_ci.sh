@@ -868,6 +868,16 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
   if [[ "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1 ]];then
     CM_GATE_ARGS+=(--require-simple-tf)
   fi
+  if [[ "${AXIA_D08_G07_CM_TF_WAIT_CANDIDATE:-0}" == 1 ]];then
+    [[ "${AXIA_D08_G07_SINGLE_SESSION:-0}" == 1
+       && "${AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE:-0}" == 1
+       && "${GITHUB_ACTIONS:-}" == true
+       && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
+       && "$OWNER_MOVING" == 0 ]] || {
+      echo D08_G07_CM_TF_WAIT_CI_AUTHORITY_BLOCKED_NO_GOAL >&2;exit 2;
+    }
+    CM_GATE_ARGS+=(--require-d08-g07-tf-wait)
+  fi
   if ! timeout --signal=TERM --kill-after=2s 18s \
        python3 tools/p2_g07_cm_active_param_readback.py \
          --output "$OUT/g07_active_cm_native_parameters.json" \
