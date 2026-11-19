@@ -153,11 +153,11 @@ def probe_localization_manage_callback_group(rclpy, *, timeout_sec):
     started=monotonic()
     if timeout_sec<=0:
         return {"status":"NOT_RUN_DEADLINE_EXPIRED","request_sent":False,
-                "elapsed_sec":0.0,"shutdown_ack":False}
+                "elapsed_sec":0.0}
     from std_srvs.srv import Trigger
     service="/lifecycle_manager_localization/is_active"
     out={"status":"MANAGE_CALLBACK_GROUP_NOT_MEASURED",
-         "service":service,"request_sent":False,"shutdown_ack":False}
+         "service":service,"request_sent":False}
     node=None;client=None
     try:
         node=rclpy.create_node("axia_g07_localization_manage_readonly_probe",
