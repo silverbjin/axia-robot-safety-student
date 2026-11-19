@@ -329,6 +329,10 @@ def run(out, duration):
 
     def scan_callback(msg, kind):
         nonlocal first_scan_at, dual_ready_at
+        # First executable callback instruction after scope declaration:
+        # measure ROS callback entry, not distance/sector computation latency.
+        # This is receive-layer evidence, not an upstream DDS send timestamp.
+        now = time.monotonic()
         front = [float(v) for i, v in enumerate(msg.ranges)
                  if abs(msg.angle_min + i * msg.angle_increment) <= .18
                  and type(v) in (float, int) and math.isfinite(v)
@@ -339,7 +343,6 @@ def run(out, duration):
         stamp = float(msg.header.stamp.sec) + msg.header.stamp.nanosec * 1e-9
         if not math.isfinite(stamp) or stamp <= 0:
             return
-        now = time.monotonic()
         if first_scan_at is None:
             first_scan_at = now
         near, beams = near_ring_fraction(msg)
