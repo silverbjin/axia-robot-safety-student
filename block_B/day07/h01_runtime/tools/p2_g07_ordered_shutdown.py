@@ -35,6 +35,21 @@ def result(status, **extra):
     }
 
 
+def shutdown_stage_budget(manager, remaining_sec):
+    """Bounded lifecycle RESPONSE time after a stopped/canceled Goal.
+
+    Public native Gazebo #44221460587 had Navigation ACK but Localization
+    service missed the old arbitrary 13s reply limit. Nav2 performs ordered
+    deactivate/cleanup/shutdown. We allow at most 30s for its legitimate
+    response within the SAME overall 60s deadline; a missing ACK still
+    BLOCKS acceptance. No motion, CM120, Guard150 or sensor TTL changes.
+    """
+    if manager not in ("navigation", "localization"):
+        raise ValueError("UNRECOGNIZED_LIFECYCLE_MANAGER")
+    return min(40.0 if manager == "navigation" else 30.0,
+               max(0.01, remaining_sec))
+
+
 def run(*, limit=60.0):
     if (os.environ.get("ROS_DISTRO") != "jazzy"
             or os.environ.get("AXIA_P0_SIM_ONLY") != "1"
@@ -89,10 +104,15 @@ def run(*, limit=60.0):
         # p2_g07_lifecycle_service.py, not an unrelated shutdown-only client.
         for key,service in (("navigation", NAV_MANAGER),
                             ("localization", LOC_MANAGER)):
-            budget=min(40.0 if key == "navigation" else 13.0,
-                       max(0.01,deadline-monotonic()))
+            budget=shutdown_stage_budget(key, deadline-monotonic())
             ack=call_native_manage(node, manager=key, command="shutdown",
                                    timeout_sec=budget)
+            # Preserve FIRST lifecycle service response boundary, not just
+            # the final shell rc. This is diagnostic, NEVER a substitute
+            # for the required actual Navigation + Localization ACK.
+            stages[key+"_response_elapsed_sec"]=ack.get("elapsed_sec")
+            stages[key+"_service_request_sent"]=ack.get("request_sent",False)
+            stages[key+"_service_status"]=ack.get("status")
             if ack["status"]!="ACK":
                 return result("BLOCKED_LIFECYCLE_"+key.upper()+"_"+ack["status"],
                               **stages)
