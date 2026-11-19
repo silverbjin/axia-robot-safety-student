@@ -320,7 +320,17 @@ def run(out, duration):
     from rosgraph_msgs.msg import Clock
     out.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     rclpy.init()
-    node = rclpy.create_node("axia_g07_wslg_no_goal_scan_truth")
+    # The original single-thread spin_once executed >300Hz /clock, /odom
+    # and both 10Hz Scan callbacks in one callback pipeline. Actual public
+    # Gazebo L2 #44531611496: peer ROS received stamp 43.902 at 343.015445,
+    # Student Scan callback entered at 343.355987 (+340.542ms). Keep the
+    # read-only scan callback group isolated from clock/odom work.
+    from rclpy.executors import MultiThreadedExecutor
+    scan_node = rclpy.create_node("axia_g07_wslg_no_goal_scan_truth")
+    aux_node = rclpy.create_node("axia_g07_wslg_no_goal_clock_odom_truth")
+    executor = MultiThreadedExecutor(num_threads=2)
+    executor.add_node(scan_node)
+    executor.add_node(aux_node)
     records = {"safety": [], "raw": [], "odom": [], "clock": [],
                "clock_receipts": []}
     first_scan_at = None
@@ -380,21 +390,29 @@ def run(out, duration):
                     CLOCK_RTF_RECEIPT_MIN_STEP_SEC):
                 records["clock_receipts"].append({"recv": recv, "sim": stamp})
 
-    subs = [
-        node.create_subscription(LaserScan, "/safety/scan",
-                                 lambda m: scan_callback(m, "safety"), qos_profile_sensor_data),
-        node.create_subscription(LaserScan, "/scan",
-                                 lambda m: scan_callback(m, "raw"), qos_profile_sensor_data),
-        node.create_subscription(Odometry, "/odom", on_odom, qos_profile_sensor_data),
-        node.create_subscription(Clock, "/clock", on_clock, qos_profile_sensor_data),
+    scan_subs = [
+        scan_node.create_subscription(LaserScan, "/safety/scan",
+                                      lambda m: scan_callback(m, "safety"), qos_profile_sensor_data),
+        scan_node.create_subscription(LaserScan, "/scan",
+                                      lambda m: scan_callback(m, "raw"), qos_profile_sensor_data),
     ]
+    aux_subs = [
+        aux_node.create_subscription(Odometry, "/odom", on_odom, qos_profile_sensor_data),
+        aux_node.create_subscription(Clock, "/clock", on_clock, qos_profile_sensor_data),
+    ]
+    executor_stopped = False
     try:
         deadline = time.monotonic() + duration + 8
         while time.monotonic() < deadline:
-            rclpy.spin_once(node, timeout_sec=.08)
+            executor.spin_once(timeout_sec=.08)
             if first_scan_at and dual_ready_at is not None and (
                     time.monotonic() - dual_ready_at >= duration):
                 break
+        # Drain any dispatched callbacks before interpreting the strict
+        # Scan300 verdict; no separate subscriber can mutate report data.
+        executor_stopped = executor.shutdown(timeout_sec=3.0)
+        if not executor_stopped:
+            raise RuntimeError("G07_READONLY_EXECUTOR_DID_NOT_STOP")
         stable=select_dual_topic_window(records)
         report=assess_window(stable["records"])
         report["rtf_diagnostics"]=analyze_timing_separately(stable["records"])
@@ -432,10 +450,15 @@ def run(out, duration):
         print("D06_GAZEBO_LIVE_RELEASE=HOLD CERTIFIED_ESTOP=false", flush=True)
         return 0 if report["status"] == "NO_GOAL_SENSOR_WINDOW_CLEAR_CANDIDATE" else 3
     finally:
-        for sub in subs:
-            node.destroy_subscription(sub)
-        node.destroy_node()
-        rclpy.shutdown()
+        if not executor_stopped:
+            executor.shutdown(timeout_sec=3.0)
+        for sub in scan_subs:
+            scan_node.destroy_subscription(sub)
+        for sub in aux_subs:
+            aux_node.destroy_subscription(sub)
+        scan_node.destroy_node()
+        aux_node.destroy_node()
+        rclpy.try_shutdown()
 
 
 def main():
