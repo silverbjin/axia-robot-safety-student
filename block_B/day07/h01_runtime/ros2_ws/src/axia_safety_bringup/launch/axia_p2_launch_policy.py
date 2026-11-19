@@ -40,6 +40,53 @@ def set_mvp_goal_tolerance(params):
                     key,original,DEMO_GOAL_TOLERANCE_M)
     return original
 
+
+def apply_g07_task02_simple_tf_candidate(params, env):
+    """One public simulation candidate; no fast-robot/hardware safety claim.
+
+    Official Nav2 fast path is source->base without time-shift interpolation.
+    A missing transform still invokes the official CM invalid-source STOP
+    because source_timeout remains positive. Only a real limited-speed
+    Gazebo CLEAR/SLOW/STOP + inter-node TTL run can accept this candidate.
+    """
+    if not isinstance(params,dict) or not isinstance(env,dict):
+        raise ValueError("G07_TASK02_SIMPLE_TF_BAD_INPUT")
+    if env.get("AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE") != "1":
+        return False
+    # Same exact Gazebo simulation profile in real CI and manual Owner L3.
+    # The Owner never borrows CI credentials; all Goal TTY/PID consent is
+    # still independently enforced by p2_g07_ci_moving_goal.run().
+    core=(env.get("AXIA_P0_SIM_ONLY")=="1"
+          and env.get("AXIA_G07_OWNER_STARTUP_PARITY")=="1"
+          and env.get("AXIA_P2_G07_PHYSICAL_PREFLIGHT")=="1")
+    ci=(env.get("GITHUB_ACTIONS")=="true"
+        and env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1")
+    owner=(env.get("GITHUB_ACTIONS")!="true"
+           and env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")!="1"
+           and env.get("AXIA_G07_TASK04_OWNER_MOVING_L3")=="1"
+           and env.get("AXIA_P2_G07_RELOCATED_OBSTACLE")=="1")
+    if not core or not (ci or owner):
+        raise ValueError("G07_TASK02_SIMPLE_TF_SIM_ONLY_AUTHORITY_DENIED")
+    cm=params.get("collision_monitor",{}).get("ros__parameters")
+    if not isinstance(cm,dict):
+        raise ValueError("G07_TASK02_SIMPLE_TF_CM_MISSING")
+    polygons=cm.get("polygons")
+    if not (type(cm.get("transform_tolerance")) in (int,float)
+            and cm["transform_tolerance"]==0.2
+            and cm.get("base_shift_correction") is True
+            and type(cm.get("source_timeout")) in (int,float)
+            and cm["source_timeout"]==1.0
+            and type(cm.get("stop_pub_timeout")) in (int,float)
+            and cm["stop_pub_timeout"]==5.0
+            and cm.get("cmd_vel_in_topic")=="cmd_vel_supervised"
+            and cm.get("cmd_vel_out_topic")=="cmd_vel_pre_guard"
+            and isinstance(polygons,list) and len(polygons)>=2
+            and polygons[:2]==["AXIA_StopFront","AXIA_SlowFront"]):
+        raise ValueError("G07_TASK02_SIMPLE_TF_FROZEN_CM_SAFETY_CONTRACT_MISMATCH")
+    cm["base_shift_correction"]=False
+    return True
+
+
 def write_p2_parameters(source):
     src = Path(source).expanduser().resolve(strict=True)
     raw = src.read_bytes()
@@ -59,6 +106,12 @@ def write_p2_parameters(source):
             'AXIA_G07_CM_STOP_ZERO_DELIVERY_WINDOW_SEC=%s '
             'GUARD_CM_TTL_UNCHANGED=0.15 SIMULATION_ONLY',
             cm['stop_pub_timeout'])
+
+    if apply_g07_task02_simple_tf_candidate(p,dict(os.environ)):
+        logging.warning(
+            'AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE base_shift_correction=false '
+            'transform_tolerance=0.2 source_timeout=1.0 '
+            'Guard_TTL=0.15 SIMULATION_ONLY_NOT_SAFETY_RELEASED')
 
     with tempfile.NamedTemporaryFile('w', prefix='axia_p2_nav2_', suffix='.yaml',
                                      encoding='utf-8', delete=False) as fp:
