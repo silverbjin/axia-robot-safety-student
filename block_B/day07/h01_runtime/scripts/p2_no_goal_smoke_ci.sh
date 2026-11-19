@@ -774,11 +774,27 @@ if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1
   [[ -r "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" ]] || {
     echo 'G07_TASK04_RVIZ_CONFIG_MISSING_NO_GOAL' >&2;exit 2;
   }
-  setsid gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
-  MOVING_GAZEBO_GUI_PID=$!
-  setsid rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
-    --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
-  MOVING_RVIZ_PID=$!
+  # CI Xvfb-only single hypothesis: software-rendered GUI clients can
+  # compete with Gazebo server physics/Clock. Nice only these two viewers,
+  # not the Gazebo server, Nav2, Supervisor, Guard or CM. Owner WSLg and
+  # ordinary Student training retain their original process priorities.
+  if [[ "${GITHUB_ACTIONS:-}" == true
+     && "${AXIA_G07_CI_SENSOR_TRUTH_NO_GOAL:-0}" == 1
+     && "${AXIA_D06_L2_GUI_NICE_ONLY:-0}" == 15
+     && "$SENSOR_NO_GOAL" == 1 ]];then
+    setsid nice -n 15 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+    MOVING_GAZEBO_GUI_PID=$!
+    setsid nice -n 15 rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
+    MOVING_RVIZ_PID=$!
+    echo 'D06_CI_ONLY_SOFTWARE_GUI_PRIORITY_15_ENABLED'
+  else
+    setsid gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+    MOVING_GAZEBO_GUI_PID=$!
+    setsid rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
+      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
+    MOVING_RVIZ_PID=$!
+  fi
   sleep 3
   kill -0 "$MOVING_GAZEBO_GUI_PID" "$MOVING_RVIZ_PID" 2>/dev/null || {
     echo 'G07_TASK04_GUI_CLIENT_DIED_BEFORE_GOAL' >&2;exit 2;
