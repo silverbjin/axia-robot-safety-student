@@ -77,7 +77,7 @@
 
 **이 항목이 강사의 Gazebo 시연과 대응하는 학생 실습입니다.** 기존 `run_teacher_yolo_demo_once.sh`는 로컬 사진 한 장만 추론하여 `LOCAL_YOLO_CPU_ONLY`를 출력하므로 Gazebo GUI가 열리지 않습니다. 이는 오류가 아니라 **실습 종류가 달랐던 문제**입니다.
 
-[**D04 Gazebo 실시간 YOLO 학생 원샷 가이드**](D04_GAZEBO_YOLO_GUI_STUDENT_GUIDE_KO.md)를 우선 실행하십시오. 학생 개인 WSL2 Ubuntu 24.04에서 독립 공개 브랜치 `feature/d04-student-gazebo-yolo-20261112`의 `block_B/day04/run_student_gazebo_yolo_once.sh --run`을 사용하면 공식 Nav2 Waffle 시뮬레이터에 카메라와 시각용 사람 Actor, C++ `yolo_ros`를 연결해 **Gazebo GUI + YOLO 이미지 미리보기 GUI**를 띄우도록 구성했습니다. 원본 강사용 비공개 P1 정답 패키지 접근은 필요 없습니다. 로봇 모델·LaserScan·TF를 원하면 RViz2 저장 구성도 있습니다. 학생 실시간 데모의 기본 ROS 분리 설정은 `ROS_DOMAIN_ID=40`, `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`이며, 다른 ROS 실습과 동시에 실행하지 않습니다.
+[**D04 Gazebo 실시간 YOLO 학생 원샷 가이드**](D04_GAZEBO_YOLO_GUI_STUDENT_GUIDE_KO.md)를 우선 실행하십시오. 학생 개인 WSL2 Ubuntu 24.04에서 공개 저장소 `main` 브랜치의 `block_B/day04/run_student_gazebo_yolo_once.sh --run`을 사용하면 공식 Nav2 Waffle 시뮬레이터에 카메라와 시각용 사람 Actor, C++ `yolo_ros`를 연결해 **Gazebo GUI + YOLO 이미지 미리보기 GUI**를 띄우도록 구성했습니다. 원본 강사용 비공개 P1 정답 패키지 접근은 필요 없습니다. 로봇 모델·LaserScan·TF를 원하면 RViz2 저장 구성도 있습니다. 학생 실시간 데모의 기본 ROS 분리 설정은 `ROS_DOMAIN_ID=40`, `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`이며, 다른 ROS 실습과 동시에 실행하지 않습니다.
 
 **주의:** 새 Gazebo 시연은 **별도 공개 CI 및 사용자 WSL2 GUI 최종 검증을 통과하기 전까지 현장 PASS가 아닙니다**. 사람 Actor는 visual-only(시각 전용)로 LiDAR 충돌 장애물이 아니며, 로봇 명령·Safety Supervisor·SW 정지·인증 E-Stop 실습은 제외합니다. 이 아래의 기존 사진 한 장 YOLO는 추가·선택 실습으로 유지합니다.
 
@@ -154,7 +154,7 @@ sed -n '1,120p' block_B/day04/yolo_single_image_demo.py
 
 ## 0-C. 강사 Gazebo 실기의 로봇 상태를 RViz2로 확인 (관찰 선택 과제)
 
-슬라이드 8~10장의 **실제 로봇 상태 파악**을 위해 [공개 D04 RViz2 관찰 가이드](https://github.com/silverbjin/axia-robot-safety-ci-public/blob/fix/d04-course-field-preflight-20261112/docs/D04_RVIZ_ROBOT_STATE_GUIDE_KO.md)와 [바로 여는 `axia_d04_robot_state.rviz` 구성파일](https://github.com/silverbjin/axia-robot-safety-ci-public/blob/fix/d04-course-field-preflight-20261112/rviz/axia_d04_robot_state.rviz)을 제공한다. 강사는 기존 D04 Gazebo/ROS2 원샷에 RViz2 자동 열기를 포함했다.
+슬라이드 8~10장의 **실제 로봇 상태 파악**을 위해 [공개 D04 RViz2 관찰 가이드](https://github.com/silverbjin/axia-robot-safety-ci-public/blob/main/docs/D04_RVIZ_ROBOT_STATE_GUIDE_KO.md)와 [바로 여는 `axia_d04_robot_state.rviz` 구성파일](https://github.com/silverbjin/axia-robot-safety-ci-public/blob/main/rviz/axia_d04_robot_state.rviz)을 제공한다. 강사는 기존 D04 Gazebo/ROS2 원샷에 RViz2 자동 열기를 포함했다.
 
 - **RobotModel:** `/robot_description`에서 Waffle 링크 모델 확인
 - **LaserScan:** `/scan` 데이터의 거리점과 frame_id/Best Effort QoS 확인

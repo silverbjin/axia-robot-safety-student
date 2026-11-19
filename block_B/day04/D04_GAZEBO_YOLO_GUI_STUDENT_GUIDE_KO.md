@@ -12,9 +12,9 @@
 (
   set -Eeuo pipefail
   BASE="$HOME/axia-robot-safety-student-d04"
-  DEMO="$HOME/axia_d04_student_gazebo_demo"
+  DEMO="$HOME/axia_d04_student_gazebo_demo_main"
   test -d "$BASE/.git"
-  git -C "$BASE" fetch origin feature/d04-student-gazebo-yolo-20261112
+  git -C "$BASE" fetch origin main
   if [[ ! -e "$DEMO" ]]; then
     git -C "$BASE" worktree add --detach "$DEMO" FETCH_HEAD
   fi
@@ -27,9 +27,9 @@
 새로운 PC에서 학생 저장소가 전혀 없다면 다음 최초 설치 명령을 대신 실행합니다.
 
 ~~~bash
-git clone --single-branch --branch feature/d04-student-gazebo-yolo-20261112 \
+git clone --single-branch --branch main \
   https://github.com/silverbjin/axia-robot-safety-student.git \
-  "$HOME/axia_d04_student_gazebo_demo"
+  "$HOME/axia_d04_student_gazebo_demo_main"
 ~~~
 
 **`--self-check`:** 파일·정적 구문만 확인하며 Gazebo/YOLO는 실행하지 않습니다. **`--doctor`:** WSL2·DISPLAY·ROS 2·공식 패키지 준비를 점검하며 누락될 경우 중단할 수 있습니다. 의존성 설치는 다음 `--run`에서 수행합니다.
@@ -42,8 +42,8 @@ git clone --single-branch --branch feature/d04-student-gazebo-yolo-20261112 \
 (
   set -Eeuo pipefail
   SOURCE="$HOME/axia-robot-safety-student-d04"
-  DEMO="$HOME/axia_d04_student_gazebo_demo"
-  BRANCH="feature/d04-student-gazebo-yolo-20261112"
+  DEMO="$HOME/axia_d04_student_gazebo_demo_main"
+  BRANCH="main"
 
   if [[ -d "$DEMO" ]] && git -C "$DEMO" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     if [[ -n "$(git -C "$DEMO" status --porcelain --untracked-files=no)" ]]; then
@@ -70,7 +70,7 @@ git clone --single-branch --branch feature/d04-student-gazebo-yolo-20261112 \
 ~~~bash
 (
   set -Eeuo pipefail
-  cd "$HOME/axia_d04_student_gazebo_demo"
+  cd "$HOME/axia_d04_student_gazebo_demo_main"
   bash block_B/day04/run_student_gazebo_yolo_once.sh --run
 )
 ~~~
@@ -85,7 +85,7 @@ git clone --single-branch --branch feature/d04-student-gazebo-yolo-20261112 \
 로봇 모델·TF·레이저를 보고 싶다면 다음 명령으로 RViz2 창을 추가합니다.
 
 ~~~bash
-cd "$HOME/axia_d04_student_gazebo_demo"
+cd "$HOME/axia_d04_student_gazebo_demo_main"
 AXIA_D04_STUDENT_RVIZ=1 bash block_B/day04/run_student_gazebo_yolo_once.sh --run
 ~~~
 

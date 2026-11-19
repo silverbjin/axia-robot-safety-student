@@ -95,11 +95,11 @@ D05_UNKNOWN_REASON=INSUFFICIENT_VALID_DEPTH
 
 ## 5. 본 실습 연결: 기존 학생 TODO는 그대로
 
-학생 작업 저장소를 reset/clean 하지 않는다. 전날 구현한 D04 select_person()을 보존한다. 아직 작업 공간이 없다면 독립 공개 브랜치를 새 위치에 복제한다.
+학생 작업 저장소를 reset/clean 하지 않는다. 전날 구현한 D04 select_person()을 보존한다. 아직 작업 공간이 없다면 공개 저장소 `main`을 새 위치에 복제한다.
 
 ~~~bash
 # 최초 설치 시에만
-git clone --single-branch --branch feature/block-b-d05-class-20261112 \
+git clone --single-branch --branch main \
   https://github.com/silverbjin/axia-robot-safety-student.git \
   "$HOME/axia_d05_student_course"
 ~~~

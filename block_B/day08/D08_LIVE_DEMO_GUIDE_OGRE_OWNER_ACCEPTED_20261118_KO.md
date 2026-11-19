@@ -28,7 +28,7 @@ Gazebo world (Waffle + visual-only person)
   BOOT="$(mktemp)"
   trap 'rm -f -- "$BOOT"' EXIT
   curl -fL --retry 3 --max-time 90 \
-    "https://raw.githubusercontent.com/silverbjin/axia-robot-safety-student/0239c33c1d4c5350a97e91d52edf5bbdc0134f47/block_B/day08/run_d08_student_live_bootstrap.sh" \
+    "https://raw.githubusercontent.com/silverbjin/axia-robot-safety-student/main/block_B/day08/run_d08_student_live_bootstrap.sh" \
     -o "$BOOT"
   bash -n "$BOOT"
   env -u LIBGL_ALWAYS_SOFTWARE \
@@ -44,7 +44,7 @@ Gazebo world (Waffle + visual-only person)
 )
 ```
 
-> **실행 시점 주의:** 위 명령은 이 가이드와 런타임이 `main`에 병합된 뒤 사용합니다. `main` 병합 전이라면 `AXIA_D08_RELEASE_BRANCH="release/d08-wslg-ogre-owner-accepted-20261118"`로 바꾸고 별도 디렉터리에서 시험합니다. Bootstrap은 기존 checkout이 변경되어 있으면 자동 덮어쓰지 않고 거부합니다.
+> **현재 배포 기준:** 학생 저장소 `main`의 실행기와 가이드를 사용합니다. `D08_STUDENT_RELEASE_SOURCE_SHA`로 실제 내려받은 소스를 확인하십시오. 기존 체크아웃에 로컬 변경이나 브랜치 불일치가 있으면 Bootstrap은 덮어쓰지 않고 중단합니다.
 
 ## 3. 예상 출력과 현장 판정
 

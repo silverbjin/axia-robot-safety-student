@@ -11,9 +11,9 @@ case "$MODE" in
 esac
 [[ "$#" -le 1 ]] || { echo "D08_STUDENT_BOOTSTRAP_INVALID_ARGUMENTS" >&2; exit 2; }
 
-BRANCH="${AXIA_D08_RELEASE_BRANCH:-fix/d08-gazebo-rviz-scene-mesh-20261118}"
+BRANCH="${AXIA_D08_RELEASE_BRANCH:-main}"
 REPO_URL="https://github.com/silverbjin/axia-robot-safety-student.git"
-DIR="${AXIA_D08_DEMO_DIR:-$HOME/axia_d08_student_live_renderfix}"
+DIR="${AXIA_D08_DEMO_DIR:-$HOME/axia_d08_student_live_main}"
 LAUNCH_REL="block_B/day08/run_d08_student_live_once.sh"
 
 if [[ "$MODE" == --self-check ]]; then

@@ -41,7 +41,7 @@ flowchart TD
 
 ## 2. 단일 WSL2 실행 — 기존 개인 과제·가상환경 보존
 
-학생의 기존 D04~D08 TODO 작업 디렉터리를 수정하지 않고 **별도 공개 시연용 폴더**에 클론한다. 공개 브랜치의 CI 상태를 확인한 뒤 실행한다. 준비 명령을 하나의 Bash 블록으로 실행할 수 있다.
+학생의 기존 D04~D08 TODO 작업 디렉터리를 수정하지 않고 **별도 공개 시연용 폴더**에 클론한다. 공개 `main` 브랜치의 CI 상태를 확인한 뒤 실행한다. 준비 명령을 하나의 Bash 블록으로 실행할 수 있다.
 
 ```bash
 (
@@ -49,14 +49,15 @@ flowchart TD
   SCRIPT="$(mktemp)"
   trap 'rm -f -- "$SCRIPT"' EXIT
   curl -fL --retry 3 --max-time 90 \
-    "https://raw.githubusercontent.com/silverbjin/axia-robot-safety-student/a5f1cee52bbfa07578ddb40b9c28e8c23e742449/block_B/day08/run_d08_student_live_bootstrap.sh" \
+    "https://raw.githubusercontent.com/silverbjin/axia-robot-safety-student/main/block_B/day08/run_d08_student_live_bootstrap.sh" \
     -o "$SCRIPT"
   bash -n "$SCRIPT"
-  AXIA_D08_DOMAIN_ID=49 AXIA_D08_HOLD_S=300 bash "$SCRIPT" --run
+  AXIA_D08_RELEASE_BRANCH=main AXIA_D08_DEMO_DIR="$HOME/axia_d08_student_live_main" \
+    AXIA_D08_DOMAIN_ID=49 AXIA_D08_HOLD_S=300 bash "$SCRIPT" --run
 )
 ```
 
-**WSL2 `AMENT_TRACE_SETUP_FILES: unbound variable` 회귀 해결:** 예전 명령의 `set -Eeuo pipefail` 뒤 **직접 `source /opt/ros/jazzy/setup.bash`**가 최초 실패 지점이었다. 새 단일 실행 명령은 외부 셸에서 ROS를 소싱하지 않고 검증된 내부 D08→D04 실행기에서 `set +u; source; set -u`로 처리한다. 원격 스크립트는 **Git SHA 고정**으로 내려받으며 실행기와 CI가 동일한 공개 코드를 사용한다. 학생의 `~/axia_d08_student_live` 및 가상환경·증거를 삭제하지 않는다. 기존 브랜치·수정이 있으면 안전하게 차단한다.
+**WSL2 `AMENT_TRACE_SETUP_FILES: unbound variable` 회귀 해결:** 예전 명령의 `set -Eeuo pipefail` 뒤 **직접 `source /opt/ros/jazzy/setup.bash`**가 최초 실패 지점이었다. 새 단일 실행 명령은 외부 셸에서 ROS를 소싱하지 않고 검증된 내부 D08→D04 실행기에서 `set +u; source; set -u`로 처리한다. 원격 부트스트랩은 공개 **`main`**에서 내려받으며, 실행할 때 출력되는 `D08_STUDENT_RELEASE_SOURCE_SHA`로 실제 체크아웃을 기록한다. 과거 고정 SHA의 공개 CI 결과를 현재 `main` 실행의 새 PASS로 승격하지 않는다. 학생의 `~/axia_d08_student_live` 및 가상환경·증거를 삭제하지 않는다. 기존 브랜치·수정이 있으면 안전하게 차단한다.
 
 `--self-check`는 **정적 검사만** 수행한다. `--doctor`는 Jazzy/공식 ROS 패키지/RViz 준비 상태를 검사하고 Gazebo는 실행하지 않는다. `--run`만 실제 Gazebo·YOLO·RViz2를 시도한다. 실습 플랫폼에 `rviz2`가 없으면 `D08_RVIZ2_NOT_INSTALLED`로 차단하므로 설치 뒤 재실행한다. WSLg `DISPLAY`가 없으면 기존 런처가 차단한다. `AXIA_D08_HOLD_S=300`은 시연 관찰용 300초이며 **비동기 백그라운드 데몬을 남기지 않는다.**
 
