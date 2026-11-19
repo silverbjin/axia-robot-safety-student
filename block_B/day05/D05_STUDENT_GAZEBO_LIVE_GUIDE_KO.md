@@ -54,7 +54,7 @@ Gazebo 화면에서는 Actor가 x=2.8→2.0→2.8m로 접근/복귀하고 원래
       https://github.com/silverbjin/axia-robot-safety-student.git "$REPO"
   fi
   cd "$REPO"
-  echo D05_STUDENT_MAIN_SOURCE_SHA=$(git rev-parse HEAD)"
+  echo "D05_STUDENT_MAIN_SOURCE_SHA=$(git rev-parse HEAD)"
   AXIA_D05_LIVE=1 bash block_B/day04/run_student_gazebo_yolo_once.sh --self-check
   AXIA_D05_LIVE=1 AXIA_D05_SENSOR_ONLY=1 \
     AXIA_D04_STUDENT_GUI=1 AXIA_D04_STUDENT_DOMAIN_ID=49 \
