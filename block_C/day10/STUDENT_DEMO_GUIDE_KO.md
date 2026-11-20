@@ -98,6 +98,15 @@ PY
 - '첫 경고 지연 1.9초'는 **합성 Trace에서 주입 시작부터 참양성 Window 끝까지의 간격**입니다. 현장 센서→DDS→ROS 콜백→Stop까지의 지연이 아닙니다.
 - 전원, 모터, 실제 E-Stop을 조작할 필요가 없습니다. 필수 강의는 ROS·Gazebo 없이 오프라인 Python으로 수행합니다.
 
+
+### Python 3.12 / scikit-learn 환경 오류를 예방합니다
+
+- `bash block_C/scripts/block_c_once.sh --doctor`는 **Python 버전과 스캐폴드 환경을 확인**하는 단계이며 `sklearn`이 이미 설치됐음을 증명하지는 않습니다.
+- `ModuleNotFoundError: No module named 'sklearn'`가 발생하면 시스템 Python에 `pip install`하지 말고 **[초심자용 D10 상세 실습 가이드](STUDENT_LAB_GUIDE_KO.md)**의 `1. 가상환경 준비`를 진행합니다.
+- 학생 가상환경 `~/axia_d10_course/.venv`와 강사 D10 원샷의 `~/axia_d10_course/.venv-d10`은 **역할과 설치 범위가 서로 다릅니다**. 강사 비공개 정답이나 설치 스크립트를 학생 저장소에 복사하지 않습니다.
+- D09 학생 특징 CSV가 없으면 `NotImplementedError`(EXPECTED_RED) 또는 입력 준비 누락이지 `sklearn` 설치만으로 해결되지 않습니다.
+
+
 ## 6. 다음 단계
 
 **[D10 학생 실습 가이드](STUDENT_LAB_GUIDE_KO.md)**에서 `student_if_todo.py`를 직접 완성하고 실습 증거를 남깁니다. 학생용 공개 CI의 스캐폴드 PASS는 미완성 TODO의 정답을 확인한 것이 아닙니다.
