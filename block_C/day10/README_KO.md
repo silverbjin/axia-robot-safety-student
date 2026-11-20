@@ -32,6 +32,14 @@
 
 `--doctor`는 Python 3.12를 요구하며, 불일치 시 `BLOCK_C_ENV_DIFF_BLOCKED expected=3.12 actual=...` 메시지로 종료합니다. 공개 학생 TODO 미구현으로 발생하는 `NotImplementedError`는 **EXPECTED_RED**이고, 강사 정답의 C03 성공과 혼동하지 않습니다. D09 특징 CSV가 만들어지지 않았다면 이 사전검사 이후에도 D10 학습은 시작할 수 없습니다.
 
+
+### Python 3.12 / scikit-learn 환경 오류를 예방합니다
+
+- `bash block_C/scripts/block_c_once.sh --doctor`는 **Python 버전과 스캐폴드 환경을 확인**하는 단계이며 `sklearn`이 이미 설치됐음을 증명하지는 않습니다.
+- `ModuleNotFoundError: No module named 'sklearn'`가 발생하면 시스템 Python에 `pip install`하지 말고 **[초심자용 D10 상세 실습 가이드](STUDENT_LAB_GUIDE_KO.md)**의 `1. 가상환경 준비`를 진행합니다.
+- 학생 가상환경 `~/axia_d10_course/.venv`와 강사 D10 원샷의 `~/axia_d10_course/.venv-d10`은 **역할과 설치 범위가 서로 다릅니다**. 강사 비공개 정답이나 설치 스크립트를 학생 저장소에 복사하지 않습니다.
+- D09 학생 특징 CSV가 없으면 `NotImplementedError`(EXPECTED_RED) 또는 입력 준비 누락이지 `sklearn` 설치만으로 해결되지 않습니다.
+
 학습 순서:
 1. **[학생용 데모 관찰 가이드](STUDENT_DEMO_GUIDE_KO.md)** — 시스템 아키텍처·원본→특징·Train/Valid/Test와 강사 라이브 화면의 기대 결과.
 2. **[학생용 120분 실습 가이드](STUDENT_LAB_GUIDE_KO.md)** — Python 3.12 환경·원본 무결성·D09 6특징 입력 확보·TODO 구현·출력 검증·첫 경고 분석.
