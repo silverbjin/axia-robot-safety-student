@@ -1,5 +1,19 @@
 # AXIA G07 Task04 — 교육용 라이브 시연 기준선 (Demo Baseline)
 
+## 최신 강사 WSL2 MVP Baseline — 2026-11-20 `jrCIgoGl`
+
+**교육용 실제 Nav2 Moving Goal·안전 정지·수치 검증: `AXIA-G07-T04-DEMO-BASELINE-20261120-jrCIgoGl` ACCEPTED (범위 한정).** 아래 `20261119-CZObXAdP` 자료는 삭제하지 않고 이전 교육용 Baseline으로 보존합니다.
+
+- 실제 강사 WSL2 원본 SHA256 TAR `2d454845183704d8f53b50dcdbaa48446d1103bfa9f750cc3ce662d9af7684db` 및 진단 ZIP `92c31af277bc7a64742540a2b9e5c99f13ded4cac51ae1bd1b76f3c16a4dd331`, 원본 내부 141개 해시 일치. rosbag SQLite `quick_check=ok`, 14토픽, 실제 Owner **21/21** 엄격 수치 계약 true, `first_failure=NONE`.
+- 실제 Nav2 단일 Goal이 `EXECUTING` 후 동일 UUID `CANCELED(5)`; CLEAR 0.120132m, 총 Odometry 0.137285m, SLOW 전방 LiDAR 0.662775m, STOP 0.384303m, 정지 유지 1.029446초. Guard 래치 없음, Localization/Navigation shutdown ACK, CM exit0, Gazebo 및 RViz2 창 각 1개.
+- Scan 최대 253.822ms(300ms 기준), CM 소스 최대 68.093ms(120ms), CM Observer 70.981ms(120ms), 실제 Guard 내부 age 47.653ms(150ms). 원본 `/clock`·주요 RMW source 역행 없음.
+- 런타임 Student SHA `5c7983598fa3bcd7148433a06f37a4e78b091273`, 공개 실제 Gazebo 독립 2-cycle [#44653465671](https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44653465671) PASS. 최초 간헐 Guard 188.578ms 래치 [Issue #157](https://github.com/silverbjin/axia-robot-safety-ci-public/issues/157)은 아직 미해결로 별도 관리.
+- **주의:** 자동 기록 `HOLD_RAW_REVIEW_AND_VISUAL_PENDING`, `visual_content_verified=false`를 `true`로 고치지 않습니다. 화면 캡처가 없어 Gazebo·RViz2 **창 존재 이외의 화면 콘텐츠 검증은 미완료**입니다. RViz GLSL 셰이더 오류와 종료 뒤 Destroyable 경고도 남아 있습니다.
+- 강의에서는 `AXIA_G07_TASK04_DEMO_BASELINE=ACCEPTED` (시뮬레이션 교육용 기능·수치), `FORMAL_SAFETY_TIMING_ACCEPTANCE=NOT_CLAIMED`, `CERTIFIED_ESTOP=false`를 구분합니다. 인증 E-Stop·정식 안전시스템 인수 또는 반복 안정성 보증으로 설명하지 않습니다. 자세한 검수 근거는 [공개 CI 현장 인수 보고서](https://github.com/silverbjin/axia-robot-safety-ci-public/blob/perf/g07-task04-owner-native-witness-cache-20261119/docs/operations/AXIA_G07_TASK04_JRCIGOL_OWNER_MVP_ACCEPTANCE_20261120_KO.md) 참조.
+
+---
+
+
 **기준선 ID:** `AXIA-G07-T04-DEMO-BASELINE-20261119-CZObXAdP`  
 **범위:** ROS 2 Jazzy / Gazebo Harmonic / TurtleBot3 Waffle / 공식 Nav2 / Collision Monitor / WSL2·WSLg  
 **판정:** **교육용 시연 baseline 인수** (실제 로봇 하드웨어 안전 인증 및 정식 안전 TTL 인수와 별개)
