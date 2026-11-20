@@ -18,7 +18,7 @@ class NavigationEarlyClient(unittest.TestCase):
     def test_create_before_parameters_no_shutdown_request(self):
         n=Mock()
         kind=object()
-        marker=object()
+        marker=Mock()
         n.create_client.return_value=marker
         prepared=shut.prepare_navigation_shutdown_client(
             n,kind=kind,scope_env=ci_env())
