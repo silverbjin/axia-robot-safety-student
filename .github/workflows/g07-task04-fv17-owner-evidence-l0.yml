@@ -1,0 +1,19 @@
+name: AXIA G07 FV17 Owner Guard Evidence Contract L0
+on:
+  push:
+    branches: [fix/g07-task04-owner-evidence-parity-20261120]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  owner-guard-internal-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Actual Owner profile collects read-only Guard evidence
+        run: |
+          set -Eeuo pipefail
+          cd block_B/day07/h01_runtime
+          python3 -m unittest discover -s tools -p test_g07_task04_owner_evidence_parity.py -v
+          python3 -m unittest discover -s tools -p test_g07_task04_owner_map_tf_and_shutdown.py -v
