@@ -17,3 +17,4 @@ jobs:
           cd block_B/day07/h01_runtime
           python3 -m unittest discover -s tools -p test_g07_task04_owner_evidence_parity.py -v
           python3 -m unittest discover -s tools -p test_g07_task04_owner_map_tf_and_shutdown.py -v
+          python3 -m unittest discover -s tools -p test_g07_task04_fv17_shutdown_discovery.py -v
