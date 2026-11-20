@@ -75,5 +75,27 @@ class ScanPreGoalContract(unittest.TestCase):
         self.assertIsNotNone(r["first_scan_timing_boundary"])
         self.assertGreater(r["first_scan_timing_boundary"]["header_sim_gap_ms"],150)
 
+    def test_odom_over_300ms_is_also_a_pre_goal_hard_hold(self):
+        v=self.healthy()
+        v["odom"]=[(t+(.25 if i>=25 else 0),sim)
+                   for i,(t,sim) in enumerate(v["odom"])]
+        r=assess_pregoal_samples(v)
+        self.assertEqual(r["status"],"HOLD")
+        self.assertEqual(r["first_failure"],"SCAN_PREFLIGHT_CLOCK_ODOM_INTERVAL_BREACH")
+        self.assertGreater(r["odom_max_wall_gap_ms"],300)
+
+    def test_truncated_clock_buffer_cannot_validate_first_scan_gap_rtf(self):
+        v=self.healthy()
+        v["clock"]=v["clock"][85:]
+        r=assess_pregoal_samples(v)
+        self.assertEqual(r["status"],"HOLD")
+        self.assertEqual(r["clock_coverage"],"INSUFFICIENT_FOR_FULL_PREG0AL_WINDOW")
+
+    def test_same_process_clock_retention_spans_12s_full_window(self):
+        from pathlib import Path
+        src=Path(__file__).with_name("p2_g07_scan_wall_pregoal.py").read_text()
+        self.assertIn('maxlen=4096',src)
+        self.assertIn("clock_coverage",src)
+
 if __name__=="__main__":
     unittest.main()
