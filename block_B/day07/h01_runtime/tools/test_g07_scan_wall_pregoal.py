@@ -101,5 +101,26 @@ class ScanPreGoalContract(unittest.TestCase):
         self.assertIn('maxlen=4096',src)
         self.assertIn("clock_coverage",src)
 
+    def test_clock_odom_first_breach_never_hides_scan_pair(self):
+        # Real native #44773940465 first found clock334.226/odom335.862,
+        # and returned before preserving any simultaneous LaserScan pair.
+        v=self.healthy()
+        v["scan"]=[(t+(.25 if i>=25 else 0),s)
+                   for i,(t,s) in enumerate(v["scan"])]
+        v["safety_scan"]=[(t+(.25 if i>=25 else 0),s)
+                          for i,(t,s) in enumerate(v["safety_scan"])]
+        v["clock"]=[(t+(.35 if i>=40 else 0),s)
+                    for i,(t,s) in enumerate(v["clock"])]
+        v["odom"]=[(t+(.25 if i>=25 else 0),s)
+                   for i,(t,s) in enumerate(v["odom"])]
+        r=assess_pregoal_samples(v)
+        self.assertEqual(r["status"],"HOLD")
+        self.assertIsNotNone(r["first_scan_timing_boundary"])
+        self.assertIn("scan",r["topic_results"])
+        self.assertIn("safety_scan",r["topic_results"])
+        self.assertGreater(r["clock_max_wall_gap_ms"],300)
+        self.assertGreater(r["odom_max_wall_gap_ms"],300)
+        self.assertEqual(r["first_delivery_violation"]["channel"],"clock")
+
 if __name__=="__main__":
     unittest.main()
