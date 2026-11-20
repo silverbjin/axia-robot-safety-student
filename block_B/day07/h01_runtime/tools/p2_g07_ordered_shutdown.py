@@ -50,6 +50,21 @@ def shutdown_stage_budget(manager, remaining_sec):
                max(0.01, remaining_sec))
 
 
+def parameter_discovery_budget(service_name, remaining_sec):
+    """One bounded fresh DDS participant discovery grace, never an ACK.
+
+    G07 FV17 public real L2 #44650103452: actual Goal CLEAR/SLOW/STOP and
+    exact cancel succeeded, but new shutdown client could not discover the
+    already-running Nav manager parameter service within the old 3s.
+    Allow at most 8s for THIS read-only service, still inside overall 60s
+    shutdown. Do not alter Guard150/CM120/Scan300 or accept missing ACK.
+    """
+    if type(remaining_sec) not in (int,float) or not 0 < remaining_sec <= 65:
+        raise ValueError("INVALID_G07_SHUTDOWN_DISCOVERY_DEADLINE")
+    return min(8.0 if service_name=="/lifecycle_manager_navigation/get_parameters"
+               else 3.0, remaining_sec)
+
+
 def run(*, limit=60.0):
     if (os.environ.get("ROS_DISTRO") != "jazzy"
             or os.environ.get("AXIA_P0_SIM_ONLY") != "1"
@@ -72,7 +87,13 @@ def run(*, limit=60.0):
                 raise RuntimeError("ORDERED_SHUTDOWN_DEADLINE")
             client = node.create_client(kind, name)
             try:
-                if not client.wait_for_service(timeout_sec=min(3.0, remaining)):
+                discovery_started=monotonic()
+                ready=client.wait_for_service(timeout_sec=parameter_discovery_budget(name, remaining))
+                if name=="/lifecycle_manager_navigation/get_parameters":
+                    stages["parameter_service_discovery_elapsed_sec"]=round(
+                        monotonic()-discovery_started,6)
+                    stages["parameter_service_available"]=bool(ready)
+                if not ready:
                     raise RuntimeError("SERVICE_MISSING:" + name)
                 fut = client.call_async(request)
                 wait_budget = min(max_response, deadline-monotonic())
