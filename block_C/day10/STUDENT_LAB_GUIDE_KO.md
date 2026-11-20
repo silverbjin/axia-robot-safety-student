@@ -85,6 +85,7 @@ python3 --version
 (
   set -Eeuo pipefail
   VENV="$HOME/axia_d10_course/.venv"
+  python3 -c 'import sys; assert sys.version_info[:2]==(3,12), "D10_PYTHON312_REQUIRED"'
   python3 -m venv "$VENV"
   "$VENV/bin/python" -m pip install --disable-pip-version-check --no-input \
     'numpy>=1.26,<3' 'scikit-learn==1.8.0' 'pytest==8.3.5'
@@ -92,7 +93,7 @@ python3 --version
   echo D10_STUDENT_VENV_READY
 ) || echo 'D10_STUDENT_VENV_HOLD: 설치 오류를 해결하기 전에는 다음 단계로 진행하지 마세요.'
 if [[ -x "$HOME/axia_d10_course/.venv/bin/python" ]] &&
-    "$HOME/axia_d10_course/.venv/bin/python" -c 'import numpy,sklearn,pytest' 2>/dev/null; then
+    "$HOME/axia_d10_course/.venv/bin/python" -c 'import sys,numpy,sklearn,pytest; assert sys.version_info[:2]==(3,12) and sklearn.__version__=="1.8.0"' 2>/dev/null; then
   source "$HOME/axia_d10_course/.venv/bin/activate"
   bash block_C/scripts/block_c_once.sh --doctor
 else
