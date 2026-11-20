@@ -105,7 +105,7 @@ D11_TOY_DEMO_PASS only_classroom_math=true model_training=false robot_control=fa
 | BLOCK_C_ENV_DIFF_BLOCKED | Python 3.12 아님 | 시스템 Python 교체 금지; 강사와 환경 확인 |
 | NotImplementedError: D11 TODO not implemented | 학생 TODO 의도적 EXPECTED_RED | 수업 출발점 정상, 실습 진행 |
 | torch 모듈 없음 | 학습용 CPU PyTorch 미설치 | 학생의 MSE 수학 실습에는 불필요 |
-| INS UFFICIENT_DATA 또는 데이터 결측 | 품질·입력 오류 가능성 | 점수를 0으로 채우지 말고 최초 위반 조사 |
+| INSUFFICIENT_DATA 또는 데이터 결측 | 품질·입력 오류 가능성 | 점수를 0으로 채우지 말고 최초 위반 조사 |
 | AI WARNING | 수업용 판정 | 물리적 안전 정지 동작으로 오인 금지 |
 
 **다음:** [120분 단계별 실습·제출 가이드](STUDENT_LAB_GUIDE_KO.md), [의도적 학생 TODO](student_ae_todo.py), [MSE 예제](mse_toy_practice.py).
