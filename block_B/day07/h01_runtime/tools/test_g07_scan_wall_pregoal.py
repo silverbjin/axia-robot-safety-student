@@ -66,7 +66,7 @@ class ScanPreGoalContract(unittest.TestCase):
         self.assertAlmostEqual(first["header_sim_gap_ms"],102.,places=2)
         self.assertAlmostEqual(first["local_clock_rtf_estimate"],.41,places=2)
         self.assertIn("safety_scan",r["topic_results"])
-        self.assertEqual(r["sensor_generation_vs_bridge_root_cause"],"UNDETERMINED")
+        self.assertEqual(r["scan_generation_vs_bridge_root_cause"],"UNDETERMINED")
 
     def test_first_gap_evidence_must_not_hide_sensor_header_period(self):
         v=self.healthy(.10,.205)
