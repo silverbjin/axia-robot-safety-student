@@ -41,7 +41,7 @@ class OriginalObserverAblation(unittest.TestCase):
 
     def test_actual_g07_node_switches_only_observer_not_cm_or_guard(self):
         s=SOURCE.read_text()
-        self.assertIn('from rclpy.executors import SingleThreadedExecutor',s)
+        self.assertIn('from rclpy.executors import MultiThreadedExecutor, SingleThreadedExecutor',s)
         self.assertIn('AXIA_G07_OBSERVER_EXECUTOR_AB',s)
         self.assertIn('SingleThreadedExecutor()',s)
         self.assertIn('MultiThreadedExecutor(num_threads=2 if owner_observer_parity else 3)',s)
