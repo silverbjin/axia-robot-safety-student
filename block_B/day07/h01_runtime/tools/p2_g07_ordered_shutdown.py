@@ -98,23 +98,38 @@ def _call_shutdown_stage_for_ab(rclpy, node, *, manager, timeout_sec, scope_env)
     """
     if manager not in ("navigation", "localization"):
         raise ValueError("G07_WARM_NAV_PARTICIPANT_BAD_MANAGER")
-    requested=scope_env.get("AXIA_G07_NAV_WARM_PARTICIPANT_CI_AB", "")
-    if requested not in ("", "0", "1"):
+    ci_requested=scope_env.get("AXIA_G07_NAV_WARM_PARTICIPANT_CI_AB","")
+    owner_requested=scope_env.get("AXIA_G07_NAV_WARM_PARTICIPANT_OWNER","")
+    if ci_requested not in ("","0","1") or owner_requested not in ("","0","1"):
         raise ValueError("G07_WARM_NAV_PARTICIPANT_BAD_SETTING")
-    if requested=="1":
-        allowed=(scope_env.get("GITHUB_ACTIONS")=="true"
-                 and scope_env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1"
-                 and scope_env.get("AXIA_P0_SIM_ONLY")=="1"
-                 and scope_env.get("ROS_DISTRO")=="jazzy"
-                 and scope_env.get("GZ_PARTITION","").startswith("axia_p2_")
-                 and scope_env.get("AXIA_G07_TASK04_OWNER_MOVING_L3")!="1")
-        if not allowed:
-            raise ValueError("G07_WARM_NAV_PARTICIPANT_SCOPE_DENIED")
-        if manager=="navigation":
-            print("G07_NAV_SHUTDOWN_AB=EXISTING_PARAMETER_ACKED_ROS_PARTICIPANT "
-                  "ONE_REQUEST_ROOT_CAUSE_NOT_PROVEN",flush=True)
-            return call_native_manage(node, manager=manager,command='shutdown',
-                                      timeout_sec=timeout_sec)
+    if ci_requested=="1" and owner_requested=="1":
+        raise ValueError("G07_WARM_NAV_PARTICIPANT_CONFLICTING_AUTHORITIES")
+    ci_allowed=(scope_env.get("GITHUB_ACTIONS")=="true"
+                and scope_env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1"
+                and scope_env.get("AXIA_G07_TASK04_OWNER_MOVING_L3")!="1"
+                and scope_env.get("AXIA_P0_SIM_ONLY")=="1"
+                and scope_env.get("ROS_DISTRO")=="jazzy"
+                and scope_env.get("GZ_PARTITION","").startswith("axia_p2_"))
+    owner_allowed=(scope_env.get("GITHUB_ACTIONS")!="true"
+                   and scope_env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="0"
+                   and scope_env.get("AXIA_G07_TASK04_OWNER_MOVING_L3")=="1"
+                   and scope_env.get("AXIA_G07_OWNER_STARTUP_PARITY")=="1"
+                   and scope_env.get("AXIA_P2_G07_PHYSICAL_PREFLIGHT")=="1"
+                   and scope_env.get("AXIA_P0_SIM_ONLY")=="1"
+                   and scope_env.get("ROS_DISTRO")=="jazzy"
+                   and scope_env.get("GZ_PARTITION","").startswith("axia_p2_"))
+    if ((ci_requested=="1" and not ci_allowed) or
+            (owner_requested=="1" and not owner_allowed)):
+        raise ValueError("G07_WARM_NAV_PARTICIPANT_SCOPE_DENIED")
+    if manager=="navigation" and (ci_requested=="1" or owner_requested=="1"):
+        # Same one existing official /manage_nodes operation as before;
+        # only reuses the ROS node that already received /get_parameters ACK.
+        # No retries, no service timeout increase, no safety or Goal changes.
+        mode="CI" if ci_requested=="1" else "OWNER"
+        print("G07_NAV_SHUTDOWN_AB=EXISTING_PARAMETER_ACKED_ROS_PARTICIPANT "
+              "ONE_REQUEST_ROOT_CAUSE_NOT_PROVEN authority="+mode,flush=True)
+        return call_native_manage(node, manager=manager,command='shutdown',
+                                  timeout_sec=timeout_sec)
     return _call_isolated_stage(rclpy,manager=manager,timeout_sec=timeout_sec)
 
 
