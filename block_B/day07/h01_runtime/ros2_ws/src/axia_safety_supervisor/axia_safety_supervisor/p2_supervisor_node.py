@@ -5,7 +5,7 @@ import time
 
 import rclpy
 from rclpy.executors import ExternalShutdownException
-from .p2_shutdown_context import is_context_waitset_shutdown
+from .p2_shutdown_context import is_context_waitset_shutdown, is_context_publish_shutdown
 from std_msgs.msg import String
 
 from .fsm import SafetyState, transition
@@ -126,7 +126,11 @@ def main(args=None):
     except Exception as exc:
         # WSL2 Owner vJpsc6Wy: rclpy WaitSet may race the ROS SIGINT
         # context invalidation. Never hide a still-active ROS exception.
-        if not is_context_waitset_shutdown(exc,context_ok=rclpy.ok()):
+        # Exact post-SIGINT context invalidations only. A live Publisher
+        # fault still raises and blocks acceptance, even if wording matches.
+        context_ok=rclpy.ok()
+        if not (is_context_waitset_shutdown(exc,context_ok=context_ok)
+                or is_context_publish_shutdown(exc,context_ok=context_ok)):
             raise
     finally:
         if node is not None:
