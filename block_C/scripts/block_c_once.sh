@@ -9,12 +9,16 @@ REPORT="${AXIA_BLOCK_C_EVIDENCE_DIR:-${HOME:-/tmp}/axia_block_c_evidence/$(date 
 export PYTHONDONTWRITEBYTECODE=1
 function doctor() {
     command -v python3 >/dev/null || { echo BLOCK_C_ENV_BLOCKED_NO_PYTHON >&2; return 2; }
-    PYVER="$(python3 -c 'import sys;print(".".join(map(str,sys.version_info[:3])))')"
-    python3 - <<'PY'
-import sys
-raise SystemExit(0 if sys.version_info[:2] == (3,12) else 2)
-PY
-    [[ $? -eq 0 ]] || { echo "BLOCK_C_ENV_DIFF_BLOCKED expected=3.12 actual=$PYVER" >&2; return 2; }
+    PYVER="$(python3 -c 'import sys;print(".".join(map(str,sys.version_info[:3])))')" || {
+        echo "BLOCK_C_ENV_BLOCKED_PYTHON_VERSION_PROBE_FAILED" >&2
+        return 2
+    }
+    # With set -e, a failed standalone Python probe exits before the diagnostic
+    # message can be printed. Keep the mismatch in an explicit conditional.
+    if [[ "$PYVER" != 3.12.* ]]; then
+        echo "BLOCK_C_ENV_DIFF_BLOCKED expected=3.12 actual=$PYVER" >&2
+        return 2
+    fi
     echo "BLOCK_C_STUDENT_DOCTOR python=$PYVER role=student ros_required_for_unit=false gazebo_required=false"
     echo "BLOCK_C_NO_GOAL_NO_CMD_VEL_NO_CERTIFIED_ESTOP"
 }
