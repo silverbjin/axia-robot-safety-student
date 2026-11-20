@@ -26,8 +26,8 @@
   fi
   bash block_C/scripts/block_c_once.sh --doctor
   python3 block_C/fixtures/generator.py --check --fixture-dir block_C/fixtures
-  printf 'D10_STUDENT_PREFLIGHT_PASS source_sha=%s todo_expected_red=true\\n' "$(git rev-parse HEAD)"
-) || printf '%s\\n' 'D10_STUDENT_PREFLIGHT_HOLD: 앞의 최초 오류를 확인하세요. 터미널은 유지됩니다.'
+  printf 'D10_STUDENT_PREFLIGHT_PASS source_sha=%s todo_expected_red=true\n' "$(git rev-parse HEAD)"
+) || printf '%s\n' 'D10_STUDENT_PREFLIGHT_HOLD: 앞의 최초 오류를 확인하세요. 터미널은 유지됩니다.'
 ```
 
 `--doctor`는 Python 3.12를 요구하며, 불일치 시 `BLOCK_C_ENV_DIFF_BLOCKED expected=3.12 actual=...` 메시지로 종료합니다. 공개 학생 TODO 미구현으로 발생하는 `NotImplementedError`는 **EXPECTED_RED**이고, 강사 정답의 C03 성공과 혼동하지 않습니다. D09 특징 CSV가 만들어지지 않았다면 이 사전검사 이후에도 D10 학습은 시작할 수 없습니다.
