@@ -1,0 +1,30 @@
+name: G07 Task04 Owner actual-map-TF and shutdown regression L0
+on:
+  push:
+    branches:
+      - fix/g07-task04-owner-map-tf-and-clean-exit-20261120
+    paths:
+      - 'block_B/day07/h01_runtime/tools/p2_l3_live_session.py'
+      - 'block_B/day07/h01_runtime/tools/p2_l3_coordinate_frames.py'
+      - 'block_B/day07/h01_runtime/tools/p2_g07_ci_moving_goal.py'
+      - 'block_B/day07/h01_runtime/tools/test_g07_task04_owner_map_tf_and_shutdown.py'
+      - 'block_B/day07/h01_runtime/ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/p2_base_guard_node.py'
+      - 'block_B/day07/h01_runtime/ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/p2_supervisor_node.py'
+      - '.github/workflows/g07-task04-owner-map-tf-clean-exit-l0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scope-limited-pre-goal-l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: block_B/day07/h01_runtime
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: ROS-free field TF and guarded shutdown tests
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s tools -p test_g07_task04_owner_map_tf_and_shutdown.py -v
+          python3 -m unittest discover -s tools -p test_g07_task04_mvp_minimal_fix.py -v

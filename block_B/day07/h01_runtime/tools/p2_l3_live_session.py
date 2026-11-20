@@ -157,10 +157,21 @@ class Observer:
         # A newly admitted G07 observer uses the real retained AMCL map pose,
         # never a fabricated TF or raw /odom-as-map fallback.
         if os.environ.get("AXIA_G07_OWNER_STARTUP_PARITY")=="1":
-            amcl_qos=QoSProfile(depth=1)
-            amcl_qos.reliability=QoSReliabilityPolicy.RELIABLE
-            amcl_qos.durability=QoSDurabilityPolicy.TRANSIENT_LOCAL
-            sub(PoseWithCovarianceStamped,'/amcl_pose',self._amcl_map_pose,amcl_qos)
+            # Public real Gazebo CI only: recreate vJpsc6Wy's late
+            # Observer with no delivered AMCL pose. The nav2 AMCL publisher
+            # and TF remain real; Owner WSL2 and default CI do not skip.
+            ci_force_real_tf=(os.environ.get('GITHUB_ACTIONS')=='true'
+                and os.environ.get('AXIA_G07_CI_SIM_GOAL_ALLOWED')=='1'
+                and os.environ.get('AXIA_G07_CI_FORCE_MAP_TF_FALLBACK')=='1'
+                and os.environ.get('AXIA_G07_TASK04_OWNER_MOVING_L3')!='1')
+            if ci_force_real_tf:
+                print('G07_CI_REAL_MAP_TF_FALLBACK_REQUIRED NO_AMCL_OBSERVER_SUBSCRIPTION',
+                      flush=True)
+            else:
+                amcl_qos=QoSProfile(depth=1)
+                amcl_qos.reliability=QoSReliabilityPolicy.RELIABLE
+                amcl_qos.durability=QoSDurabilityPolicy.TRANSIENT_LOCAL
+                sub(PoseWithCovarianceStamped,'/amcl_pose',self._amcl_map_pose,amcl_qos)
 
 
     def _write(self,kind,*,at=None,**kv):
@@ -421,7 +432,36 @@ def _map_robot_pose(node,obs=None):
             return pose
         pose=wait_for(actual_amcl,3.0,step=.05)
         if pose is None:
-            raise RuntimeError('G07_AMCL_MAP_POSE_UNAVAILABLE_BEFORE_GOAL')
+            # Real Owner vJpsc6Wy: /amcl_pose was not delivered to the
+            # late Observer, while Nav2's genuine map->odom and odom->base
+            # TF chains continued (832 + 2791 messages in actual rosbag).
+            # No publish, retry of /set_initial_pose, odom-as-map, or
+            # synthetic world anchor. Reuse already-running TF listener.
+            from rclpy.time import Time
+            from tf2_ros import TransformException
+            from p2_l3_coordinate_frames import verified_live_map_tf_pose
+            buf=getattr(node,'_axia_g07_tf_buffer',None)
+            if buf is None:
+                raise RuntimeError('G07_AMCL_MAP_POSE_UNAVAILABLE_BEFORE_GOAL')
+            def actual_map_tf():
+                try:
+                    if not buf.can_transform('map','base_link',Time()):
+                        return None
+                    with obs.lock:
+                        now_ns=obs.clock_ticks[-1] if obs.clock_ticks else None
+                    if now_ns is None:
+                        return None
+                    transform=buf.lookup_transform('map','base_link',Time())
+                    return verified_live_map_tf_pose(transform,clock_ns=now_ns)
+                except (TransformException,ValueError):
+                    return None
+            pose=wait_for(actual_map_tf,3.0,step=.05)
+            if pose is None:
+                raise RuntimeError('G07_AMCL_MAP_POSE_UNAVAILABLE_BEFORE_GOAL')
+            obs.map_pose_source='tf_map_base_link'
+            print('G07_LIVE_MAP_TF_VERIFIED_BEFORE_GOAL',flush=True)
+            return pose
+        obs.map_pose_source='amcl_pose_map_transient_local'
         print('G07_AMCL_ACTUAL_MAP_POSE_TRANSIENT_LOCAL_VERIFIED_BEFORE_GOAL',flush=True)
         return pose
     # TF is consumed via the existing live ROS executor, not assumed
