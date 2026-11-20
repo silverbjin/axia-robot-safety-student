@@ -14,7 +14,10 @@ class Task04GuiTeardownAfterNav2(unittest.TestCase):
         s=SHELL.read_text().split("cleanup() {",1)[1].split("trap cleanup EXIT",1)[0]
         nav=s.index("python3 tools/p2_g07_ordered_shutdown.py")
         local_audit=s.index("python3 tools/p2_g07_owner_shutdown_audit.py")
-        gui_close=s.index('kill -INT -- "-$gui_pid"')
+        # SIGINT now lives in the bounded helper above cleanup, while the
+        # actual helper CALL remains strictly after the lifecycle+CM audit.
+        gui_close=s.index('stop_owned_gui_group "$gui_pid"')
+        self.assertIn('kill -INT -- "-$gui_pid"',SHELL.read_text().split("stop_owned_gui_group() {",1)[1].split("cleanup() {",1)[0])
         self.assertLess(nav,gui_close)
         self.assertLess(local_audit,gui_close)
 

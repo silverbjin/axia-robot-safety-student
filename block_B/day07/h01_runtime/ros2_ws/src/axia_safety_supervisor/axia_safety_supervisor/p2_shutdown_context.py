@@ -15,3 +15,18 @@ def is_context_waitset_shutdown(exc, *, context_ok):
         and "failed to initialize wait set" in detail
         and "context is not valid" in detail
     )
+
+
+def is_context_publish_shutdown(exc, *, context_ok):
+    """Ignore ONLY a P2 timer's publisher after actual Jazzy context shutdown.
+
+    The exact public Gazebo L2 #44697450829 P2 Supervisor exited 1 when
+    rclpy's SIGINT shutdown invalidated the context between a safety timer
+    callback's command/status publishing. On a LIVE context the exact same
+    failure must still propagate; no safety TTL or state is changed.
+    """
+    return (
+        context_ok is False
+        and type(exc).__name__=="RCLError"
+        and str(exc).startswith("Failed to publish: publisher's context is invalid")
+    )

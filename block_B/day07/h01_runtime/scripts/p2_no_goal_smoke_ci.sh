@@ -66,6 +66,50 @@ stop_owner_parity_bag() {
   BAG_PID=''
   echo 'G07_CI_OWNER_BAG_STOP_COMPLETED'
 }
+# GUI termination is bounded independently from Nav2 service response or
+# safety TTL. Own exactly the original setsid GUI process-group leaders.
+stop_owned_gui_group() {
+  local gui_pid="${1:-}" j
+  [[ -n "$gui_pid" ]] || return 0
+  [[ "$gui_pid" =~ ^[0-9]+$ && "$gui_pid" -gt 1 ]] || return 3
+  gui_owned_active() {
+    local target="$1" pid comm state other
+    [[ -r "/proc/$target/stat" ]] || return 1
+    read -r pid comm state other < "/proc/$target/stat" || return 1
+    [[ "$state" != Z && "$state" != X ]]
+  }
+  if ! gui_owned_active "$gui_pid"; then
+    wait "$gui_pid" 2>/dev/null || true
+    return 0
+  fi
+  kill -INT -- "-$gui_pid" 2>/dev/null || true
+  for ((j=0;j<10;j++));do
+    gui_owned_active "$gui_pid" || break
+    sleep .2
+  done
+  if gui_owned_active "$gui_pid";then
+    echo "G07_OWNED_GUI_SIGINT_TIMEOUT_TERM_FALLBACK pid=$gui_pid" >&2
+    kill -TERM -- "-$gui_pid" 2>/dev/null || true
+    for ((j=0;j<10;j++));do
+      gui_owned_active "$gui_pid" || break
+      sleep .2
+    done
+  fi
+  if gui_owned_active "$gui_pid";then
+    echo "G07_OWNED_GUI_TERM_TIMEOUT_KILL_FALLBACK pid=$gui_pid" >&2
+    kill -KILL -- "-$gui_pid" 2>/dev/null || true
+    for ((j=0;j<10;j++));do
+      gui_owned_active "$gui_pid" || break
+      sleep .1
+    done
+  fi
+  if gui_owned_active "$gui_pid";then
+    echo "G07_OWNED_GUI_EXIT_UNVERIFIED pid=$gui_pid" >&2
+    return 3
+  fi
+  wait "$gui_pid" 2>/dev/null || true
+  return 0
+}
 cleanup() {
  local rc=$?
  # Exactly ONE isolated read-only GUI process group is owned by this smoke.
@@ -212,12 +256,9 @@ print('G07_CI_OWNER_BAG_REAL_TOPIC_MESSAGES '+json.dumps({k:counts[k] for k in n
 PY
   fi
  local gui_pid
- # Clean only GUI clients owned by this run, never every Gazebo instance.
+ # Bounded cleanup only for the two existing owned GUI process groups.
  for gui_pid in "$MOVING_RVIZ_PID" "$MOVING_GAZEBO_GUI_PID";do
-   if [[ -n "$gui_pid" ]] && kill -0 "$gui_pid" 2>/dev/null;then
-     kill -INT -- "-$gui_pid" 2>/dev/null || true
-     wait "$gui_pid" 2>/dev/null || true
-   fi
+   if ! stop_owned_gui_group "$gui_pid";then rc=3;fi
  done
  trap - EXIT INT TERM
  set +e
