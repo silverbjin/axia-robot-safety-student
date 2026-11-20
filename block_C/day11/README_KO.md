@@ -25,3 +25,8 @@ python3 block_C/day11/mse_toy_practice.py
 저장소가 이미 존재하면 재클론하지 말고 데모 가이드의 비파괴 갱신 절차를 사용하세요.
 
 **SYNTHETIC_COURSE_FIXTURE**: 합성 Raw 4,599행/46 Trace, 10-sample Window, 6특징, Train240/Valid80/Test100 VALID + 4개 INSUFFICIENT_DATA. 실제 TurtleBot3 모터 계측 아님. 교육용 AI Warning은 비인증 신호이며 로봇 SW Stop·인증 E-Stop·Nav2·cmd_vel을 호출하지 않습니다. 공개 CI의 문서/TOY PASS는 학생 TODO 완성이나 WSL2 강사 checkpoint 실행 성공을 뜻하지 않습니다.
+
+
+## D11 몰입형 라이브 Replay 참여 활동지
+
+[12분 학생 예측·공개형 Replay 활동지](STUDENT_LIVE_REPLAY_ACTIVITY_GUIDE_KO.md): 강사의 오프라인 기록 재생 화면을 보면서 IF/AE 판정을 미리 예측하고, 공개 후 오탐·미탐·품질 부족을 구분합니다. 학습 목표별 기대 효과와 자기점검 문항 포함. 강사 비공개 점수 CSV/체크포인트는 제공하지 않습니다. 학생 필수 제출물은 기존 mse_practice.log + d11_report.md 두 개로 유지합니다.
