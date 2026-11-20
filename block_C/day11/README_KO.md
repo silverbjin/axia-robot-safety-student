@@ -1,11 +1,27 @@
-# D11 — fit CPU AE with train-only scaler, validation MSE threshold, held-out test
+# AXIA Block C D11 — AutoEncoder 정상상태 재구성과 MSE 이상판정
 
-이론 60분 / 실습 120분. 합성 데이터(SYNTHETIC_COURSE_FIXTURE)만 사용합니다. 실제 TurtleBot3 측정이나 인증된 E-Stop이 아닙니다.
+2026-11-23(월) 19:00–22:00 · 이론 60분 + 실습 120분
 
-1. 프로젝트 루트에서 `bash block_C/scripts/block_c_once.sh --doctor`로 환경을 확인합니다.
-2. fixture의 SHA256과 train/valid/test 분리를 확인합니다.
-3. `student_ae_todo.py`의 TODO를 구현합니다.
-4. `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q block_C/tests/test_student_task_expected_red.py`로 RED→GREEN 진행을 기록합니다.
-5. 출력 파일과 시간·trace 품질 위반의 최초 지점을 보고합니다.
+**학습목표 1:** AutoEncoder 기반 정상상태 재구성 원리 이해.  
+**학습목표 2:** 재구성 오차 기반 이상상태 판정 실습.
 
-학생의 TODO는 완성 전 EXPECTED_RED이며 공개 CI의 PASS는 이 함수의 정답 구현을 의미하지 않습니다.
+- [학생 데모 관찰 가이드](STUDENT_DEMO_GUIDE_KO.md) — 공개 저장소 클론, 데이터/모델/판정 아키텍처, 강사 화면 관찰.
+- [학생 상세 120분 실습 가이드](STUDENT_LAB_GUIDE_KO.md) — 실행 명령·코드 해설·예상 출력·오류 복구·제출.
+- [독립 MSE 수학 연습](mse_toy_practice.py) — Python 표준 라이브러리만 사용; 모델·체크포인트가 아님.
+- [학생 TODO](student_ae_todo.py) — 의도적 NotImplementedError = EXPECTED_RED. 강사 정답 미포함.
+
+처음부터 실행하는 최소 명령(깨끗한 Ubuntu 24.04/WSL2, Python3.12 가정):
+
+~~~bash
+mkdir -p "$HOME/axia_d11_course"
+git clone https://github.com/silverbjin/axia-robot-safety-student.git \
+  "$HOME/axia_d11_course/axia-robot-safety-student"
+cd "$HOME/axia_d11_course/axia-robot-safety-student"
+bash block_C/scripts/block_c_once.sh --doctor
+python3 block_C/fixtures/generator.py --check --fixture-dir block_C/fixtures
+python3 block_C/day11/mse_toy_practice.py
+~~~
+
+저장소가 이미 존재하면 재클론하지 말고 데모 가이드의 비파괴 갱신 절차를 사용하세요.
+
+**SYNTHETIC_COURSE_FIXTURE**: 합성 Raw 4,599행/46 Trace, 10-sample Window, 6특징, Train240/Valid80/Test100 VALID + 4개 INSUFFICIENT_DATA. 실제 TurtleBot3 모터 계측 아님. 교육용 AI Warning은 비인증 신호이며 로봇 SW Stop·인증 E-Stop·Nav2·cmd_vel을 호출하지 않습니다. 공개 CI의 문서/TOY PASS는 학생 TODO 완성이나 WSL2 강사 checkpoint 실행 성공을 뜻하지 않습니다.
