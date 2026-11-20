@@ -75,7 +75,7 @@ class NavigationEarlyClient(unittest.TestCase):
         src=Path(shut.__file__).read_text()
         self.assertLess(
             src.index("nav_shutdown_client = prepare_navigation_shutdown_client("),
-            src.index("response = call(\\n            GetParameters"))
+            src.index("response = call("))
         self.assertIn("prewarmed_client=nav_shutdown_client",src)
         self.assertIn("node.destroy_client(nav_shutdown_client)",src)
 
