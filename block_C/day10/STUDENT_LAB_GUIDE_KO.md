@@ -6,6 +6,33 @@
 - 목표: 단순 코드 실행뿐 아니라 **Isolation Forest 구조를 설명**하고 **초기 WARNING 시점·오탐·미탐을 근거로 조기 경고 여부를 검증**합니다.
 - **안전/인증 경계:** AI 위험점수는 **비인증 교육용 경고**이며 SW Stop 또는 실제 인증 E-Stop을 수행하지 않습니다. 안전한 정지를 증명하는 값이 아닙니다.
 
+
+## 터미널이 `~`에서 시작할 때 — D10 사전검사 원샷
+
+다른 장의 상대경로 명령만 단독 복사하면 `~/`에서 실패할 수 있습니다. 아래 블록은 위치를 직접 이동한 뒤 D10의 **학생 입력 준비**만 확인합니다. 미완성 `student_if_todo.py`를 정답인 것처럼 실행하지 않습니다. 오류가 생겨도 바깥 터미널 전체를 종료하지 않습니다.
+
+```bash
+(
+  set -Eeuo pipefail
+  ROOT="$HOME/axia_d10_course/axia-robot-safety-student"
+  mkdir -p "$(dirname "$ROOT")"
+  if [[ ! -d "$ROOT/.git" ]]; then
+    git clone https://github.com/silverbjin/axia-robot-safety-student.git "$ROOT"
+  fi
+  cd "$ROOT"
+  if [[ "$(git branch --show-current)" == main && -z "$(git status --porcelain)" ]]; then
+    git pull --ff-only origin main
+  else
+    echo 'D10_STUDENT_SOURCE_UNTOUCHED existing branch or local changes'
+  fi
+  bash block_C/scripts/block_c_once.sh --doctor
+  python3 block_C/fixtures/generator.py --check --fixture-dir block_C/fixtures
+  printf 'D10_STUDENT_PREFLIGHT_PASS source_sha=%s todo_expected_red=true\\n' "$(git rev-parse HEAD)"
+) || printf '%s\\n' 'D10_STUDENT_PREFLIGHT_HOLD: 앞의 최초 오류를 확인하세요. 터미널은 유지됩니다.'
+```
+
+`--doctor`는 Python 3.12를 요구하며, 불일치 시 `BLOCK_C_ENV_DIFF_BLOCKED expected=3.12 actual=...` 메시지로 종료합니다. 공개 학생 TODO 미구현으로 발생하는 `NotImplementedError`는 **EXPECTED_RED**이고, 강사 정답의 C03 성공과 혼동하지 않습니다. D09 특징 CSV가 만들어지지 않았다면 이 사전검사 이후에도 D10 학습은 시작할 수 없습니다.
+
 ## 0. 사전 준비와 작업 원칙 (10분)
 
 학생 저장소 루트에서 실행합니다. 기존 사용자 브랜치·파일은 삭제/초기화하지 않습니다.
