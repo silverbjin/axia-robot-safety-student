@@ -25,7 +25,11 @@ class ScanPreGoalContract(unittest.TestCase):
         self.assertFalse(r["goal_sent"])
 
     def test_slow_sim_250ms_receipt_still_checked_by_wall(self):
-        self.assertEqual(assess_pregoal_samples(self.healthy(.25,.10))["status"],
+        v=self.healthy(.25,.10)
+        # A 12s preflight yields ~48 scans at 250ms, not 125/31s.
+        v["scan"]=v["scan"][:49]
+        v["safety_scan"]=v["safety_scan"][:49]
+        self.assertEqual(assess_pregoal_samples(v)["status"],
                          "PASS_SCOPED_RECEIVED_SCAN_ONLY")
 
     def test_missing_scan_or_backward_stamp_holds(self):
