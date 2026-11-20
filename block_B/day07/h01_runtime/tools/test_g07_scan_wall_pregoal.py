@@ -39,5 +39,15 @@ class ScanPreGoalContract(unittest.TestCase):
     def test_sim_stamp_skips_10hz_holds_even_if_wall_fast(self):
         self.assertEqual(assess_pregoal_samples(self.healthy(.11,.205))["status"],"HOLD")
 
+    def test_same_session_readonly_preflight_precedes_owner_tty_and_goal(self):
+        from pathlib import Path
+        shell=(Path(__file__).resolve().parents[1]/
+               "scripts/p2_no_goal_smoke_ci.sh").read_text()
+        self.assertIn('AXIA_G07_SCAN_PREFLIGHT_STRICT',shell)
+        self.assertIn("p2_g07_scan_wall_pregoal.py",shell)
+        self.assertIn("SCAN_WALL_PREG0AL_BLOCKED_NO_GOAL",shell)
+        self.assertLess(shell.index("p2_g07_scan_wall_pregoal.py"),
+                        shell.index("Simulation-only Moving Goal: type YES-P2-G07-GOAL"))
+
 if __name__=="__main__":
     unittest.main()
