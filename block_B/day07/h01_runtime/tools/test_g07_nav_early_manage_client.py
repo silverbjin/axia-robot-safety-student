@@ -73,8 +73,9 @@ class NavigationEarlyClient(unittest.TestCase):
     def test_actual_run_precreates_before_parameter_ack(self):
         from pathlib import Path
         src=Path(shut.__file__).read_text()
-        self.assertLess(src.index("prepare_navigation_shutdown_client(",
-                        src.index("response = call(\n            GetParameters"))
+        self.assertLess(
+            src.index("nav_shutdown_client = prepare_navigation_shutdown_client("),
+            src.index("response = call(\\n            GetParameters"))
         self.assertIn("prewarmed_client=nav_shutdown_client",src)
         self.assertIn("node.destroy_client(nav_shutdown_client)",src)
 
