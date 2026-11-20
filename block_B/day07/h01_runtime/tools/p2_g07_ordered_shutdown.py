@@ -85,7 +85,24 @@ def _call_isolated_stage(rclpy, *, manager, timeout_sec):
 
 
 
-def _call_shutdown_stage_for_ab(rclpy, node, *, manager, timeout_sec, scope_env):
+def prepare_navigation_shutdown_client(node, *, kind, scope_env):
+    """Make the ONE navigation Manage client before read-only parameter ACK.
+
+    Actual strict Gazebo #44764186378: the already-responsive participant
+    still created /manage_nodes client only after GetParameters ACK, and one
+    SHUTDOWN request timed out while /is_active (same callback group) replied.
+    This opt-in only pre-creates a discovery endpoint, no service request,
+    retries, commands, timers, TTL, QoS, or new ROS participant. Hypothesis
+    is not a proven DDS root cause. Ownership remains checked by the stage.
+    """
+    if (scope_env.get("AXIA_G07_NAV_WARM_PARTICIPANT_CI_AB")=="1" or
+            scope_env.get("AXIA_G07_NAV_WARM_PARTICIPANT_OWNER")=="1"):
+        return node.create_client(kind,NAV_MANAGER)
+    return None
+
+
+def _call_shutdown_stage_for_ab(rclpy, node, *, manager, timeout_sec, scope_env,
+                                prewarmed_client=None):
     """One native SHUTDOWN request; CI-only compare already-ready DDS participant.
 
     Actual #44698698767: get_parameters ACK on the persistent node, but
@@ -128,6 +145,10 @@ def _call_shutdown_stage_for_ab(rclpy, node, *, manager, timeout_sec, scope_env)
         mode="CI" if ci_requested=="1" else "OWNER"
         print("G07_NAV_SHUTDOWN_AB=EXISTING_PARAMETER_ACKED_ROS_PARTICIPANT "
               "ONE_REQUEST_ROOT_CAUSE_NOT_PROVEN authority="+mode,flush=True)
+        if prewarmed_client is not None:
+            return call_native_manage(node, manager=manager,command='shutdown',
+                                      timeout_sec=timeout_sec,
+                                      prewarmed_client=prewarmed_client)
         return call_native_manage(node, manager=manager,command='shutdown',
                                   timeout_sec=timeout_sec)
     return _call_isolated_stage(rclpy,manager=manager,timeout_sec=timeout_sec)
@@ -265,6 +286,7 @@ def run(*, limit=60.0):
 
     rclpy.init()
     node = None
+    nav_shutdown_client = None
     deadline = monotonic() + limit
     stages = {}
     # Record the actual DDS/RMW implementation used by the ROS service
@@ -278,6 +300,12 @@ def run(*, limit=60.0):
     try:
         node = rclpy.create_node("axia_g07_ordered_shutdown_guard",
                                  enable_rosout=False)
+        # Precreate the service's DDS writer/reader before parameter
+        # discovery; no premature SHUTDOWN command is sent.
+        nav_shutdown_client = prepare_navigation_shutdown_client(
+            node, kind=ManageLifecycleNodes, scope_env=os.environ)
+        stages["nav_manage_endpoint_precreated_before_params"]=bool(
+            nav_shutdown_client is not None)
         def call(kind, name, request, max_response=15.0):
             remaining = deadline - monotonic()
             if remaining <= 0:
@@ -323,8 +351,10 @@ def run(*, limit=60.0):
         for key,service in (("navigation", NAV_MANAGER),
                             ("localization", LOC_MANAGER)):
             budget=shutdown_stage_budget(key, deadline-monotonic())
-            ack=_call_shutdown_stage_for_ab(rclpy, node, manager=key,
-                                            timeout_sec=budget, scope_env=os.environ)
+            ack=_call_shutdown_stage_for_ab(
+                rclpy, node, manager=key,
+                timeout_sec=budget, scope_env=os.environ,
+                prewarmed_client=nav_shutdown_client if key=="navigation" else None)
             # Preserve FIRST lifecycle service response boundary, not just
             # the final shell rc. This is diagnostic, NEVER a substitute
             # for the required actual Navigation + Localization ACK.
@@ -356,6 +386,8 @@ def run(*, limit=60.0):
                       failure_stage=str(exc)[:110],**stages)
     finally:
         if node is not None:
+            if nav_shutdown_client is not None:
+                node.destroy_client(nav_shutdown_client)
             node.destroy_node()
         rclpy.try_shutdown()
 

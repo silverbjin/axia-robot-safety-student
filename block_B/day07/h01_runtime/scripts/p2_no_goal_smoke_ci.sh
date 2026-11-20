@@ -1086,6 +1086,23 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
     echo 'AXIA_P3_S05_ACTUAL_GAZEBO_SW_STOP_SCOPED_CANDIDATE_FORMAL_HOLD'
     exit 0
   fi
+  # Exact Owner/CI opt-in: read-only long NO_GOAL Scan cadence in THIS
+  # Gazebo/ROS graph, after world readiness and BEFORE TTY or any Goal.
+  # Always fail closed when the scan wall gap exceeds 300ms, even if the
+  # 10Hz Gazebo sim-time header period is normal or /clock keeps running.
+  # No safety TTL, LiDAR Hz, QoS, Nav2, Goal logic or ROS publishers change.
+  if [[ "${AXIA_G07_SCAN_PREFLIGHT_STRICT:-0}" == 1 ]];then
+    if ! timeout --signal=TERM --kill-after=5s 25s \
+        python3 tools/p2_g07_scan_wall_pregoal.py \
+          --output "$OUT/g07_ci_scan_pregoal.json" \
+          > "$OUT/g07_ci_scan_pregoal.log" 2>&1;then
+      cat "$OUT/g07_ci_scan_pregoal.log" >&2 || true
+      echo 'SCAN_WALL_PREG0AL_BLOCKED_NO_GOAL' >&2
+      exit 2
+    fi
+    cat "$OUT/g07_ci_scan_pregoal.log"
+    echo 'AXIA_G07_PREGOAL_SCAN_WALL_GOAL_ADMISSION_PASS_SCOPED'
+  fi
   # The real Owner shell must read the exact consent phrase from /dev/tty.
   # The single Goal is sent later by the existing Python Supervisor path.
   OWNER_GOAL_ARGS=()

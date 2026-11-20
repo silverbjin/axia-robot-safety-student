@@ -63,7 +63,7 @@ def ci_simulated_lost_ack(env, *, manager, command):
             and manager == "localization" and command == "startup")
 
 
-def call_native_manage(node, *, manager, command, timeout_sec):
+def call_native_manage(node, *, manager, command, timeout_sec, prewarmed_client=None):
     """Call official ManageLifecycleNodes service with ROS-level async ACK.
 
     Shared by staged STARTUP and the ordered SHUTDOWN runner. The invoking
@@ -77,7 +77,12 @@ def call_native_manage(node, *, manager, command, timeout_sec):
     if not 0 < timeout_sec <= 100:
         raise ValueError("INVALID_LIFECYCLE_DEADLINE")
     at = monotonic()
-    client = node.create_client(ManageLifecycleNodes, SERVICE[manager])
+    # Optional precreated *same* service endpoint: one request only.
+    # Navigation CI/Owner opt-in creates this before an already-ACKed
+    # /get_parameters operation. Never create an extra service command.
+    owns_client = prewarmed_client is None
+    client = (node.create_client(ManageLifecycleNodes, SERVICE[manager])
+              if owns_client else prewarmed_client)
     try:
         if not client.wait_for_service(timeout_sec=min(5.0, timeout_sec)):
             return service_result(status="SERVICE_MISSING", manager=manager,
@@ -110,7 +115,8 @@ def call_native_manage(node, *, manager, command, timeout_sec):
                               manager=manager, command=command,
                               elapsed_sec=monotonic()-at, request_sent=True)
     finally:
-        node.destroy_client(client)
+        if owns_client:
+            node.destroy_client(client)
 
 
 def execute(*, manager, command, timeout_sec):
