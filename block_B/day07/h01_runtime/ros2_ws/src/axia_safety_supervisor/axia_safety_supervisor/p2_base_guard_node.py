@@ -18,6 +18,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 
 from .p2_base_guard_policy import Motion, State, ZERO
+from .p2_guard_evidence_mode import internal_timing_evidence_enabled
 
 
 def _motion(msg):
@@ -141,12 +142,10 @@ class P2BaseCommandGuard(Node):
             'sim_only': True,
             'certified_estop': False,
         }
-        # Task03 PUBLIC SIM only: expose the Guard's own actual steady
+        # G07 CI and true Owner SIM only: expose Guard's own steady
         # monotonic receive ages on the EXISTING 20Hz status topic.
         # This is read-only evidence. Never change CM/Guard TTL or ZERO.
-        if (os.environ.get('GITHUB_ACTIONS') == 'true'
-                and os.environ.get('AXIA_P0_SIM_ONLY') == '1'
-                and os.environ.get('AXIA_G07_TASK03_FORMAL_CI') == '1'):
+        if internal_timing_evidence_enabled(os.environ):
             snapshot = self._policy.diagnostic_snapshot(tick_mono)
             status_fields['cm_age_sec'] = snapshot['cm_age_sec']
             status_fields['supervisor_age_sec'] = snapshot['supervisor_age_sec']
