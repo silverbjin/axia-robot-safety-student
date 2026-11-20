@@ -113,7 +113,7 @@ def _call_shutdown_stage_for_ab(rclpy, node, *, manager, timeout_sec, scope_env)
         if manager=="navigation":
             print("G07_NAV_SHUTDOWN_AB=EXISTING_PARAMETER_ACKED_ROS_PARTICIPANT "
                   "ONE_REQUEST_ROOT_CAUSE_NOT_PROVEN",flush=True)
-            return call_native_manage(node, manager=manager,command="shutdown",
+            return call_native_manage(node, manager=manager,command='shutdown',
                                       timeout_sec=timeout_sec)
     return _call_isolated_stage(rclpy,manager=manager,timeout_sec=timeout_sec)
 
