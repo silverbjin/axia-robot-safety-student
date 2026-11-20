@@ -68,11 +68,25 @@ def assess_pregoal_samples(samples, *, window_sec=WINDOW_SEC):
            for p in odom):
         result["odom_max_wall_gap_ms"]=round(max(
             (b[0]-a[0])*1000 for a,b in zip(odom,odom[1:])),6)
-    # Gate the other hard real-time observer boundaries too. A Scan-only
-    # success cannot mask 300ms Odom/Clock delivery loss on the same graph.
-    if result.get("odom_max_wall_gap_ms",0)>=300 or result["clock_max_wall_gap_ms"]>=300:
-        result["first_failure"]="SCAN_PREFLIGHT_CLOCK_ODOM_INTERVAL_BREACH"
-        return result
+    # Record EVERY channel before any failure return; a Clock/Odom300 gap
+    # must not erase the exact same-session first Scan header pair. Preserve
+    # the earliest completed delivery violation on one host monotonic clock.
+    all_wall_breaches=[]
+    for name,points in (("clock",clocks),("odom",odom)):
+        if any(not isinstance(p,(list,tuple)) or len(p)!=2
+               or not (_ok_num(p[0]) and _ok_num(p[1])) for p in points):
+            result["first_failure"]="SCAN_PREFLIGHT_CLOCK_ODOM_INVALID_SAMPLE"
+            return result
+        for a,b in zip(points,points[1:]):
+            gap=(b[0]-a[0])*1000
+            if gap<=0:
+                result["first_failure"]="SCAN_PREFLIGHT_CLOCK_ODOM_NONMONOTONIC"
+                return result
+            if gap>=SCAN_LIMIT_MS:
+                all_wall_breaches.append(dict(
+                    channel=name,previous_rx_host_monotonic=round(a[0],9),
+                    current_rx_host_monotonic=round(b[0],9),
+                    gap_ms=round(gap,6),limit_ms=SCAN_LIMIT_MS))
     failures=[]
     for topic in ("scan","safety_scan"):
         points=samples.get(topic,[])
@@ -110,6 +124,12 @@ def assess_pregoal_samples(samples, *, window_sec=WINDOW_SEC):
                     a<=p[0]<=b for p in odom
                     if isinstance(p,(tuple,list)) and len(p)>0 and _ok_num(p[0])),
                 native_gazebo_publication_host_time="NOT_MEASURED"))
+        for wall_ms,sim_ms,a,b,h0,h1 in intervals:
+            if wall_ms>=SCAN_LIMIT_MS:
+                all_wall_breaches.append(dict(
+                    channel=topic,previous_rx_host_monotonic=round(a,9),
+                    current_rx_host_monotonic=round(b,9),
+                    gap_ms=round(wall_ms,6),limit_ms=SCAN_LIMIT_MS))
         if points[-1][0]-points[0][0]<min(window_sec*.8,9):
             result["first_failure"]="SCAN_PREFLIGHT_WINDOW_INSUFFICIENT"
             return result
@@ -122,11 +142,23 @@ def assess_pregoal_samples(samples, *, window_sec=WINDOW_SEC):
               clocks[-1][0]>=scan_end-.3)
     result["clock_coverage"]=("FULL_PREG0AL_WINDOW" if coverage
         else "INSUFFICIENT_FOR_FULL_PREG0AL_WINDOW")
+    if all_wall_breaches:
+        result["first_delivery_violation"]=min(
+            all_wall_breaches,
+            key=lambda r:(r["current_rx_host_monotonic"],
+                          ("clock","odom","scan","safety_scan").index(r["channel"])))
+    else:
+        result["first_delivery_violation"]=None
     if failures:
         result["first_scan_timing_boundary"]=min(
             failures,key=lambda r:(r["current_rx_host_monotonic"],
                                    0 if r["topic"]=="scan" else 1))
-        result["first_failure"]="SCAN_PREFLIGHT_300MS_OR_HEADER_PERIOD_BREACH"
+    if all_wall_breaches or failures:
+        first=result["first_delivery_violation"]
+        if first is not None and first["channel"] in ("clock","odom"):
+            result["first_failure"]="SCAN_PREFLIGHT_CLOCK_ODOM_INTERVAL_BREACH"
+        else:
+            result["first_failure"]="SCAN_PREFLIGHT_300MS_OR_HEADER_PERIOD_BREACH"
         return result
     if not coverage:
         result["first_failure"]="SCAN_PREFLIGHT_CLOCK_RETENTION_INSUFFICIENT"
@@ -180,6 +212,7 @@ def run(output,window_sec=WINDOW_SEC):
         print("AXIA_G07_PREGOAL_SCAN_FIRST_NUMERIC "+
               json.dumps({"first_failure":report["first_failure"],
                           "first_scan_timing_boundary":report.get("first_scan_timing_boundary"),
+                          "first_delivery_violation":report.get("first_delivery_violation"),
                           "topic_results":report.get("topic_results"),
                           "local_window_rtf_estimate":report.get("local_window_rtf_estimate"),
                           "clock_max_wall_gap_ms":report.get("clock_max_wall_gap_ms"),
