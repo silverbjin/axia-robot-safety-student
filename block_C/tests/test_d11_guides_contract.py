@@ -58,5 +58,36 @@ class D11GuidesContract(unittest.TestCase):
             self.assertIn(f"({p})",t)
             self.assertTrue((DAY/p).exists())
 
+
+    def test_d11_beginner_has_scaffolded_exercises_and_explanations(self):
+        t=LAB.read_text(encoding="utf-8")
+        for section in (
+            "처음 실습하는 분을 위한 길잡이",
+            "1분 용어 사전",
+            "명령어 한 줄씩",
+            "실행 전 예상 결과",
+            "실제 출력과 예상 출력",
+            "연습문제 A",
+            "연습문제 B",
+            "스스로 점검",
+            "왜 품질 오류 4건은",
+            "실제 실행과 기존 참조 결과 구분"
+        ):
+            self.assertIn(section,t,section)
+        for command in (
+            "python3 block_C/day11/mse_toy_practice.py",
+            "python3 block_C/fixtures/generator.py --check",
+            "git rev-parse HEAD",
+            "mse_practice.log"
+        ):
+            self.assertIn(command,t,command)
+
+    def test_d11_beginner_safety_and_no_false_model_claims(self):
+        t=LAB.read_text(encoding="utf-8")
+        for term in ("TOY", "INSTRUCTOR_REFERENCE", "EXPECTED_RED",
+                     "INSUFFICIENT_DATA", "train-only", "Valid-only",
+                     "Test holdout", "인증된 E-Stop", "실제 AE 추론이 아닙니다"):
+            self.assertIn(term,t,term)
+
 if __name__=="__main__":
     unittest.main()
