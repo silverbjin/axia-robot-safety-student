@@ -78,3 +78,18 @@ def test_d10_beginner_failures_and_no_answer_leakage():
     assert "from isolation_forest_pipeline import" not in lab
     assert "create_publisher(" not in lab
     assert "send_goal_async(" not in lab
+
+
+def test_d10_beginner_venv_isolated_pip_contract():
+    lab = LAB.read_text(encoding="utf-8")
+    for marker in (
+        "D10_STUDENT_VENV_READY",
+        "D10_STUDENT_VENV_HOLD",
+        "ModuleNotFoundError: No module named 'sklearn'",
+        "python3 -m venv",
+        '"$VENV/bin/python" -m pip install',
+        "python3.12-venv",
+        "pip_install_failed",
+    ):
+        assert marker in lab, marker
+    assert "sudo pip" not in lab
