@@ -51,3 +51,30 @@ def test_d10_students_get_real_input_precondition_not_false_green():
     assert "D09 학생 과제가 끝나지 않았다면" in lab
     assert "빈" not in lab or "입력" in lab
     assert "공개 테스트는 함수의 반환형만" in lab
+
+
+def test_d10_beginner_step_by_step_lesson_contract():
+    """Novices need a reproducible independent 120-minute path, not a guess."""
+    lab = LAB.read_text(encoding="utf-8")
+    for marker in (
+        "20:00–20:10", "21:52–22:00", "120분",
+        "Sample", "Trace", "Window", "Feature",
+        "python3 -m venv", "D10_INPUT_MISSING",
+        "D09 학생 과제가 끝나지 않았다면",
+        "기대", "NotImplementedError",
+        "TP", "FP", "FN", "TN", "synthetic_delay_s=1.9",
+    ):
+        assert marker in lab, marker
+
+def test_d10_beginner_failures_and_no_answer_leakage():
+    lab = LAB.read_text(encoding="utf-8")
+    for marker in (
+        "첫 번째 메시지", "externally-managed-environment",
+        "D10_STUDENT_DATA_CHECK_PASS",
+        "C01_FIXTURE_CONTRACT_PASS",
+        "Train", "Valid", "Test", "비인증",
+    ):
+        assert marker in lab, marker
+    assert "from isolation_forest_pipeline import" not in lab
+    assert "create_publisher(" not in lab
+    assert "send_goal_async(" not in lab
