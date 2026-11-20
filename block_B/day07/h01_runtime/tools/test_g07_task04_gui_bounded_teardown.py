@@ -22,7 +22,10 @@ def helper():
 class OwnedGUIBoundedExit(unittest.TestCase):
     def test_after_nav2_ack_gui_wait_has_a_bounded_fallback(self):
         s=SOURCE.read_text()
-        self.assertNotIn('wait "$gui_pid" 2>/dev/null || true',s)
+        # Waiting AFTER the bounded status transition is legal; the old
+        # unbounded wait in cleanup's own GUI loop is not.
+        cleanup=s.split("cleanup() {",1)[1].split("trap cleanup EXIT",1)[0]
+        self.assertNotIn('wait "$gui_pid" 2>/dev/null || true',cleanup)
         self.assertIn('stop_owned_gui_group "$gui_pid"',s)
         self.assertIn('kill -INT -- "-$gui_pid"',helper())
         self.assertIn('kill -TERM -- "-$gui_pid"',helper())
