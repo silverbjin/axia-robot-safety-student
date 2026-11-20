@@ -84,6 +84,40 @@ def _call_isolated_stage(rclpy, *, manager, timeout_sec):
 
 
 
+
+def _call_shutdown_stage_for_ab(rclpy, node, *, manager, timeout_sec, scope_env):
+    """One native SHUTDOWN request; CI-only compare already-ready DDS participant.
+
+    Actual #44698698767: get_parameters ACK on the persistent node, but
+    a NEW participant's first /manage_nodes SHUTDOWN request timed out at
+    40.000574s while a later /is_active service answered in 79.579ms.
+    eProsima/Fast-DDS#6630 documents a possible newly joined discovery race.
+    This A/B does not prove that root: NO extra call/retry, no time extension.
+    CI-only for one exact Moving Goal, not an Owner default behavior change.
+    Localization stage stays independently isolated.
+    """
+    if manager not in ("navigation", "localization"):
+        raise ValueError("G07_WARM_NAV_PARTICIPANT_BAD_MANAGER")
+    requested=scope_env.get("AXIA_G07_NAV_WARM_PARTICIPANT_CI_AB", "")
+    if requested not in ("", "0", "1"):
+        raise ValueError("G07_WARM_NAV_PARTICIPANT_BAD_SETTING")
+    if requested=="1":
+        allowed=(scope_env.get("GITHUB_ACTIONS")=="true"
+                 and scope_env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1"
+                 and scope_env.get("AXIA_P0_SIM_ONLY")=="1"
+                 and scope_env.get("ROS_DISTRO")=="jazzy"
+                 and scope_env.get("GZ_PARTITION","").startswith("axia_p2_")
+                 and scope_env.get("AXIA_G07_TASK04_OWNER_MOVING_L3")!="1")
+        if not allowed:
+            raise ValueError("G07_WARM_NAV_PARTICIPANT_SCOPE_DENIED")
+        if manager=="navigation":
+            print("G07_NAV_SHUTDOWN_AB=EXISTING_PARAMETER_ACKED_ROS_PARTICIPANT "
+                  "ONE_REQUEST_ROOT_CAUSE_NOT_PROVEN",flush=True)
+            return call_native_manage(node, manager=manager,command="shutdown",
+                                      timeout_sec=timeout_sec)
+    return _call_isolated_stage(rclpy,manager=manager,timeout_sec=timeout_sec)
+
+
 def probe_localization_parameter_service(rclpy, *, timeout_sec):
     """Read-only first-failure classification after a *single* shutdown timeout.
 
@@ -274,8 +308,8 @@ def run(*, limit=60.0):
         for key,service in (("navigation", NAV_MANAGER),
                             ("localization", LOC_MANAGER)):
             budget=shutdown_stage_budget(key, deadline-monotonic())
-            ack=_call_isolated_stage(rclpy, manager=key,
-                                     timeout_sec=budget)
+            ack=_call_shutdown_stage_for_ab(rclpy, node, manager=key,
+                                            timeout_sec=budget, scope_env=os.environ)
             # Preserve FIRST lifecycle service response boundary, not just
             # the final shell rc. This is diagnostic, NEVER a substitute
             # for the required actual Navigation + Localization ACK.
