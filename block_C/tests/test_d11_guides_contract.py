@@ -89,5 +89,18 @@ class D11GuidesContract(unittest.TestCase):
                      "Test holdout", "인증된 E-Stop", "실제 AE 추론이 아닙니다"):
             self.assertIn(term,t,term)
 
+
+    def test_d11_live_replay_student_workbook(self):
+        activity=DAY/"STUDENT_LIVE_REPLAY_ACTIVITY_GUIDE_KO.md"
+        self.assertTrue(activity.is_file(),"D11 live replay worksheet missing")
+        s=activity.read_text(encoding="utf-8")
+        for term in ("12분", "SYNTHETIC_COURSE_FIXTURE", "IF", "AE",
+                     "예측", "오탐", "미탐", "INSUFFICIENT_DATA",
+                     "mse_practice.log", "d11_report.md", "기대 효과"):
+            self.assertIn(term,s)
+        self.assertNotIn("ae_checkpoint.pt",s)
+        self.assertNotIn("torch.save(",s)
+        self.assertIn("STUDENT_LIVE_REPLAY_ACTIVITY_GUIDE_KO.md",LAB.read_text(encoding="utf-8"))
+
 if __name__=="__main__":
     unittest.main()

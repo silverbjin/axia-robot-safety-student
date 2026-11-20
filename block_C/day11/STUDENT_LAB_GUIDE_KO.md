@@ -581,3 +581,8 @@ cat "$HOME/axia_d11_course/student_evidence/d11_report.md"
 - [학생 데모 관찰 가이드](STUDENT_DEMO_GUIDE_KO.md) · [학생 TODO](student_ae_todo.py) · [MSE 수학 연습 코드](mse_toy_practice.py).
 
 **검증 경계:** 공개 CSV 검사와 TOY 계산의 성공은 공개 Python L0 수업 성취에 한정됩니다. 강사 비공개 AE checkpoint 실행, 학생의 전체 AE TODO 완성, 학생 PC WSL2 최종 PASS, ROS/Gazebo/실물 로봇 안전정지 PASS를 뜻하지 않습니다.
+
+
+## 보충 활동 — D11 12분 몰입형 라이브 Replay
+
+기존 120분 실습의 강사 시연·모델 비교 구간에서 [학생용 Replay 예측 활동지](STUDENT_LIVE_REPLAY_ACTIVITY_GUIDE_KO.md)를 함께 사용하십시오. 학생은 화면에서 정답이 공개되기 전에 IF/AE 경고 위치와 품질 상태를 먼저 예측하고 공개된 후 판단 차이를 보고서에 한 문단으로 작성합니다. **새 모델 훈련·강사 비공개 checkpoint 다운로드·추가 필수 파일 제출은 요구하지 않습니다.** 12분은 기존 120분에 포함되며 추가 수업시간이 아닙니다.
