@@ -80,11 +80,24 @@ mkdir -p "$AXIA_D10_LAB/c02" "$AXIA_D10_LAB/c03"
 **Python 가상환경(한 번만 설치):** 다른 수업 패키지와 충돌하지 않도록 저장소 바깥에 만듭니다. `python3 --version`이 3.12.x인지 먼저 확인합니다. 다른 버전이라면 `python3.12 --version`으로 설치 여부를 확인하고, 3.12가 없으면 강사에게 환경을 요청하십시오. 시스템 Python을 임의로 교체하지 않습니다.
 
 ```bash
-python3 -m venv "$HOME/axia_d10_course/.venv"
-source "$HOME/axia_d10_course/.venv/bin/activate"
-python -m pip install 'numpy>=1.26,<3' 'scikit-learn==1.8.0' 'pytest==8.3.5'
-python -c 'import sys,numpy,sklearn; print("PYTHON",sys.version.split()[0],"NUMPY",numpy.__version__,"SKLEARN",sklearn.__version__)'
-bash block_C/scripts/block_c_once.sh --doctor
+# python3 -m venv 사용 전 python3가 반드시 3.12인지 확인합니다.
+python3 --version
+(
+  set -Eeuo pipefail
+  VENV="$HOME/axia_d10_course/.venv"
+  python3 -m venv "$VENV"
+  "$VENV/bin/python" -m pip install --disable-pip-version-check --no-input \
+    'numpy>=1.26,<3' 'scikit-learn==1.8.0' 'pytest==8.3.5'
+  "$VENV/bin/python" -c 'import sys,numpy,sklearn; assert sys.version_info[:2]==(3,12); print("PYTHON",sys.version.split()[0],"NUMPY",numpy.__version__,"SKLEARN",sklearn.__version__)'
+  echo D10_STUDENT_VENV_READY
+) || echo 'D10_STUDENT_VENV_HOLD: 설치 오류를 해결하기 전에는 다음 단계로 진행하지 마세요.'
+if [[ -x "$HOME/axia_d10_course/.venv/bin/python" ]] &&
+    "$HOME/axia_d10_course/.venv/bin/python" -c 'import numpy,sklearn,pytest' 2>/dev/null; then
+  source "$HOME/axia_d10_course/.venv/bin/activate"
+  bash block_C/scripts/block_c_once.sh --doctor
+else
+  echo 'D10_STUDENT_ENV_HOLD: 가상환경이 준비되지 않았습니다. 다음 단계로 진행하지 마세요.'
+fi
 ```
 
 예상: `PYTHON 3.12.x ... SKLEARN 1.8.0` 및 `BLOCK_C_STUDENT_DOCTOR python=3.12.x`. 가상환경 재사용은 `source "$HOME/axia_d10_course/.venv/bin/activate"` 한 줄이면 됩니다. **D10은 CPU 오프라인 Python 수업**이므로 Gazebo, ROS 2, GPU, PyTorch, `cmd_vel`이 필수 조건이 아닙니다.
@@ -374,9 +387,11 @@ git rev-parse --short HEAD
 | 처음 나타나는 오류/현상 | 실제 원인 후보 | 가장 작은 다음 행동 |
 |---|---|---|
 | `test -f day10/...`에서 창 종료 | 현재 폴더가 `~`, 상대경로 + 셸 `set -e` | 1단계 위치 이동 후 명령. 전체 터미널에 `set -e` 금지 |
-| `ModuleNotFoundError: sklearn` | 현재 Python/가상환경에 미설치 | `which python`, `.venv` 활성화, 해당 환경에만 설치 |
+| `ModuleNotFoundError: No module named 'sklearn'` | 시스템 Python 또는 다른 가상환경에서 실행했거나 sklearn 미설치 | `which python`과 `python -m pip show scikit-learn` 확인, `.venv/bin/python -m pip install 'scikit-learn==1.8.0'` 실행 후 import 검사 |
 | `BLOCK_C_ENV_DIFF_BLOCKED expected=3.12 ...` | Python 버전 불일치 | `python3.12 --version` 확인, 강사에게 환경 요청 |
 | `externally-managed-environment` | 시스템 Python에 직접 pip 설치 시도 | 시스템 대신 `.venv` 만들고 `python -m pip` 사용 |
+| `ensurepip is not available` / `venv_creation_failed` | Ubuntu Python 3.12용 `venv` 패키지 미설치 | `python3.12 --version`을 확인하고 강사에게 `python3.12-venv` 설치를 요청, 시스템 Python을 덮어쓰지 않음 |
+| `pip_install_failed` / HTTPS timeout | 네트워크·프록시·패키지 인덱스 문제 | 설치 로그의 **최초 오류** 확인, 강사 제공 오프라인 wheel 또는 사전 준비된 가상환경 사용. 같은 명령 무한 재시도 금지 |
 | `C01_CONTRACT_FAIL` | 원본 SHA/스키마/Trace 위반 | CSV를 직접 고치지 말고 Git SHA 및 첫 파일 오류를 기록 |
 | `D10_INPUT_MISSING: ...features_train.csv` | D09 미완성/특징 데이터 미제공 | 경로 A(강사 제공 데이터) 또는 본인 D09 완료 |
 | `NotImplementedError: D09 TODO not implemented` | D09 과제 미구현 | D09 보완 또는 데이터만 제공받아 D10 진행 |
