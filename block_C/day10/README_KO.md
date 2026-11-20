@@ -5,6 +5,33 @@
 **학습 목표 1:** Isolation Forest 기반 이상신호 탐지 구조 이해.  
 **학습 목표 2:** 정상 패턴 기준 이상탐지 및 조기 경고 검증 실습.
 
+
+## 터미널이 `~`에서 시작할 때 — D10 사전검사 원샷
+
+다른 장의 상대경로 명령만 단독 복사하면 `~/`에서 실패할 수 있습니다. 아래 블록은 위치를 직접 이동한 뒤 D10의 **학생 입력 준비**만 확인합니다. 미완성 `student_if_todo.py`를 정답인 것처럼 실행하지 않습니다. 오류가 생겨도 바깥 터미널 전체를 종료하지 않습니다.
+
+```bash
+(
+  set -Eeuo pipefail
+  ROOT="$HOME/axia_d10_course/axia-robot-safety-student"
+  mkdir -p "$(dirname "$ROOT")"
+  if [[ ! -d "$ROOT/.git" ]]; then
+    git clone https://github.com/silverbjin/axia-robot-safety-student.git "$ROOT"
+  fi
+  cd "$ROOT"
+  if [[ "$(git branch --show-current)" == main && -z "$(git status --porcelain)" ]]; then
+    git pull --ff-only origin main
+  else
+    echo 'D10_STUDENT_SOURCE_UNTOUCHED existing branch or local changes'
+  fi
+  bash block_C/scripts/block_c_once.sh --doctor
+  python3 block_C/fixtures/generator.py --check --fixture-dir block_C/fixtures
+  printf 'D10_STUDENT_PREFLIGHT_PASS source_sha=%s todo_expected_red=true\\n' "$(git rev-parse HEAD)"
+) || printf '%s\\n' 'D10_STUDENT_PREFLIGHT_HOLD: 앞의 최초 오류를 확인하세요. 터미널은 유지됩니다.'
+```
+
+`--doctor`는 Python 3.12를 요구하며, 불일치 시 `BLOCK_C_ENV_DIFF_BLOCKED expected=3.12 actual=...` 메시지로 종료합니다. 공개 학생 TODO 미구현으로 발생하는 `NotImplementedError`는 **EXPECTED_RED**이고, 강사 정답의 C03 성공과 혼동하지 않습니다. D09 특징 CSV가 만들어지지 않았다면 이 사전검사 이후에도 D10 학습은 시작할 수 없습니다.
+
 학습 순서:
 1. **[학생용 데모 관찰 가이드](STUDENT_DEMO_GUIDE_KO.md)** — 시스템 아키텍처·원본→특징·Train/Valid/Test와 강사 라이브 화면의 기대 결과.
 2. **[학생용 120분 실습 가이드](STUDENT_LAB_GUIDE_KO.md)** — Python 3.12 환경·원본 무결성·D09 6특징 입력 확보·TODO 구현·출력 검증·첫 경고 분석.
