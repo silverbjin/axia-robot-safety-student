@@ -30,8 +30,9 @@ class D11GuidesContract(unittest.TestCase):
                       "block_C/scripts/block_c_once.sh --doctor",
                       "block_C/fixtures/generator.py --check",
                       "block_C/day11/mse_toy_practice.py",
-                      "EXPECTED_RED", "120", "4,599", "46", "240", "80", "100"):
+                      "EXPECTED_RED", "120", "46", "240", "80", "100"):
                 self.assertIn(s,t,(p,s))
+            self.assertIn("4599",t.replace(",",""),p)
             for forbidden in ("from autoencoder_pipeline import", "torch.save(", "create_publisher(", "send_goal_async("):
                 self.assertNotIn(forbidden,t)
     def test_todo_remains_intentionally_unimplemented(self):
