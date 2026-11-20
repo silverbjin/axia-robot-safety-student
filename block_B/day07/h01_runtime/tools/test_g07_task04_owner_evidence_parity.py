@@ -33,6 +33,11 @@ class GuardEvidenceParity(unittest.TestCase):
         self.assertFalse(internal_timing_evidence_enabled({}))
         self.assertFalse(internal_timing_evidence_enabled(
             {"GITHUB_ACTIONS":"true","AXIA_P0_SIM_ONLY":"1"}))
+    def test_first_rmw_clock_anomaly_is_retained_in_numeric_output(self):
+        src=(R/"p2_g07_task04_moving_review.py").read_text()
+        self.assertIn('"timebase":cm.get("timebase")',src)
+        self.assertIn('"status":cm.get("status")',src)
+
     def test_guard_only_calls_pure_evidence_flag_at_publish(self):
         src=(PKG/"axia_safety_supervisor"/"p2_base_guard_node.py").read_text()
         self.assertIn("internal_timing_evidence_enabled(os.environ)",src)
