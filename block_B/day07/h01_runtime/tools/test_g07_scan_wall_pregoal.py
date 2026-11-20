@@ -49,5 +49,31 @@ class ScanPreGoalContract(unittest.TestCase):
         self.assertLess(shell.index("p2_g07_scan_wall_pregoal.py"),
                         shell.index("Simulation-only Moving Goal: type YES-P2-G07-GOAL"))
 
+    def test_first_scan_gap_retains_exact_pair_and_local_clock_rtf_on_hold(self):
+        # 10Hz simulated LaserScan, ~0.41 local RTF and ONE delayed wall pair.
+        # The original 12s preflight returned prematurely and lost cause data.
+        rows=[(i*.249+(.08 if i>=20 else 0.0), i*.102) for i in range(48)]
+        safety=[(t+.001,stamp) for t,stamp in rows]
+        v={"scan":rows,"safety_scan":safety,
+           "clock":[(i*.04,i*.0164) for i in range(310)],
+           "odom":[(i*.1,i*.041) for i in range(130)]}
+        r=assess_pregoal_samples(v)
+        self.assertEqual(r["status"],"HOLD")
+        self.assertFalse(r["goal_sent"])
+        first=r["first_scan_timing_boundary"]
+        self.assertEqual(first["topic"],"scan")
+        self.assertAlmostEqual(first["gap_ms"],329.,places=2)
+        self.assertAlmostEqual(first["header_sim_gap_ms"],102.,places=2)
+        self.assertAlmostEqual(first["local_clock_rtf_estimate"],.41,places=2)
+        self.assertIn("safety_scan",r["topic_results"])
+        self.assertEqual(r["sensor_generation_vs_bridge_root_cause"],"UNDETERMINED")
+
+    def test_first_gap_evidence_must_not_hide_sensor_header_period(self):
+        v=self.healthy(.10,.205)
+        r=assess_pregoal_samples(v)
+        self.assertEqual(r["status"],"HOLD")
+        self.assertIsNotNone(r["first_scan_timing_boundary"])
+        self.assertGreater(r["first_scan_timing_boundary"]["header_sim_gap_ms"],150)
+
 if __name__=="__main__":
     unittest.main()
