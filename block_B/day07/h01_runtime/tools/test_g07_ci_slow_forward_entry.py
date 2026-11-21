@@ -3,6 +3,7 @@ still commands steady forward motion. No synthetic LaserScan or cmd_vel.
 Grounded in native #44871515361 Cycle2 yaw .1147→1.5198 and reverse vx.
 """
 import unittest
+from pathlib import Path
 from p2_g07_ci_slow_entry import forward_entry, diagnose_forward_entry
 
 def example():
