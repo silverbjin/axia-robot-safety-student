@@ -18,6 +18,7 @@ import threading
 import time
 
 from p2_g07_events_executor_policy import select_events_executor
+from p2_g07_health_first_boundary import HealthFirstBoundary
 from p2_l3_live_session import Observer, _call_start, _publish_goal, _map_robot_pose
 from p2_l3_coordinate_frames import make_frame_anchor, obstacle_world_pose
 from p2_g07_spawn_contract import official_tb3_spawn
@@ -259,13 +260,23 @@ def run(args):
     distinct_stop_scans=[]
     try:
         graph_checks=True
+        health_boundary=HealthFirstBoundary(max_samples=48)
         def wait(check,secs,label):
             until=time.monotonic()+secs
             samples=[]
             last_sample=0.
+            last_health_sample=0.
             while time.monotonic()<until:
                 snap=obs.snapshot(include_graph=graph_checks)
                 data=obs.data()
+                if label=="HEALTH":
+                    # Strictly a bounded in-memory observation in the existing
+                    # same callback/poll loop. No extra ROS subscriptions,
+                    # discovery requests, Goal or safety decision changes.
+                    boundary_at=time.monotonic()
+                    if boundary_at-last_health_sample>=.25:
+                        health_boundary.record(boundary_at,snap,data)
+                        last_health_sample=boundary_at
                 g=snap.get("guard",{})
                 if g.get("latched") is True:
                     report["first_guard_latch"]=g.get("first_latch_trace")
@@ -307,6 +318,16 @@ def run(args):
                     json.dumps(summary,sort_keys=True,indent=2)+"\n")
                 print("AXIA_G07_CI_MOVING_"+label+"_TIMEOUT_DIAGNOSTICS "
                       +json.dumps(summary,sort_keys=True),flush=True)
+            if label=="HEALTH":
+                diag=health_boundary.result()
+                report["health_first_boundary"]=diag
+                (args.output/"first_health_boundary.json").write_text(
+                    json.dumps(diag,sort_keys=True,indent=2)+"\n")
+                print("AXIA_G07_FIRST_HEALTH_UNVERIFIED_HOLD "+
+                      json.dumps({k:diag.get(k) for k in (
+                          "status","first_readiness_blockers","first_sample",
+                          "first_state_transition","last_sample",
+                          "samples","release")},sort_keys=True),flush=True)
             raise RuntimeError("CI_MOVING_GOAL_TIMEOUT_"+label)
         wait(lambda snap,data: True if
              data["supervisor"].get("health_diagnostics",{}).get("cm_lifecycle_ok") is True
