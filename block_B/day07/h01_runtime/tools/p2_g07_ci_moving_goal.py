@@ -27,6 +27,21 @@ from p2_g07_ci_moving_goal_oracle import assess, first_delivery_breach, first_pr
 # G07 classroom only: improve visible cruise before moving the same fixture.
 CLEAR_MIN_TRAVEL_M = 0.12
 
+def select_observer_executor_ab(requested, *, owner_mode, ci_authorized):
+    """PR #73 minimal reversible scheduling candidate; read-only Observer only.
+
+    No new publisher, safety node, actuator or Goal. Default remains original
+    2-worker MultiThreadedExecutor. Scoped experimental mode is fail-closed.
+    """
+    if requested is None or requested=="":
+        return "multi"
+    if requested!="single":
+        raise ValueError("RMW_EXECUTOR_INVALID_CANDIDATE")
+    if not (owner_mode or ci_authorized):
+        raise ValueError("RMW_EXECUTOR_SCOPE_DENIED")
+    return "single"
+
+
 def _require_ci_only(expected_sha):
     assert os.environ.get("GITHUB_ACTIONS")=="true", "NOT_PUBLIC_GITHUB_ACTIONS"
     assert os.environ.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1", "NO_SCOPED_SIM_GOAL_OPT_IN"
@@ -181,7 +196,7 @@ def run(args):
     save()
     import rclpy
     from rclpy.node import Node
-    from rclpy.executors import MultiThreadedExecutor
+    from rclpy.executors import MultiThreadedExecutor, SingleThreadedExecutor
     from rclpy.parameter import Parameter
     from std_msgs.msg import String
     rclpy.init()
@@ -199,6 +214,14 @@ def run(args):
         print("AXIA_G07_CI_OWNER_OBSERVER_PARITY_ADMITTED "
               "workers=2 buffered=true bounded_flush_sec=0.75 "
               "periodic_watchdog=false",flush=True)
+    observer_ab=select_observer_executor_ab(
+        os.environ.get("AXIA_G07_OBSERVER_EXECUTOR_AB"),
+        owner_mode=owner_mode,
+        ci_authorized=(os.environ.get("GITHUB_ACTIONS")=="true"
+                       and os.environ.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1"
+                       and os.environ.get("AXIA_P0_SIM_ONLY")=="1"))
+    print("AXIA_G07_OBSERVER_EXECUTOR_AB_SELECTED="+observer_ab+
+          " ROOT_CAUSE_UNVERIFIED SAFETY_TTL_UNCHANGED",flush=True)
     observer_started_at=time.monotonic()
     obs=(Observer(node,args.output,buffered_evidence=True,periodic_flush_sec=.75)
          if owner_observer_parity
@@ -211,7 +234,8 @@ def run(args):
         guard_ticks.append(time.monotonic())
         if len(guard_ticks)>3000:del guard_ticks[:1500]
     extra=node.create_subscription(String,"/axia/p2/base_guard",on_guard,10)
-    executor=MultiThreadedExecutor(num_threads=2 if owner_observer_parity else 3)
+    executor=(SingleThreadedExecutor() if observer_ab=="single"
+              else MultiThreadedExecutor(num_threads=2 if owner_observer_parity else 3))
     executor.add_node(node)
     worker=threading.Thread(target=executor.spin,daemon=True)
     worker.start()
