@@ -62,7 +62,7 @@ class D13LiveReplayContract(unittest.TestCase):
         from live_replay import build_manifest, render_live_html
         from run_lab import load_cases
         html = render_live_html(build_manifest(load_cases()))
-        blocks = re.findall(r"<script(?:\\s[^>]*)?>(.*?)</script>", html, re.S)
+        blocks = re.findall(r"<script[^>]*>(.*?)</script>", html, re.S)
         self.assertEqual(len(blocks), 2)
         with tempfile.TemporaryDirectory(prefix="d13-js-") as td:
             script = Path(td) / "d13_viewer.js"
