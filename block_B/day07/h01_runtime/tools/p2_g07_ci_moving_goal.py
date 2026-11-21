@@ -215,6 +215,16 @@ def run(args):
             raise ValueError("G07_OBSERVER_IO_PROBE_REQUIRES_PUBLIC_SIM_ONLY")
         print("AXIA_G07_OBSERVER_IO_PROBE=CI_ONLY_READ_ONLY "
               "NO_CALLBACK_IO_ADDED ORIGINAL_FLUSH_RETAINED",flush=True)
+    requested_plan_probe=os.environ.get("AXIA_G07_G20_NAV2_PLAN_READONLY_PROBE","0")
+    if requested_plan_probe not in ("0","1"):
+        raise ValueError("G07_G20_PLAN_PROBE_INVALID_FLAG")
+    g20_plan_enabled=(requested_plan_probe=="1")
+    if g20_plan_enabled and not (
+            not owner_mode and os.environ.get("GITHUB_ACTIONS")=="true"
+            and os.environ.get("AXIA_P0_SIM_ONLY")=="1"
+            and os.environ.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1"
+            and os.environ.get("AXIA_G07_TASK04_CI_GUI_MOVING")=="1"):
+        raise ValueError("G07_G20_PLAN_PROBE_CI_ONLY_HOLD")
     silence_probe=None
     if io_probe:
         from p2_g07_observer_io_probe import FirstExecutorSilenceSnapshot
@@ -276,6 +286,29 @@ def run(args):
         guard_ticks.append(time.monotonic())
         if len(guard_ticks)>3000:del guard_ticks[:1500]
     extra=node.create_subscription(String,"/axia/p2/base_guard",on_guard,10)
+    g20_plan_witness=None
+    g20_plan_sub=None
+    if g20_plan_enabled:
+        # Official Jazzy Nav2 PlannerServer publishes "plan" (nav_msgs/Path)
+        # only when subscribers exist. Same existing Observer ROS node.
+        from nav_msgs.msg import Path as NavPath
+        from rclpy.qos import QoSProfile, ReliabilityPolicy
+        from p2_g07_g20_nav2_plan_witness import PlanWitness
+        g20_plan_witness=PlanWitness()
+        def g20_on_path(msg):
+            try:
+                stamp=msg.header.stamp.sec*1_000_000_000+msg.header.stamp.nanosec
+                pts=[(p.pose.position.x,p.pose.position.y) for p in msg.poses]
+                g20_plan_witness.observe(
+                    msg.header.frame_id,pts,stamp_ns=stamp,
+                    at_monotonic=time.monotonic())
+            except (AttributeError,TypeError,ValueError):
+                # Invalid path must not alter the actual safety decision.
+                pass
+        g20_plan_sub=node.create_subscription(NavPath,"/plan",g20_on_path,
+            QoSProfile(depth=1,reliability=ReliabilityPolicy.RELIABLE))
+        print("AXIA_G07_G20_NAV2_PATH_CI_ONLY_READONLY_OBSERVER "
+              "PATH_GLOBAL_NOT_LOCAL_CONTROLLER_HOLD",flush=True)
     if events_candidate:
         from rclpy.experimental import EventsExecutor
         executor=EventsExecutor()
@@ -302,6 +335,28 @@ def run(args):
         name="g07_observer_executor_spin",daemon=True)
     worker.start()
     published=None
+    g20_anchor=None
+    g20_fixture_world_xy=None
+    def g20_capture_plan(phase):
+        if g20_plan_witness is None:
+            return
+        try:
+            d=obs.data()
+            snap=obs.snapshot(include_graph=False)
+            result=g20_plan_witness.summarize(
+                g20_anchor,d.get("pose"),fixture_world_xy=g20_fixture_world_xy,
+                at_monotonic=time.monotonic(),phase=phase,
+                front_m=d.get("scan"),supervised_vx=snap.get("supervised_speed"))
+            # No raw path/UUID/private history and never in a ROS callback.
+            report.setdefault("g20_nav2_plan_phase_evidence",[]).append(result)
+            print("AXIA_G07_G20_ACTUAL_NAV2_PLAN_PHASE "+
+                  json.dumps(result,sort_keys=True),flush=True)
+            (args.output/"g20_nav2_global_plan_numeric.json").write_text(
+                json.dumps(report["g20_nav2_plan_phase_evidence"],
+                           sort_keys=True,indent=2)+"\n")
+        except (OSError,ValueError,TypeError,AttributeError) as probe_exc:
+            print("AXIA_G07_G20_PLAN_DIAGNOSTIC_UNAVAILABLE_HOLD "+
+                  type(probe_exc).__name__,flush=True)
     stop_ack_at=None
     stop_pre_move_front=None
     distinct_stop_scans=[]
@@ -413,6 +468,7 @@ def run(args):
             _map_robot_pose(node,obs),start_pose,official_tb3_spawn(),
             map_pose_source=getattr(obs,'map_pose_source',
                                     'amcl_pose_map_transient_local'))
+        g20_anchor=world_anchor
         _call_start(node,obs)
         wait(lambda s,d: True if d["supervisor"].get("state")=="NORMAL" else None,
              5,"SUPERVISOR_START")
@@ -512,6 +568,7 @@ def run(args):
               json.dumps({"distance_m":clear_travel,
                           "required_m":CLEAR_MIN_TRAVEL_M}),flush=True)
         save()
+        g20_capture_plan("PRE_FIXTURE")
         # Keep the original pre-Goal side/LiDAR proof, then move that same
         # physical cylinder into the visible SLOW sector. No synthetic Scan.
         slow_target=obstacle_world_pose(
@@ -527,12 +584,15 @@ def run(args):
                       slow_native_ack_at_monotonic=slow_ack_at,
                       slow_native_service_duration_sec=round(
                           slow_ack_at-slow_request_started,6))
+        g20_fixture_world_xy=slow_target
+        g20_capture_plan("AFTER_FIXTURE_ACK")
         print("AXIA_G07_MVP_SLOW_PHYSICAL_FIXTURE_ACK "+
               json.dumps({"world_xy":slow_target,"surface_m":.62,
                           "request_started_monotonic":slow_request_started,
                           "ack_at_monotonic":slow_ack_at},sort_keys=True),flush=True)
         save()
         rows["slow"]=wait(phase("slow"),35,"SLOW")
+        g20_capture_plan("SLOW_OBSERVED")
         report["slow"]=rows["slow"]
         report["goal_status_at_slow"]=2
         print("AXIA_G07_PUBLIC_CI_MOVING_SLOW_REAL_GAZEBO_LIDAR_CM_PASS "+
@@ -726,6 +786,9 @@ def run(args):
                   +" OWNER_L3_NOT_RUN CERTIFIED_ESTOP=false",flush=True)
         return 0
     except Exception as exc:
+        if str(exc)=="CI_MOVING_GOAL_TIMEOUT_SLOW":
+            # Preserve the original FIRST fault before exact UUID Cancel.
+            g20_capture_plan("SLOW_OBSERVATION_FAILED")
         # Do not conceal the original failure with cleanup diagnostics.
         report["first_failure_preserved"]=type(exc).__name__+":"+str(exc)[:220]
         report["best_effort_cancel_attempted"]=False
@@ -861,6 +924,8 @@ def run(args):
         if probe_thread is not None:
             probe_thread.join(timeout=1.)
         node.destroy_subscription(extra)
+        if g20_plan_sub is not None:
+            node.destroy_subscription(g20_plan_sub)
         if io_probe:
             try:
                 diag=obs.io_probe_summary(heartbeats=list(heartbeat_ticks))
