@@ -135,7 +135,7 @@ BLOCK_C_STUDENT_JAZZY_ROS_L1_ONLY_PASS owner_wsl2_verified=false
 
 8건 수신과 레벨 0/1/2/3, 발행→수신의 실제 DDS 구독, 종료 코드, period_min_ms/max_ms를 **새 실행 로그에서 확인**해야 해당 PC에서 ROS L1이라고 적을 수 있습니다. 공개 CI 과거 성공을 자신의 실습 성공으로 복사하지 않습니다. Jazzy가 없으면 이 단계를 **BLOCKED(환경 미설치)** 로 기록하고 3절 오프라인 로그 실습을 계속합니다.
 
-**CLI 주의:** 수업용 publisher는 약 8건 발행 후 종료하므로 실행이 끝난 뒤 \`ros2 topic echo\`를 하면 토픽을 찾지 못할 수 있습니다. \`rqt_console\`에도 Bridge의 Python \`print\`가 자동으로 이벤트별 ROS 로그로 표시되지는 않습니다. ROS 토픽은 DDS 통신, \`/rosout\`은 ROS 로거의 별도 데이터입니다.
+**CLI 주의:** 수업용 publisher는 약 8건 발행 후 종료하므로 실행이 끝난 뒤 `ros2 topic echo`를 하면 토픽을 찾지 못할 수 있습니다. `rqt_console`에도 Bridge의 Python `print`가 자동으로 이벤트별 ROS 로그로 표시되지는 않습니다. ROS 토픽은 DDS 통신, `/rosout`은 ROS 로거의 별도 데이터입니다.
 
 ## 5. 운영자 판단 기록 실습(실제로 파일 생성)
 
@@ -160,20 +160,20 @@ print("D12_FEEDBACK_WRITTEN", out, feedback["event_id"])
 PY
 ~~~
 
-**예상:** \`D12_FEEDBACK_WRITTEN ... DEMO:TST_N_00:002\`. 이 파일은 이벤트를 확인한 **사람의 판단 기록**일 뿐 Fault Injector 동작, SW Stop 실행, E-Stop 인증이 아닙니다. 기록 시각은 생성 PC마다 달라집니다.
+**예상:** `D12_FEEDBACK_WRITTEN ... DEMO:TST_N_00:002`. 이 파일은 이벤트를 확인한 **사람의 판단 기록**일 뿐 Fault Injector 동작, SW Stop 실행, E-Stop 인증이 아닙니다. 기록 시각은 생성 PC마다 달라집니다.
 
 ## 6. 문제 발생 시 1차 확인
 
 | 증상 | 최초 확인 | 다음 행동 |
 |---|---|---|
-| \`Repository not found\` | 저장소 URL/인터넷 | 학생 공개 저장소 URL 재확인, 강사 private 파일 우회 복사 금지 |
-| \`BLOCK_C_ENV_DIFF_BLOCKED\` | \`python3 --version\` | Python 3.12 환경 사용 |
-| \`No module named pytest\` | Python/venv | 실습 A는 표준 라이브러리로 먼저 진행 |
-| \`D12_ROS_OPTIONAL_FALLBACK\` | \`/opt/ros/jazzy/setup.bash\` | 오프라인 JSONL 제출; ROS 성공 주장 금지 |
-| 토픽이 없음 | publisher 이미 종료? | \`--ros-l1\`가 만든 실제 verdict 확인; 동일 오류 무한 재시도 금지 |
-| \`NotImplementedError: D12 TODO not implemented\` | 공개 학생 TODO | **EXPECTED_RED**; 기본 120분 실습 실패 아님 |
-| \`rqt_console\` 비어 있음 | ROS logger 미발행 | 진단 메시지를 자동 logger와 혼동하지 않기 |
+| `Repository not found` | 저장소 URL/인터넷 | 학생 공개 저장소 URL 재확인, 강사 private 파일 우회 복사 금지 |
+| `BLOCK_C_ENV_DIFF_BLOCKED` | `python3 --version` | Python 3.12 환경 사용 |
+| `No module named pytest` | Python/venv | 실습 A는 표준 라이브러리로 먼저 진행 |
+| `D12_ROS_OPTIONAL_FALLBACK` | `/opt/ros/jazzy/setup.bash` | 오프라인 JSONL 제출; ROS 성공 주장 금지 |
+| 토픽이 없음 | publisher 이미 종료? | `--ros-l1`가 만든 실제 verdict 확인; 동일 오류 무한 재시도 금지 |
+| `NotImplementedError: D12 TODO not implemented` | 공개 학생 TODO | **EXPECTED_RED**; 기본 120분 실습 실패 아님 |
+| `rqt_console` 비어 있음 | ROS logger 미발행 | 진단 메시지를 자동 logger와 혼동하지 않기 |
 
-**최종 제출:** \`events_view.log\`, \`operator_feedback.jsonl\`, \`d12_report.md\` (실제/예상 출력 차이, 운영 판단 근거, ROS 검증 수준); ROS를 실행했다면 \`verdict.json\` 경로를 보고서에 기록합니다. 전체 과정은 [120분 초심자 실습](STUDENT_LAB_GUIDE_KO.md)을 참고합니다.
+**최종 제출:** `events_view.log`, `operator_feedback.jsonl`, `d12_report.md` (실제/예상 출력 차이, 운영 판단 근거, ROS 검증 수준); ROS를 실행했다면 `verdict.json` 경로를 보고서에 기록합니다. 전체 과정은 [120분 초심자 실습](STUDENT_LAB_GUIDE_KO.md)을 참고합니다.
 
 공식 자료: [ROS 2 Jazzy Topics](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics/Understanding-ROS2-Topics.html), [ROS 2 Logging](https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Logging.html), [diagnostic_msgs](https://docs.ros.org/en/jazzy/p/diagnostic_msgs/index.html).
