@@ -33,7 +33,7 @@ D13의 G09에서 사람과 로봇이 같은 시각 겹치면 `P`, 안전하게 �
 
 ```bash
 cd ~
-git clone --branch feat/block-d-d14-risk-policy-20261121 \
+git clone --branch main \
   https://github.com/silverbjin/axia-robot-safety-student.git \
   axia-d14-student
 cd ~/axia-d14-student
@@ -41,7 +41,7 @@ python3 --version
 git rev-parse HEAD
 ```
 
-**현재는 개발 검증 브랜치입니다.** 정식 `main` 배포 승인 전에는 강사가 최종 확인된 SHA를 지정해야 합니다. 기존 D13/G07 파일을 건드릴 필요가 없습니다.
+**D14는 `main`에 정식 배포된 학생용 TODO입니다.** 강사가 공지한 정확한 SHA를 `git rev-parse HEAD`와 대조하세요. 최초 정책 TODO 테스트의 11건 실패는 의도된 학습 시작점이며 기존 D13/G07 파일을 수정할 필요가 없습니다.
 
 ## 4. 첫 번째 RED 실행
 
