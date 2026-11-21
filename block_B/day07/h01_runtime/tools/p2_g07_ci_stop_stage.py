@@ -71,7 +71,11 @@ def classify_slow_fixture_alignment(*,start_pose,live_odom,odom_speed,
                odom_yaw_rate=round(odom_yaw_rate,6))
     if (goal_status==2 and guard_latched is False
             and .005 < supervised_speed <= .22 and odom_speed>0.005
-            and yaw<=.15 and abs(odom_yaw_rate)<=.20):
+            # Fixture is projected from the CURRENT robot world yaw.
+            # Its cumulative yaw from the original Goal is diagnostic, not
+            # physical heading readiness. Require actual near-straight
+            # angular velocity, stronger than old .20 rad/s threshold.
+            and abs(odom_yaw_rate)<=.05):
         out.update(status="FORWARD_ALIGNMENT_CANDIDATE_ONLY",
                    aligned_for_positive_slow_demo=True)
     return out
