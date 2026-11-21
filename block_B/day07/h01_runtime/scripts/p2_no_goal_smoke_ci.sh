@@ -13,6 +13,12 @@ MOVING_GAZEBO_GUI_PID=''
 MOVING_RVIZ_PID=''
 OWNER_MOVING="${AXIA_G07_TASK04_OWNER_MOVING_L3:-0}"
 CI_MOVING_GUI="${AXIA_G07_TASK04_CI_GUI_MOVING:-0}"
+# One G07-only diagnostic GUI policy; headless server/robot safety are
+# independent of WSLg window creation, renderer or client stability.
+G07_GUI_DIAGNOSTIC_ONLY="${AXIA_G07_GUI_DIAGNOSTIC_ONLY:-1}"
+G07_DEPTH_SENSOR_ENABLED="${AXIA_G07_DEPTH_SENSOR_ENABLED:-0}"
+[[ "$G07_GUI_DIAGNOSTIC_ONLY" == 1 || "$G07_GUI_DIAGNOSTIC_ONLY" == 0 ]] || exit 2
+[[ "$G07_DEPTH_SENSOR_ENABLED" == 0 || "$G07_DEPTH_SENSOR_ENABLED" == 1 ]] || exit 2
 [[ "$OWNER_MOVING" == 0 || "$OWNER_MOVING" == 1 ]] || exit 2
 [[ "$CI_MOVING_GUI" == 0 || "$CI_MOVING_GUI" == 1 ]] || exit 2
 if [[ "$OWNER_MOVING" == 1 ]];then
@@ -275,9 +281,12 @@ for cmd in ros2 colcon gz python3 setsid timeout; do command -v "$cmd" >/dev/nul
 for pkg in nav2_bringup nav2_minimal_tb3_sim ros_gz_sim; do ros2 pkg prefix "$pkg" >/dev/null || exit 2; done
 # Keep existing frozen P1 unchanged. New P2 package code built in overlay.
 colcon build --base-paths ros2_ws/src --packages-select \
-  axia_safety_supervisor axia_fault_injector axia_scenario_verifier \
+  axia_safety_supervisor axia_fault_injector axia_scenario_verifier axia_safety_bringup \
   --event-handlers console_direct+ > "$OUT/build.log" 2>&1 || { echo 'P2_BUILD_BLOCKED'; exit 2; }
 set +u; source install/setup.bash; set -u
+ros2 pkg prefix axia_safety_bringup > "$OUT/bringup_package_prefix.txt" || {
+  echo 'G07_INSTALLED_BRINGUP_PACKAGE_UNDISCOVERABLE' >&2;exit 2;
+}
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-56}"
 export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 export GZ_PARTITION="${GZ_PARTITION:-axia_p2_ci_$$_$(date +%s)}"
@@ -319,6 +328,12 @@ fi
 printf 'ROS_DOMAIN_ID=%s\nGZ_PARTITION=%s\n' "$ROS_DOMAIN_ID" "$GZ_PARTITION" > "$OUT/runtime.txt"
 git -c safe.directory="$ROOT" rev-parse HEAD > "$OUT/source_sha.txt" 2>/dev/null || echo 'UNVERSIONED_LOCAL_SOURCE' > "$OUT/source_sha.txt"
 LAUNCH="$ROOT/ros2_ws/src/axia_safety_bringup/launch/axia_tb3_p2.launch.py"
+# Keep original source-path entrypoint for old callers; prove the installed
+# package launch is separately discoverable in this sourced overlay.
+ros2 launch axia_safety_bringup axia_tb3_p2.launch.py --show-args \
+  > "$OUT/installed_launch_args.log" 2>&1 || {
+  echo 'G07_INSTALLED_LAUNCH_ARGS_BLOCKED' >&2;exit 2;
+}
 ros2 launch "$LAUNCH" --show-args > "$OUT/launch_args.log" 2>&1 || { echo 'P2_LAUNCH_ARGS_BLOCKED'; exit 2; }
 # For physical G07 only, reuse the official WORLD with Contact system
 # overlay; do not replace Nav2, its robot spawn, or the world layout.
@@ -395,10 +410,18 @@ if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1 ]]; then
   if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
      || "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]]; then
     WAFFLE="$(ros2 pkg prefix nav2_minimal_tb3_sim)/share/nav2_minimal_tb3_sim/urdf/gz_waffle.sdf.xacro"
+    G07_DEPTH_ARGS=()
+    if [[ "$G07_DEPTH_SENSOR_ENABLED" == 0 ]];then
+      G07_DEPTH_ARGS+=(--disable-depth)
+      echo 'AXIA_G07_DEPTH_SENSOR_ENABLED=0 TEMP_SDF_G07_ONLY'
+    else
+      echo 'AXIA_G07_DEPTH_SENSOR_ENABLED=1 EXPLICIT_DIAGNOSTIC_OVERRIDE'
+    fi
     if ! python3 tools/p2_g07_demo_lidar_overlay.py \
        --source "$WAFFLE" \
        --output "$OUT/g07_demo_waffle.sdf.xacro" \
-       --manifest "$OUT/g07_demo_waffle_manifest.json"; then
+       --manifest "$OUT/g07_demo_waffle_manifest.json" \
+       "${G07_DEPTH_ARGS[@]}"; then
       echo 'AXIA_G07_CI_DEMO_LIDAR_OVERLAY_BLOCKED_NO_GOAL' >&2
       exit 2
     fi
