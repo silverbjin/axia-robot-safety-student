@@ -289,6 +289,14 @@ def run(output,window_sec=WINDOW_SEC):
                         observed_topic_counts={k:len(v) for k,v in records.items()},
                         window_sec=window_sec,root_cause_proven=False)
             report["scan_rmw_metadata_capability"]=summarize_scan_rmw_metadata(list(scan_rmw_rows))
+        # Reuse the SAME rclpy node to collect the publisher graph. No new
+        # ROS CLI participant; depth absence is cross-checked with gz topic
+        # discovery in the existing G07 runtime before Goal authority.
+        report["ros_discovered_topics"]=[
+            {"name":name,"types":list(types)}
+            for name,types in node.get_topic_names_and_types()
+            if any(k in name.lower() for k in ("scan","camera","image","point","depth"))
+        ]
     finally:
         if executor is not None:
             executor.shutdown(timeout_sec=2)
