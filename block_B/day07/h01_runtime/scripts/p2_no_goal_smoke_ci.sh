@@ -294,6 +294,24 @@ g07_mark after_overlay_source
 ros2 pkg prefix axia_safety_bringup > "$OUT/bringup_package_prefix.txt" || {
   echo 'G07_INSTALLED_BRINGUP_PACKAGE_UNDISCOVERABLE' >&2;exit 2;
 }
+# Real sourced overlay executable discovery (not source-folder imports).
+for contract in 'axia_safety_supervisor:p2_supervisor_node' \
+                'axia_safety_supervisor:p2_base_guard_node' \
+                'axia_fault_injector:fault_injector_node' \
+                'axia_scenario_verifier:p1_evidence_runner';do
+  pkg="${contract%%:*}"
+  executable="${contract#*:}"
+  ros2 pkg prefix "$pkg" > "$OUT/pkg_prefix_$pkg.txt" || {
+    echo "G07_PKG_PREFIX_NOT_FOUND=$pkg" >&2;exit 2;
+  }
+  ros2 pkg executables "$pkg" > "$OUT/pkg_exec_$pkg.txt" || {
+    echo "G07_PKG_EXECUTABLES_BLOCKED=$pkg" >&2;exit 2;
+  }
+  grep -Eq "^$pkg[[:space:]]+$executable$" "$OUT/pkg_exec_$pkg.txt" || {
+    echo "G07_PKG_ENTRYPOINT_NOT_DISCOVERED=$contract" >&2;exit 2;
+  }
+done
+echo 'AXIA_G07_INSTALLED_PKG_PREFIX_AND_EXECUTABLES_PASS'
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-56}"
 export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 export GZ_PARTITION="${GZ_PARTITION:-axia_p2_ci_$$_$(date +%s)}"
