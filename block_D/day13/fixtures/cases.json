@@ -1,0 +1,132 @@
+{
+  "schema": "axia.block_d.d13.synthetic.v1",
+  "note": "Educational synthetic map-frame inputs; 0.2s prediction samples do not imply LiDAR observation frequency.",
+  "now_sec": 10.1,
+  "dt_sec": 0.2,
+  "horizon_sec": 3,
+  "robot_csv": "robot_trajectory.csv",
+  "cases": [
+    {
+      "id": "P_same_time_overlap",
+      "expected": "P",
+      "robot_frame": "map",
+      "person_frame": "map",
+      "person": {
+        "x": 2.1,
+        "y": 0,
+        "vx": -1,
+        "vy": 0,
+        "radius": 0.2,
+        "confidence": 0.9,
+        "observed_sec": 10
+      }
+    },
+    {
+      "id": "N_same_route_different_time",
+      "expected": "N",
+      "robot_frame": "map",
+      "person_frame": "map",
+      "person": {
+        "x": 0.9,
+        "y": 0,
+        "vx": 1,
+        "vy": 0,
+        "radius": 0.2,
+        "confidence": 0.9,
+        "observed_sec": 10
+      }
+    },
+    {
+      "id": "U_stale_track",
+      "expected": "U",
+      "robot_frame": "map",
+      "person_frame": "map",
+      "person": {
+        "x": 2.1,
+        "y": 0,
+        "vx": -1,
+        "vy": 0,
+        "radius": 0.2,
+        "confidence": 0.9,
+        "observed_sec": 9.5
+      }
+    },
+    {
+      "id": "U_future_stamp",
+      "expected": "U",
+      "robot_frame": "map",
+      "person_frame": "map",
+      "person": {
+        "x": 2.1,
+        "y": 0,
+        "vx": -1,
+        "vy": 0,
+        "radius": 0.2,
+        "confidence": 0.9,
+        "observed_sec": 10.2
+      }
+    },
+    {
+      "id": "U_low_confidence",
+      "expected": "U",
+      "robot_frame": "map",
+      "person_frame": "map",
+      "person": {
+        "x": 2.1,
+        "y": 0,
+        "vx": -1,
+        "vy": 0,
+        "radius": 0.2,
+        "confidence": 0.05,
+        "observed_sec": 10
+      }
+    },
+    {
+      "id": "U_frame_mismatch",
+      "expected": "U",
+      "robot_frame": "map",
+      "person_frame": "odom",
+      "person": {
+        "x": 2.1,
+        "y": 0,
+        "vx": -1,
+        "vy": 0,
+        "radius": 0.2,
+        "confidence": 0.9,
+        "observed_sec": 10
+      }
+    },
+    {
+      "id": "U_missing_last_sample",
+      "expected": "U",
+      "robot_frame": "map",
+      "person_frame": "map",
+      "truncate_last": true,
+      "person": {
+        "x": 2.1,
+        "y": 0,
+        "vx": -1,
+        "vy": 0,
+        "radius": 0.2,
+        "confidence": 0.9,
+        "observed_sec": 10
+      }
+    },
+    {
+      "id": "U_time_jump",
+      "expected": "U",
+      "robot_frame": "map",
+      "person_frame": "map",
+      "time_shift_index": 7,
+      "person": {
+        "x": 2.1,
+        "y": 0,
+        "vx": -1,
+        "vy": 0,
+        "radius": 0.2,
+        "confidence": 0.9,
+        "observed_sec": 10
+      }
+    }
+  ]
+}
