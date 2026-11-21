@@ -246,3 +246,26 @@ def select_bounded_executor_wait_candidate(env, *, owner_mode=False):
             or env.get("AXIA_G07_EVENTS_EXECUTOR_AB","0")!="0"):
         raise ValueError("G07_BOUNDED_WAIT_REQUIRES_CI_MULTI2_READONLY_AB")
     return True
+
+
+def select_ci_executor_guard_wake_ab(env, *, owner_mode=False):
+    """One CI-only controlled A/B: wake existing Multi2 guard every 20ms.
+
+    Relies only on Jazzy Executor.wake() (its existing GuardCondition).
+    No new ROS node/publisher, callback group, worker or safety logic.
+    Never available to Owner WSL2; cannot grant timing/Goal PASS.
+    """
+    raw=env.get("AXIA_G07_CI_EXECUTOR_GUARD_WAKE_AB","0")
+    if raw not in ("0","1"):
+        raise ValueError("G07_EXECUTOR_GUARD_WAKE_AB_INVALID")
+    if raw=="0":
+        return False
+    needed={"GITHUB_ACTIONS":"true","AXIA_P0_SIM_ONLY":"1",
+            "AXIA_G07_CI_SIM_GOAL_ALLOWED":"1",
+            "AXIA_G07_CI_OWNER_OBSERVER_PARITY":"1",
+            "AXIA_G07_OBSERVER_IO_PROBE":"1"}
+    if (owner_mode or any(env.get(k)!=v for k,v in needed.items())
+            or env.get("AXIA_G07_EVENTS_EXECUTOR_AB","0")!="0"
+            or env.get("AXIA_G07_CI_EXECUTOR_WAIT_BOUNDED_AB","0")!="0"):
+        raise ValueError("G07_EXECUTOR_GUARD_WAKE_REQUIRES_ORIGINAL_CI_MULTI2")
+    return True
