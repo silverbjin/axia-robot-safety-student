@@ -35,6 +35,15 @@ class TestSlowForwardEntry(unittest.TestCase):
         self.assertIsNone(forward_entry(s,d))
         s,d=example();s["action_status"]=5
         self.assertIsNone(forward_entry(s,d))
+    def test_native_cylinder_wiring_must_wait_for_live_forward_not_reposition_synthetic(self):
+        from pathlib import Path
+        src=(Path(__file__).parent/"p2_g07_ci_moving_goal.py").read_text()
+        self.assertIn("from p2_g07_ci_slow_entry import forward_entry",src)
+        self.assertIn('slow_entry=wait(lambda s,d: forward_entry(s,d),12,"SLOW_ENTRY_FORWARD")',src)
+        self.assertIn('world_anchor,slow_entry["pose"],.62,.07,demo_corridor=True',src)
+        self.assertLess(src.index('slow_entry=wait('),src.index('slow_target=obstacle_world_pose('))
+        self.assertIn('CI_SLOW_FIXTURE_FORWARD_ENTRY_VERIFIED',src)
+
     def test_stale_actual_scan_or_guard_latch_or_no_positive_odom_must_hold(self):
         s,d=example();s["scan_at"]=99.5
         self.assertIsNone(forward_entry(s,d))
