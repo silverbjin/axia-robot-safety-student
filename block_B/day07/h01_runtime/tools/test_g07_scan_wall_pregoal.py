@@ -98,7 +98,8 @@ class ScanPreGoalContract(unittest.TestCase):
     def test_same_process_clock_retention_spans_12s_full_window(self):
         from pathlib import Path
         src=Path(__file__).with_name("p2_g07_scan_wall_pregoal.py").read_text()
-        self.assertIn('maxlen=4096',src)
+        self.assertIn('CLOCK_WINDOW_MAX_SAMPLES=16384',src)
+        self.assertIn('maxlen=CLOCK_WINDOW_MAX_SAMPLES',src)
         self.assertIn("clock_coverage",src)
 
     def test_clock_odom_first_breach_never_hides_scan_pair(self):
