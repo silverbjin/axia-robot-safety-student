@@ -52,5 +52,32 @@ class D12GuideContract(unittest.TestCase):
                             and s["certified_estop"] is False for s in data))
 
 
+    def test_beginner_lesson_has_scaffolded_explanations_and_real_world_cases(self):
+        s = LAB.read_text(encoding="utf-8")
+        for key in (
+            "초심자를 위한 1분 용어", "왜 필요한가", "코드 한 줄씩 해설",
+            "실행 전 예상 출력", "직접 확인", "실무 사례", "스스로 점검",
+            "첫 실패 지점", "CLI 기반 미니 대시보드",
+            "D12_BEGINNER_TIMELINE_PASS", "D12_FEEDBACK_VALIDATION_PASS",
+            "TEST_HOLD", "git rev-parse HEAD",
+            "ros_l1/verdict.json", "ROS_DOMAIN_ID",
+            "source_timestamp_ns", "monotonic", "Python 3.12",
+            "교육용 WARNING", "미구현 설계 시안"):
+            self.assertIn(key, s, key)
+
+    def test_sample_first_warning_quality_and_timestamps_are_grounded(self):
+        data = [json.loads(line) for line in
+                (DAY / "ros_transport/sample_events.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()]
+        self.assertEqual([e["event_id"] for e in data if e["level"] == "WARNING"][0],
+                         "DEMO:TST_N_00:002")
+        self.assertEqual([e["event_id"] for e in data if e["level"] == "INSUFFICIENT_DATA"][0],
+                         "DEMO:TST_N_00:003")
+        self.assertEqual([e["source_timestamp_ns"] for e in data[:4]],
+                         [0, 100_000_000, 200_000_000, 300_000_000])
+        self.assertTrue(all(e["risk_score"] is None and e["threshold"] is None
+                            for e in data if e["level"] == "INSUFFICIENT_DATA"))
+
+
 if __name__ == "__main__":
     unittest.main()
