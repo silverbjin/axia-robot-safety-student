@@ -15,13 +15,34 @@ ACTIVE = {"id": 3, "label": "active"}
 SERVICE = "/lifecycle_manager_localization/manage_nodes"
 
 
-def allowed_scope(env):
-    return (env.get("ROS_DISTRO") == "jazzy"
+def scope_kind(env):
+    """D07 no-Goal legacy or specifically authorized G07 simulation startup.
+
+    This allows only a read-only lifecycle STATE gate, never motion authority.
+    Actual AMCL pose+TF and all safety gates run separately BEFORE any Goal.
+    """
+    if not (env.get("ROS_DISTRO") == "jazzy"
             and env.get("AXIA_P0_SIM_ONLY") == "1"
-            and env.get("AXIA_D07_H01_GUI_NO_GOAL") == "1"
             and env.get("AXIA_G07_OWNER_STARTUP_PARITY") == "1"
-            and env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED", "0") == "0"
-            and env.get("GZ_PARTITION", "").startswith("axia_p2_"))
+            and env.get("GZ_PARTITION", "").startswith("axia_p2_")):
+        return None
+    if (env.get("AXIA_D07_H01_GUI_NO_GOAL") == "1"
+            and env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED", "0") == "0"):
+        return "D07_NO_GOAL"
+    if (env.get("AXIA_G07_STARTUP_READONLY_RECONCILE")=="1"
+            and env.get("AXIA_P2_G07_PHYSICAL_PREFLIGHT")=="1"
+            and (
+                (env.get("GITHUB_ACTIONS")=="true"
+                 and env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1")
+                or (env.get("GITHUB_ACTIONS")!="true"
+                    and env.get("AXIA_G07_TASK04_OWNER_MOVING_L3")=="1"
+                    and env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED","0")!="1"))):
+        return "G07_MOVING_STARTUP_STATE_ONLY"
+    return None
+
+
+def allowed_scope(env):
+    return scope_kind(env) is not None
 
 
 def _active_sample(row):
@@ -57,14 +78,19 @@ def assess_reconciliation(native, samples, env):
                     and native.get("success") is False
                     and native.get("request_sent") is True
                     and native.get("goal_sent") is False)
-    admitted = (valid_native and allowed_scope(env)
+    kind=scope_kind(env)
+    admitted = (valid_native and kind is not None
                 and type(samples) is list and len(samples) == 2
                 and all(_active_sample(s) for s in samples))
     return {
         "schema": "axia_d07_h01_localization_noack_readonly_v1",
         "status": "READONLY_ACTIVE_RECONCILED_NO_ACK"
                   if admitted else "READONLY_RECONCILIATION_HOLD",
-        "admitted_for_d07_no_goal": bool(admitted),
+        "admitted_for_d07_no_goal": bool(admitted and kind=="D07_NO_GOAL"),
+        "admitted_for_g07_startup_state_only":
+            bool(admitted and kind=="G07_MOVING_STARTUP_STATE_ONLY"),
+        "scope_kind":kind,
+        "amcl_pose_and_tf_still_required_before_goal":True,
         "lifecycle_ack_received": False,
         "original_service_response": "MISSING",
         "original_native_status": (native.get("status")
@@ -182,7 +208,8 @@ def main(argv=None):
                            encoding="utf-8")
     print("AXIA_D07_H01_LOCALIZATION_NOACK_READONLY "
           + json.dumps(result, sort_keys=True), flush=True)
-    return 0 if result["admitted_for_d07_no_goal"] else 2
+    return 0 if (result["admitted_for_d07_no_goal"]
+                 or result["admitted_for_g07_startup_state_only"]) else 2
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ import json
 import math
 import os
 from p2_g07_events_executor_policy import select_events_executor
-from p2_g07_scan_rmw_first_pair import normalize_scan_message_info, first_scan_rmw_pair
+from p2_g07_scan_rmw_first_pair import normalize_scan_message_info, first_scan_rmw_pair, summarize_scan_rmw_metadata
 from pathlib import Path
 import time
 
@@ -71,7 +71,9 @@ def assess_pregoal_samples(samples, *, window_sec=WINDOW_SEC):
                 scan_generation_vs_bridge_root_cause="UNDETERMINED",
                 window_sec=window_sec,topic_results={},
                 first_scan_timing_boundary=None,
-                local_window_rtf_estimate=None)
+                local_window_rtf_estimate=None,
+                scan_wall_gap_diagnostic_only=True,
+                operational_scan_watchdog_unchanged=True)
     if not isinstance(samples,dict):
         return result
     clocks=samples.get("clock",[])
@@ -111,9 +113,16 @@ def assess_pregoal_samples(samples, *, window_sec=WINDOW_SEC):
                 result["first_failure"]="SCAN_PREFLIGHT_CLOCK_ODOM_NONMONOTONIC"
                 return result
             if gap>=SCAN_LIMIT_MS:
+                # Preserve the precise simulated Clock/Odom stamp pair.
+                # Offline rosbag2 may now match THIS first gap rather than a
+                # maximum from an unrelated point in the same session.
+                # Does not alter Clock/Odom 300ms blocking safety policy.
                 all_wall_breaches.append(dict(
                     channel=name,previous_rx_host_monotonic=round(a[0],9),
                     current_rx_host_monotonic=round(b[0],9),
+                    previous_header_sim=round(a[1],9),
+                    current_header_sim=round(b[1],9),
+                    header_sim_gap_ms=round((b[1]-a[1])*1000,6),
                     gap_ms=round(gap,6),limit_ms=SCAN_LIMIT_MS))
     failures=[]
     for topic in ("scan","safety_scan"):
@@ -182,12 +191,24 @@ def assess_pregoal_samples(samples, *, window_sec=WINDOW_SEC):
         result["first_scan_timing_boundary"]=min(
             failures,key=lambda r:(r["current_rx_host_monotonic"],
                                    0 if r["topic"]=="scan" else 1))
-    if all_wall_breaches or failures:
-        first=result["first_delivery_violation"]
-        if first is not None and first["channel"] in ("clock","odom"):
+    # User-approved G07 acceptance: Scan host-receive gap >300ms is a
+    # forensic diagnostic, NOT a standalone rejection. However any sensor
+    # simulated-header gap >150ms (lost/stale Scan), header regression,
+    # missing samples, or /clock,/odom >300ms still blocks the Goal.
+    # Existing _fresh() and CM/Guard operating watchdogs stay unchanged.
+    blocking_clock_odom=[r for r in all_wall_breaches
+                         if r["channel"] in ("clock","odom")]
+    header_gaps=[r for r in failures
+                 if r["header_sim_gap_ms"]>HEADER_SIM_LIMIT_MS]
+    result["scan_wall_gap_diagnostics"]=[
+        r for r in all_wall_breaches
+        if r["channel"] in ("scan","safety_scan")]
+    if blocking_clock_odom or header_gaps:
+        first=result.get("first_delivery_violation")
+        if blocking_clock_odom:
             result["first_failure"]="SCAN_PREFLIGHT_CLOCK_ODOM_INTERVAL_BREACH"
         else:
-            result["first_failure"]="SCAN_PREFLIGHT_300MS_OR_HEADER_PERIOD_BREACH"
+            result["first_failure"]="SCAN_PREFLIGHT_HEADER_MISSING_OR_LATE"
         return result
     if not coverage:
         result["first_failure"]="SCAN_PREFLIGHT_CLOCK_RETENTION_INSUFFICIENT"
@@ -208,7 +229,7 @@ def run(output,window_sec=WINDOW_SEC):
     records={name:deque(maxlen=CLOCK_WINDOW_MAX_SAMPLES if name=="clock" else 400) for name in ("scan","safety_scan","clock","odom")}
     scan_rmw_rows=deque(maxlen=1000)
     def scan_cb(name):
-        def cb(msg, info=None):
+        def cb(msg, info):
             at=time.monotonic()
             sim=msg.header.stamp.sec+msg.header.stamp.nanosec*1e-9
             records[name].append((at,sim))
@@ -264,6 +285,7 @@ def run(output,window_sec=WINDOW_SEC):
                     rclpy.spin_once(node,timeout_sec=.04)
             report=assess_pregoal_samples({k:list(v) for k,v in records.items()},
                                           window_sec=window_sec)
+            report["scan_rmw_metadata_capability"]=summarize_scan_rmw_metadata(list(scan_rmw_rows))
             if isinstance(report.get("first_scan_timing_boundary"),dict):
                 report["first_scan_rmw_pair"]=first_scan_rmw_pair(report.get(
                     "first_scan_timing_boundary"),list(scan_rmw_rows))
@@ -273,6 +295,15 @@ def run(output,window_sec=WINDOW_SEC):
                         first_failure="SCAN_PREFLIGHT_STREAM_DISCOVERY_TIMEOUT",
                         observed_topic_counts={k:len(v) for k,v in records.items()},
                         window_sec=window_sec,root_cause_proven=False)
+            report["scan_rmw_metadata_capability"]=summarize_scan_rmw_metadata(list(scan_rmw_rows))
+        # Reuse the SAME rclpy node to collect the publisher graph. No new
+        # ROS CLI participant; depth absence is cross-checked with gz topic
+        # discovery in the existing G07 runtime before Goal authority.
+        report["ros_discovered_topics"]=[
+            {"name":name,"types":list(types)}
+            for name,types in node.get_topic_names_and_types()
+            if any(k in name.lower() for k in ("scan","camera","image","point","depth"))
+        ]
     finally:
         if executor is not None:
             executor.shutdown(timeout_sec=2)
@@ -280,6 +311,7 @@ def run(output,window_sec=WINDOW_SEC):
         node.destroy_node()
         rclpy.try_shutdown()
     output.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+    print("AXIA_G07_PREG0AL_RMW_CAPABILITY "+json.dumps(report.get("scan_rmw_metadata_capability",{}),sort_keys=True),flush=True)
     if report["status"]!="PASS_SCOPED_RECEIVED_SCAN_ONLY":
         print("AXIA_G07_PREGOAL_SCAN_FIRST_NUMERIC "+
               json.dumps({"first_failure":report["first_failure"],

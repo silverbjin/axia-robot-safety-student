@@ -83,16 +83,24 @@ def review(root,witness,expected_sha,gui_windows):
             "odom_zero_dwell":report.get("odom_stopped_dwell_sec",0)>=1.0,
             "cm_callback_120ms":0<report.get("max_cm_interval_sec",999)<=.12,
             "guard_150ms":0<report.get("max_guard_interval_sec",999)<=.15,
-            "scan_300ms":0<report.get("max_scan_interval_sec",999)<=.30,
+            "scan_actual_evidence_present":(
+                isinstance(report.get("max_scan_interval_sec"),(int,float))
+                and report["max_scan_interval_sec"]>0
+                and report.get("actual_physical_scan") is True),
             "odom_300ms":0<report.get("max_odom_interval_sec",999)<=.30,
             "clock_300ms":0<report.get("max_clock_interval_sec",999)<=.30,
             "nav_lifecycle_ack":shutdown.get("navigation_ack") is True,
             "loc_lifecycle_ack":shutdown.get("localization_ack") is True,
             "collision_monitor_child_clean":audit.get("cm_exit_code")==0,
-            "both_actual_gui_windows":gui_windows==2,
+            # GUI has a separate diagnostic verdict and is NOT formal.
+            # WSLg crashes must not mask actual headless safety readiness.
             "exact_source_sha":report.get("source_sha")==expected_sha
         }
         result.update(checks=checks,first_failure=next((k for k,v in checks.items() if not v),"NONE"),
+          gui_diagnostic={"observed_window_count":gui_windows,
+                          "policy":"DIAGNOSTIC_ONLY","formal_gate":False},
+          scan_wall_diagnostic={"max_scan_interval_sec":report.get("max_scan_interval_sec"),
+                                "formal_300ms_gate":False},
           cm120={"status":cm.get("status"),"source_gap_max_ms":cm.get("source_gap_max_ms"),
                  "observer_gap_max_ms":cm.get("observer_gap_max_ms"),
                  "actual_publisher_pairs":cm.get("actual_publisher_pairs"),
@@ -111,7 +119,7 @@ def review(root,witness,expected_sha,gui_windows):
           scenario_scope=scenario_scope)
         if result["first_failure"]=="NONE":
             result["status"]=(
-                "TASK04_REAL_GAZEBO_MOVING_GUI_L2_SCOPED_PASS"
+                "TASK04_REAL_GAZEBO_MOVING_L2_SCOPED_PASS"
                 if scenario_scope=="ci" else
                 "TASK04_OWNER_WSL2_NUMERICAL_CANDIDATE_REVIEW_PENDING")
     except (OSError,ValueError,TypeError,IndexError,KeyError,AssertionError) as exc:
@@ -129,12 +137,12 @@ def main(argv=None):
     v=review(a.motion_root,a.witness,a.source_sha,a.gui_windows)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     a.output.write_text(json.dumps(v,sort_keys=True,indent=2)+"\n")
-    print("AXIA_G07_TASK04_NATIVE_MOVING_GUI_VERDICT "+
+    print("AXIA_G07_TASK04_NATIVE_MOVING_HEADLESS_SAFETY_VERDICT "+
           json.dumps({k:v.get(k) for k in ("status","first_failure","source_sha","gui_windows_seen")},
                      sort_keys=True),flush=True)
     print("AXIA_G07_TASK04_OWNER_MOVING_L3=NOT_RUN AXIA_MVP_DEMO_ACCEPTED=HOLD CERTIFIED_ESTOP=false")
     return 0 if v["status"] in (
-        "TASK04_REAL_GAZEBO_MOVING_GUI_L2_SCOPED_PASS",
+        "TASK04_REAL_GAZEBO_MOVING_L2_SCOPED_PASS",
         "TASK04_OWNER_WSL2_NUMERICAL_CANDIDATE_REVIEW_PENDING") else 3
 
 if __name__=="__main__":

@@ -101,6 +101,45 @@ def prepare_navigation_shutdown_client(node, *, kind, scope_env):
     return None
 
 
+def _localization_warm_scope(scope_env):
+    """Separate opt-in after real #44904732397 lost BOTH Localization ACKs.
+
+    A single pre-created endpoint on the existing read-only parameter-ACKed
+    shutdown node avoids a fresh late-joining DDS participant. This is a
+    narrowly tested transport hypothesis, NOT a new official Nav2 algorithm.
+    Missing ACK remains a blocking failure; never resend a command.
+    """
+    requested=scope_env.get("AXIA_G07_LOCALIZATION_WARM_PARTICIPANT_AB","")
+    if requested in ("","0"):
+        return False
+    if requested!="1":
+        raise ValueError("G07_LOCALIZATION_WARM_INVALID_FLAG")
+    ci=(scope_env.get("GITHUB_ACTIONS")=="true"
+        and scope_env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1"
+        and scope_env.get("AXIA_G07_NAV_WARM_PARTICIPANT_CI_AB")=="1"
+        and scope_env.get("AXIA_G07_NAV_WARM_PARTICIPANT_OWNER")!="1"
+        and scope_env.get("AXIA_G07_TASK04_OWNER_MOVING_L3")!="1")
+    owner=(scope_env.get("GITHUB_ACTIONS")!="true"
+           and scope_env.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="0"
+           and scope_env.get("AXIA_G07_NAV_WARM_PARTICIPANT_OWNER")=="1"
+           and scope_env.get("AXIA_G07_NAV_WARM_PARTICIPANT_CI_AB")!="1"
+           and scope_env.get("AXIA_G07_TASK04_OWNER_MOVING_L3")=="1"
+           and scope_env.get("AXIA_G07_OWNER_STARTUP_PARITY")=="1"
+           and scope_env.get("AXIA_P2_G07_PHYSICAL_PREFLIGHT")=="1")
+    if not ((ci or owner) and scope_env.get("ROS_DISTRO")=="jazzy"
+            and scope_env.get("AXIA_P0_SIM_ONLY")=="1"
+            and scope_env.get("GZ_PARTITION","").startswith("axia_p2_")):
+        raise ValueError("G07_LOCALIZATION_WARM_SCOPE_DENIED")
+    return True
+
+
+def prepare_localization_shutdown_client(node, *, kind, scope_env):
+    """Precreate only a service endpoint, never send SHUTDOWN or retry."""
+    if not _localization_warm_scope(scope_env):
+        return None
+    return node.create_client(kind,LOC_MANAGER)
+
+
 def _call_shutdown_stage_for_ab(rclpy, node, *, manager, timeout_sec, scope_env,
                                 prewarmed_client=None):
     """One native SHUTDOWN request; CI-only compare already-ready DDS participant.
@@ -151,6 +190,16 @@ def _call_shutdown_stage_for_ab(rclpy, node, *, manager, timeout_sec, scope_env,
                                       prewarmed_client=prewarmed_client)
         return call_native_manage(node, manager=manager,command='shutdown',
                                   timeout_sec=timeout_sec)
+    if manager=="localization" and _localization_warm_scope(scope_env):
+        # Reuse the one stable participant before Navigation shutdown;
+        # no fallback to a new late DDS node on a missing endpoint/ACK.
+        if prewarmed_client is None:
+            raise ValueError("G07_LOCALIZATION_WARM_ENDPOINT_NOT_PRECREATED")
+        print("G07_LOC_SHUTDOWN_AB=ONE_PRECREATED_SAME_PARTICIPANT "
+              "NO_RETRY_REAL_ACK_REQUIRED_ROOT_CAUSE_UNPROVEN",flush=True)
+        return call_native_manage(
+            node,manager="localization",command="shutdown",
+            timeout_sec=timeout_sec,prewarmed_client=prewarmed_client)
     return _call_isolated_stage(rclpy,manager=manager,timeout_sec=timeout_sec)
 
 
@@ -287,6 +336,7 @@ def run(*, limit=60.0):
     rclpy.init()
     node = None
     nav_shutdown_client = None
+    loc_shutdown_client = None
     deadline = monotonic() + limit
     stages = {}
     # Record the actual DDS/RMW implementation used by the ROS service
@@ -306,6 +356,12 @@ def run(*, limit=60.0):
             node, kind=ManageLifecycleNodes, scope_env=os.environ)
         stages["nav_manage_endpoint_precreated_before_params"]=bool(
             nav_shutdown_client is not None)
+        # CREATE both DDS endpoints on ONE existing ROS participant before
+        # any parameter request / navigation shutdown. No extra participant.
+        loc_shutdown_client = prepare_localization_shutdown_client(
+            node, kind=ManageLifecycleNodes, scope_env=os.environ)
+        stages["loc_manage_endpoint_precreated_before_params"]=bool(
+            loc_shutdown_client is not None)
         def call(kind, name, request, max_response=15.0):
             remaining = deadline - monotonic()
             if remaining <= 0:
@@ -354,7 +410,10 @@ def run(*, limit=60.0):
             ack=_call_shutdown_stage_for_ab(
                 rclpy, node, manager=key,
                 timeout_sec=budget, scope_env=os.environ,
-                prewarmed_client=nav_shutdown_client if key=="navigation" else None)
+                # Keep the existing navigation prewarm handoff exactly;
+                # localization is the new optional same-node endpoint.
+                prewarmed_client=nav_shutdown_client if key=="navigation" else (
+                    loc_shutdown_client if key=="localization" else None))
             # Preserve FIRST lifecycle service response boundary, not just
             # the final shell rc. This is diagnostic, NEVER a substitute
             # for the required actual Navigation + Localization ACK.
@@ -386,6 +445,8 @@ def run(*, limit=60.0):
                       failure_stage=str(exc)[:110],**stages)
     finally:
         if node is not None:
+            if loc_shutdown_client is not None:
+                node.destroy_client(loc_shutdown_client)
             if nav_shutdown_client is not None:
                 node.destroy_client(nav_shutdown_client)
             node.destroy_node()

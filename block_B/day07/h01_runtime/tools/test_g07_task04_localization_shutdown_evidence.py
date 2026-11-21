@@ -20,8 +20,8 @@ class NativeLocalizationShutdownEvidence(unittest.TestCase):
 
     def test_gui_clients_lower_priority_than_safety_processes(self):
         text=SHELL.read_text()
-        self.assertIn('setsid nice -n 10 gz sim -g',text)
-        self.assertIn('setsid nice -n 10 rviz2 -d',text)
+        self.assertIn('setsid nice -n 10 env QT_QPA_PLATFORM=xcb gz sim -g',text)
+        self.assertIn('setsid nice -n 10 env QT_QPA_PLATFORM=xcb rviz2 -d',text)
         self.assertIn('ros2 launch "$LAUNCH"',text)
         self.assertNotIn('pkill -f',text)
 

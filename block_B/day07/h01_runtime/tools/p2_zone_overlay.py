@@ -14,7 +14,12 @@ import sys
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'ros2_ws/src/axia_safety_bringup/launch'))
+# Source-tree callers and the installed axia_safety_bringup share the same
+# approved parameter policy, without resolving from process cwd.
+LAUNCH_DIR=(ROOT / 'ros2_ws/src/axia_safety_bringup/launch'
+            if (ROOT / 'ros2_ws/src/axia_safety_bringup/launch/axia_p1_launch_policy.py').is_file()
+            else ROOT / 'launch')
+sys.path.insert(0,str(LAUNCH_DIR))
 from axia_p1_launch_policy import patch_nav2_parameters  # reuse P1 fail-closed routing
 
 ZONE_NAMES = ('AXIA_StopFront', 'AXIA_SlowFront')

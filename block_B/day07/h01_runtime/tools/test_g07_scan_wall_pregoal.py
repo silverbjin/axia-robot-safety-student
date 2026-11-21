@@ -15,13 +15,20 @@ class ScanPreGoalContract(unittest.TestCase):
         self.assertFalse(r["goal_sent"])
         self.assertEqual(r["native_gazebo_publication_boundary"],"NOT_MEASURED")
 
-    def test_wsl2_318ms_scan_102ms_sim_blocks_goal(self):
+    def test_wsl2_318ms_scan_102ms_sim_diagnostic_when_clock_odom_healthy(self):
+        # Historical WSL2 wall gap. Full same-session Clock/Odom coverage
+        # avoids falsely turning Scan-only evidence into a Clock HOLD.
         v=self.healthy()
-        v["scan"]=[(i*.318,i*.102) for i in range(50)]
-        v["safety_scan"]=[(i*.320,i*.102) for i in range(50)]
+        v["scan"]=[(i*.318,i*.102) for i in range(42)]
+        v["safety_scan"]=[(i*.320,i*.102) for i in range(42)]
+        v["clock"]=[(i*.05,i*.05) for i in range(270)]
+        v["odom"]=[(i*.1,i*.1) for i in range(140)]
         r=assess_pregoal_samples(v)
-        self.assertEqual(r["status"],"HOLD")
-        self.assertEqual(r["first_failure"],"SCAN_PREFLIGHT_300MS_OR_HEADER_PERIOD_BREACH")
+        self.assertEqual(r["status"],"PASS_SCOPED_RECEIVED_SCAN_ONLY",r)
+        self.assertEqual(r["first_failure"],"NONE")
+        self.assertTrue(r["scan_wall_gap_diagnostic_only"])
+        self.assertGreater(r["topic_results"]["scan"]["max_wall_gap_ms"],300)
+        self.assertEqual(r["clock_coverage"],"FULL_PREG0AL_WINDOW")
         self.assertFalse(r["goal_sent"])
 
     def test_slow_sim_250ms_receipt_still_checked_by_wall(self):
@@ -53,7 +60,7 @@ class ScanPreGoalContract(unittest.TestCase):
         self.assertLess(shell.index("p2_g07_scan_wall_pregoal.py"),
                         shell.index("Simulation-only Moving Goal: type YES-P2-G07-GOAL"))
 
-    def test_first_scan_gap_retains_exact_pair_and_local_clock_rtf_on_hold(self):
+    def test_first_scan_gap_retains_exact_pair_and_local_clock_rtf_as_diagnostic(self):
         # 10Hz simulated LaserScan, ~0.41 local RTF and ONE delayed wall pair.
         # The original 12s preflight returned prematurely and lost cause data.
         rows=[(i*.249+(.08 if i>=20 else 0.0), i*.102) for i in range(48)]
@@ -62,7 +69,9 @@ class ScanPreGoalContract(unittest.TestCase):
            "clock":[(i*.04,i*.0164) for i in range(310)],
            "odom":[(i*.1,i*.041) for i in range(130)]}
         r=assess_pregoal_samples(v)
-        self.assertEqual(r["status"],"HOLD")
+        self.assertEqual(r["status"],"PASS_SCOPED_RECEIVED_SCAN_ONLY",r)
+        self.assertTrue(r["scan_wall_gap_diagnostic_only"])
+        self.assertEqual(r["first_failure"],"NONE")
         self.assertFalse(r["goal_sent"])
         first=r["first_scan_timing_boundary"]
         self.assertEqual(first["topic"],"scan")

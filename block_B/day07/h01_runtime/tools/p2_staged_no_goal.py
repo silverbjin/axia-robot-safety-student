@@ -37,6 +37,12 @@ def manage_g07_or_legacy(sequencer: Sequencer, name: str, gate: str):
         and os.environ.get("AXIA_D07_H01_GUI_NO_GOAL") == "1"
         and os.environ.get("AXIA_G07_CI_SIM_GOAL_ALLOWED", "0") == "0"
         and os.environ.get("AXIA_P0_SIM_ONLY") == "1")
+    g07_localization = (
+        name == "localization"
+        and os.environ.get("AXIA_G07_STARTUP_READONLY_RECONCILE")=="1"
+        and os.environ.get("AXIA_P0_SIM_ONLY")=="1"
+        and os.environ.get("AXIA_P2_G07_PHYSICAL_PREFLIGHT")=="1"
+        and os.environ.get("AXIA_G07_OWNER_STARTUP_PARITY")=="1")
     native_budget = "24" if d07_localization else "90"
     rc, _ = sequencer.command(
         gate, [sys.executable, "tools/p2_g07_lifecycle_service.py",
@@ -54,7 +60,7 @@ def manage_g07_or_legacy(sequencer: Sequencer, name: str, gate: str):
     # manager/is_active plus BOTH /get_state services, twice; no STARTUP retry.
     # No other G07 case, especially any moving-Goal route, may use this gate.
     read_only_reconciled = False
-    if (not acknowledged and d07_localization
+    if (not acknowledged and (d07_localization or g07_localization)
             and v.get("status") == "SERVICE_TIMEOUT"
             and v.get("request_sent") is True):
         recovery_file = (sequencer.output.parent /
@@ -71,16 +77,23 @@ def manage_g07_or_legacy(sequencer: Sequencer, name: str, gate: str):
             read_only_reconciled = (
                 recovery_rc == 0
                 and candidate.get("status") == "READONLY_ACTIVE_RECONCILED_NO_ACK"
-                and candidate.get("admitted_for_d07_no_goal") is True
+                and (
+                    (d07_localization and candidate.get("admitted_for_d07_no_goal") is True)
+                    or (g07_localization and
+                        candidate.get("admitted_for_g07_startup_state_only") is True))
                 and candidate.get("lifecycle_ack_received") is False
                 and candidate.get("startup_resent") is False
+                and candidate.get("moving_goal_admitted") is False
                 and candidate.get("goal_sent") is False)
         except (OSError, ValueError, subprocess.TimeoutExpired):
             read_only_reconciled = False
         if read_only_reconciled:
-            print("D07_H01_LOCALIZATION_READONLY_ACTIVE_NO_ACK"
-                  " ORIGINAL_SERVICE_RESPONSE_LOST"
-                  " MOVING_GOAL_NOT_AUTHORIZED", flush=True)
+            print(("AXIA_G07_LOCALIZATION_STARTUP_STATE_ONLY_NO_ACK"
+                   if g07_localization else
+                   "D07_H01_LOCALIZATION_READONLY_ACTIVE_NO_ACK")
+                  + " ORIGINAL_SERVICE_RESPONSE_LOST"
+                  " ACTUAL_AMCL_POSE_TF_AND_SAFETY_STILL_REQUIRED"
+                  " MOVING_GOAL_NOT_AUTHORIZED_BY_STATE_PROBE", flush=True)
     if (not acknowledged and name=="navigation"
         and (os.environ.get("AXIA_D07_H01_GEOMETRY_ONLY")=="1"
              or os.environ.get("AXIA_D07_H01_GUI_NO_GOAL")=="1")):
@@ -128,7 +141,9 @@ def manage_g07_or_legacy(sequencer: Sequencer, name: str, gate: str):
         ":request_sent=" + str(v.get("request_sent",False)))
     if read_only_reconciled:
         sequencer.record(gate, "PASS",
-                         "D07_ONLY_READONLY_ACTIVE_NO_ACK_NOT_LIFECYCLE_ACK")
+                         ("G07_READONLY_ACTIVE_STATE_ONLY_NO_ACK_POSE_TF_PENDING"
+                          if g07_localization else
+                          "D07_ONLY_READONLY_ACTIVE_NO_ACK_NOT_LIFECYCLE_ACK"))
     else:
         sequencer.record(gate,"PASS","G07_SHARED_NATIVE_"+name.upper()+"_ACK")
 

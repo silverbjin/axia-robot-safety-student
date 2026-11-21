@@ -215,13 +215,48 @@ def run(args):
             raise ValueError("G07_OBSERVER_IO_PROBE_REQUIRES_PUBLIC_SIM_ONLY")
         print("AXIA_G07_OBSERVER_IO_PROBE=CI_ONLY_READ_ONLY "
               "NO_CALLBACK_IO_ADDED ORIGINAL_FLUSH_RETAINED",flush=True)
+    from p2_g07_observer_io_probe import select_ci_executor_guard_wake_ab
+    wake_candidate=select_ci_executor_guard_wake_ab(
+        os.environ,owner_mode=owner_mode)
+    if wake_candidate:
+        print("AXIA_G07_CI_EXECUTOR_GUARD_WAKE_AB=CI_ONLY "
+              "MULTI2_ORIGINAL_SPIN QOS_TTL_OWNER_UNCHANGED",flush=True)
+    wake_ready=threading.Event()
+    wake_state={"attempts":0,"error":None}
+    silence_probe=None
+    if io_probe:
+        from p2_g07_observer_io_probe import FirstExecutorSilenceSnapshot
+        silence_probe=FirstExecutorSilenceSnapshot(threshold_ms=160)
+    spin_status={"started_at":None}
     heartbeat_ticks=deque(maxlen=14000)
     heartbeat_stop=threading.Event()
     probe_thread=None
     if io_probe:
         def observer_probe_heartbeat():
             while not heartbeat_stop.is_set():
-                heartbeat_ticks.append(time.monotonic())
+                now=time.monotonic()
+                heartbeat_ticks.append(now)
+                if wake_candidate and wake_ready.is_set():
+                    try:
+                        executor.wake()
+                        wake_state["attempts"]+=1
+                    except Exception as wake_exc:
+                        wake_state["error"]=type(wake_exc).__name__
+                        wake_ready.clear()
+                # Same existing CI-only heartbeat; no new ROS entities.
+                # Inspect the last callback timestamp without callback I/O.
+                # Record ONE stack of the original executor at 160ms silence.
+                if (report.get("goal_sent") is True and
+                        silence_probe is not None and worker.ident is not None):
+                    rows=obs._g07_io_probe.rows
+                    if rows:
+                        spin_started_at=(spin_status["started_at"]
+                                         if bounded_wait_candidate else None)
+                        silence_probe.capture(
+                            now=now,last_callback_at=rows[-1][1],
+                            goal_active=True,spin_thread_ident=worker.ident,
+                            spin_started_at=spin_started_at,
+                            spin_timeout_ms=20 if bounded_wait_candidate else None)
                 heartbeat_stop.wait(.020)
         probe_thread=threading.Thread(
             target=observer_probe_heartbeat,
@@ -229,6 +264,16 @@ def run(args):
         probe_thread.start()
     events_candidate=select_events_executor(
         os.environ,owner_mode=owner_mode)
+    # CI-only A/B candidate: the original two-worker Multi executor, with
+    # bounded wait-set wake horizon. Owner/default is unchanged.
+    from p2_g07_observer_io_probe import select_bounded_executor_wait_candidate
+    bounded_wait_candidate=select_bounded_executor_wait_candidate(
+        os.environ,owner_mode=owner_mode)
+    if bounded_wait_candidate:
+        assert not events_candidate and owner_observer_parity
+        print("AXIA_G07_CI_MULTI2_WAITSET_20MS_AB "
+              "OWNER_UNCHANGED STRICT_TTL_120_150_300_HOLD_IF_FAILED",
+              flush=True)
     if events_candidate:
         print("AXIA_G07_MOVING_EVENTS_EXECUTOR_AB=CI_ONLY "
               "OFFICIAL_JAZZY_QOS_GOAL_CM_GUARD_TTL_UNCHANGED",flush=True)
@@ -252,8 +297,27 @@ def run(args):
     else:
         executor=MultiThreadedExecutor(num_threads=2 if owner_observer_parity else 3)
     executor.add_node(node)
-    worker=threading.Thread(target=executor.spin,daemon=True)
+    spin_stop=threading.Event()
+    def spin_multi_with_bounded_wait():
+        while not spin_stop.is_set() and rclpy.ok():
+            spin_status["started_at"]=time.monotonic()
+            try:
+                executor.spin_once(timeout_sec=.02)
+            except Exception:
+                # The only suppressed exception is an expected shutdown
+                # AFTER stop was signaled; earlier spin errors still crash.
+                if not spin_stop.is_set():
+                    raise
+                break
+            finally:
+                spin_status["started_at"]=None
+    worker=threading.Thread(
+        target=(spin_multi_with_bounded_wait if bounded_wait_candidate
+                else executor.spin),
+        name="g07_observer_executor_spin",daemon=True)
     worker.start()
+    if wake_candidate:
+        wake_ready.set()
     published=None
     stop_ack_at=None
     stop_pre_move_front=None
@@ -267,6 +331,8 @@ def run(args):
             last_sample=0.
             last_health_sample=0.
             while time.monotonic()<until:
+                if wake_state["error"] is not None:
+                    raise RuntimeError("CI_EXECUTOR_GUARD_WAKE_AB_ERROR_HOLD")
                 snap=obs.snapshot(include_graph=graph_checks)
                 data=obs.data()
                 if label=="HEALTH":
@@ -467,6 +533,44 @@ def run(args):
         save()
         # Keep the original pre-Goal side/LiDAR proof, then move that same
         # physical cylinder into the visible SLOW sector. No synthetic Scan.
+        # G20 minimal physical fixture admission after real CLEAR:
+        # do not place a cylinder while Nav2 is turning/backing away.
+        # Never create another Goal, publish Twist/Scan, or relax TTL.
+        from p2_g07_ci_stop_stage import classify_slow_fixture_alignment
+        last_slow_alignment={}
+        def slow_forward_alignment_ready(s,d):
+            if (s.get("action_status")!=2
+                or _fresh(s,("scan","odom","guard","clock",
+                             "supervised","pre_guard","final")) is None
+                or not isinstance(d.get("scan"),(float,int))
+                or d["scan"]<=.75):
+                return None
+            row=d["odom"][-1] if d["odom"] else {}
+            diag=classify_slow_fixture_alignment(
+                start_pose=start_pose,live_odom=d.get("pose"),
+                odom_speed=row.get("vx"),odom_yaw_rate=row.get("wz"),
+                supervised_speed=s.get("supervised_speed"),
+                goal_status=s.get("action_status"),
+                guard_latched=s.get("guard",{}).get("latched"))
+            last_slow_alignment.clear()
+            last_slow_alignment.update(diag)
+            return diag if diag["aligned_for_positive_slow_demo"] else None
+        try:
+            slow_diag=wait(slow_forward_alignment_ready,3,"SLOW_FORWARD_ALIGNMENT")
+        except RuntimeError:
+            report["slow_fixture_alignment_before_move"]=(
+                dict(last_slow_alignment) if last_slow_alignment else
+                {"status":"NO_FRESH_FORWARD_ALIGNMENT_HOLD","release":"HOLD",
+                 "certified_estop":False})
+            save()
+            print("AXIA_G07_SLOW_FIXTURE_ALIGNMENT_HOLD_BEFORE_SET_POSE "+
+                  json.dumps(report["slow_fixture_alignment_before_move"],
+                             sort_keys=True),flush=True)
+            raise
+        report["slow_fixture_alignment_before_move"]=slow_diag
+        save()
+        print("AXIA_G07_SLOW_FIRST_FORWARD_ALIGNMENT_BEFORE_NATIVE_SET_POSE "+
+              json.dumps(slow_diag,sort_keys=True),flush=True)
         slow_target=obstacle_world_pose(
             world_anchor,obs.data().get("pose"),.62,.07,demo_corridor=True)
         slow_request_started=time.monotonic()
@@ -590,6 +694,9 @@ def run(args):
         }
         bounds={"source":.15,"cm":.15,"guard":.15,"supervisor":.15,
                 "scan":.30,"odom":.30,"clock":.30}
+        # All first crossings retained, but only scan WALL cadence is no
+        # longer formal acceptance. The live .3s scan freshness watchdog,
+        # nonmonotonic/absent Header and actual LaserScan count are intact.
         timing={kind:first_delivery_breach(
             ts,start=goal_sent_at,end=t1,limit=bounds[kind],
             stop_ack=stop_ack_at)
@@ -600,15 +707,25 @@ def run(args):
              for kind,value in timing.items()
              if value["first_violation_sec"] is not None),
             key=lambda value:value["first_violation_at"])
-        report["first_timing_violation"]=violations[0] if violations else None
+        report["first_any_delivery_interval_diagnostic"]=(
+            violations[0] if violations else None)
+        report["scan_wall_gap_diagnostic_only"]=(timing["scan"]["first_violation_sec"]
+                                                   is not None)
+        report["first_scan_wall_gap_diagnostic"]=next(
+            (v for v in violations if v["channel"]=="scan"),None)
+        blocking=[v for v in violations if v["channel"]!="scan"]
+        report["first_timing_violation"]=blocking[0] if blocking else None
         report["odom_stop_dwell_sec_observed_before_oracle"]=stop_dwell
         print("AXIA_G07_CI_ODOM_DWELL_PRE_ORACLE "
               +"seconds="+str(round(stop_dwell,6)),flush=True)
         print("AXIA_G07_CI_MEASURED_MESSAGE_PERIODS "+
               json.dumps(periods,sort_keys=True),flush=True)
         if violations:
-            print("AXIA_G07_CI_FIRST_TIMING_VIOLATION "+
+            print("AXIA_G07_CI_FIRST_DELIVERY_INTERVAL_DIAGNOSTIC "+
                   json.dumps(violations[0],sort_keys=True),flush=True)
+        if blocking:
+            print("AXIA_G07_CI_FIRST_TIMING_VIOLATION "+
+                  json.dumps(blocking[0],sort_keys=True),flush=True)
         report.update(
             max_scan_interval_sec=periods["scan"],
             max_odom_interval_sec=periods["odom"],
@@ -806,7 +923,20 @@ def run(args):
               flush=True)
         return 2
     finally:
+        wake_ready.clear()
+        if wake_candidate:
+            report["ci_executor_guard_wake_ab"]={
+                "schema":"axia.g07.ci_executor_guard_wake_ab.v1",
+                "attempts":wake_state["attempts"],
+                "error":wake_state["error"],
+                "status":"CI_ONLY_DIAGNOSTIC_NOT_OWNER_SAFETY_PASS",
+                "release":"HOLD","root_cause_proven":False,
+                "certified_estop":False}
+            print("AXIA_G07_CI_EXECUTOR_GUARD_WAKE_AB_TICKS "+
+                  json.dumps(report["ci_executor_guard_wake_ab"],sort_keys=True),
+                  flush=True)
         save()
+        spin_stop.set()
         executor.shutdown(timeout_sec=2)
         worker.join(timeout=2)
         heartbeat_stop.set()
@@ -816,6 +946,7 @@ def run(args):
         if io_probe:
             try:
                 diag=obs.io_probe_summary(heartbeats=list(heartbeat_ticks))
+                diag["first_executor_silence_snapshot"]=silence_probe.result()
                 (args.output/"g07_observer_io_probe_summary.json").write_text(
                     json.dumps(diag,sort_keys=True,indent=2)+"\n")
                 print("AXIA_G07_OBSERVER_IO_FIRST_BOUNDARY "+

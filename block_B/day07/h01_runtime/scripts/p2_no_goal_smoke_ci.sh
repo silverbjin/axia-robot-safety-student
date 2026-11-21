@@ -6,6 +6,10 @@ cd "$ROOT"
 OUT="${AXIA_P2_SMOKE_RESULTS:-$ROOT/results/p2-smoke-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd -P)"
+# Shell builtin EPOCHREALTIME: no new ROS CLI process/DDS participant per mark.
+printf 'phase\tepoch_realtime\n' > "$OUT/g07_phase_timings.tsv"
+g07_mark() { printf '%s\t%s\n' "$1" "$EPOCHREALTIME" >> "$OUT/g07_phase_timings.tsv"; }
+g07_mark start
 LAUNCH_PID=''
 BAG_PID=''
 GUI_WATCH_PID=''
@@ -13,6 +17,12 @@ MOVING_GAZEBO_GUI_PID=''
 MOVING_RVIZ_PID=''
 OWNER_MOVING="${AXIA_G07_TASK04_OWNER_MOVING_L3:-0}"
 CI_MOVING_GUI="${AXIA_G07_TASK04_CI_GUI_MOVING:-0}"
+# One G07-only diagnostic GUI policy; headless server/robot safety are
+# independent of WSLg window creation, renderer or client stability.
+G07_GUI_DIAGNOSTIC_ONLY="${AXIA_G07_GUI_DIAGNOSTIC_ONLY:-1}"
+G07_DEPTH_SENSOR_ENABLED="${AXIA_G07_DEPTH_SENSOR_ENABLED:-0}"
+[[ "$G07_GUI_DIAGNOSTIC_ONLY" == 1 || "$G07_GUI_DIAGNOSTIC_ONLY" == 0 ]] || exit 2
+[[ "$G07_DEPTH_SENSOR_ENABLED" == 0 || "$G07_DEPTH_SENSOR_ENABLED" == 1 ]] || exit 2
 [[ "$OWNER_MOVING" == 0 || "$OWNER_MOVING" == 1 ]] || exit 2
 [[ "$CI_MOVING_GUI" == 0 || "$CI_MOVING_GUI" == 1 ]] || exit 2
 if [[ "$OWNER_MOVING" == 1 ]];then
@@ -274,10 +284,34 @@ set +u; source /opt/ros/jazzy/setup.bash; set -u
 for cmd in ros2 colcon gz python3 setsid timeout; do command -v "$cmd" >/dev/null || exit 2; done
 for pkg in nav2_bringup nav2_minimal_tb3_sim ros_gz_sim; do ros2 pkg prefix "$pkg" >/dev/null || exit 2; done
 # Keep existing frozen P1 unchanged. New P2 package code built in overlay.
+g07_mark before_colcon_build
 colcon build --base-paths ros2_ws/src --packages-select \
-  axia_safety_supervisor axia_fault_injector axia_scenario_verifier \
+  axia_safety_supervisor axia_fault_injector axia_scenario_verifier axia_safety_bringup \
   --event-handlers console_direct+ > "$OUT/build.log" 2>&1 || { echo 'P2_BUILD_BLOCKED'; exit 2; }
+g07_mark after_colcon_build
 set +u; source install/setup.bash; set -u
+g07_mark after_overlay_source
+ros2 pkg prefix axia_safety_bringup > "$OUT/bringup_package_prefix.txt" || {
+  echo 'G07_INSTALLED_BRINGUP_PACKAGE_UNDISCOVERABLE' >&2;exit 2;
+}
+# Real sourced overlay executable discovery (not source-folder imports).
+for contract in 'axia_safety_supervisor:p2_supervisor_node' \
+                'axia_safety_supervisor:p2_base_guard_node' \
+                'axia_fault_injector:fault_injector_node' \
+                'axia_scenario_verifier:p1_evidence_runner';do
+  pkg="${contract%%:*}"
+  executable="${contract#*:}"
+  ros2 pkg prefix "$pkg" > "$OUT/pkg_prefix_$pkg.txt" || {
+    echo "G07_PKG_PREFIX_NOT_FOUND=$pkg" >&2;exit 2;
+  }
+  ros2 pkg executables "$pkg" > "$OUT/pkg_exec_$pkg.txt" || {
+    echo "G07_PKG_EXECUTABLES_BLOCKED=$pkg" >&2;exit 2;
+  }
+  grep -Eq "^$pkg[[:space:]]+$executable$" "$OUT/pkg_exec_$pkg.txt" || {
+    echo "G07_PKG_ENTRYPOINT_NOT_DISCOVERED=$contract" >&2;exit 2;
+  }
+done
+echo 'AXIA_G07_INSTALLED_PKG_PREFIX_AND_EXECUTABLES_PASS'
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-56}"
 export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 export GZ_PARTITION="${GZ_PARTITION:-axia_p2_ci_$$_$(date +%s)}"
@@ -289,7 +323,9 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   }
   export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}" LIBGL_ALWAYS_SOFTWARE=1 AXIA_P0_SIM_ONLY=1
 elif [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
-  export QT_QPA_PLATFORM=xcb AXIA_P0_SIM_ONLY=1
+  # Physics/LiDAR/Nav2 receive offscreen QT; only independently owned
+  # GUI clients get xcb+D3D12. Never export GUI renderer to safety nodes.
+  export QT_QPA_PLATFORM=offscreen AXIA_P0_SIM_ONLY=1
   # The pinned real Gazebo+Goal CI L2 rendered gpu_lidar with software Mesa.
   # Owner WSLg previously UNSET this, and its 360-ray /scan contained a
   # near-complete 0.5m ring at the stationary -2,-0.5 spawn. Keep the same
@@ -319,7 +355,14 @@ fi
 printf 'ROS_DOMAIN_ID=%s\nGZ_PARTITION=%s\n' "$ROS_DOMAIN_ID" "$GZ_PARTITION" > "$OUT/runtime.txt"
 git -c safe.directory="$ROOT" rev-parse HEAD > "$OUT/source_sha.txt" 2>/dev/null || echo 'UNVERSIONED_LOCAL_SOURCE' > "$OUT/source_sha.txt"
 LAUNCH="$ROOT/ros2_ws/src/axia_safety_bringup/launch/axia_tb3_p2.launch.py"
+# Keep original source-path entrypoint for old callers; prove the installed
+# package launch is separately discoverable in this sourced overlay.
+ros2 launch axia_safety_bringup axia_tb3_p2.launch.py --show-args \
+  > "$OUT/installed_launch_args.log" 2>&1 || {
+  echo 'G07_INSTALLED_LAUNCH_ARGS_BLOCKED' >&2;exit 2;
+}
 ros2 launch "$LAUNCH" --show-args > "$OUT/launch_args.log" 2>&1 || { echo 'P2_LAUNCH_ARGS_BLOCKED'; exit 2; }
+g07_mark installed_and_source_launch_args_ready
 # For physical G07 only, reuse the official WORLD with Contact system
 # overlay; do not replace Nav2, its robot spawn, or the world layout.
 # S03 experimental simulation ONLY: allow the existing /safety/scan relay
@@ -371,7 +414,8 @@ if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1 ]]; then
   # leaving an otherwise healthy server /scan and Nav2 but a BLANK 3D GUI.
   # Keep staged headless startup and all P2/G07 motion cases untouched.
   if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
-     || "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
+     || ( ( "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 )
+          && -n "${DISPLAY:-}" ) ]];then
     [[ "${AXIA_P0_SIM_ONLY:-0}" == 1
        && ( ( "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
               && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0 )
@@ -395,10 +439,18 @@ if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1 ]]; then
   if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1
      || "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1 ]]; then
     WAFFLE="$(ros2 pkg prefix nav2_minimal_tb3_sim)/share/nav2_minimal_tb3_sim/urdf/gz_waffle.sdf.xacro"
+    G07_DEPTH_ARGS=()
+    if [[ "$G07_DEPTH_SENSOR_ENABLED" == 0 ]];then
+      G07_DEPTH_ARGS+=(--disable-depth)
+      echo 'AXIA_G07_DEPTH_SENSOR_ENABLED=0 TEMP_SDF_G07_ONLY'
+    else
+      echo 'AXIA_G07_DEPTH_SENSOR_ENABLED=1 EXPLICIT_DIAGNOSTIC_OVERRIDE'
+    fi
     if ! python3 tools/p2_g07_demo_lidar_overlay.py \
        --source "$WAFFLE" \
        --output "$OUT/g07_demo_waffle.sdf.xacro" \
-       --manifest "$OUT/g07_demo_waffle_manifest.json"; then
+       --manifest "$OUT/g07_demo_waffle_manifest.json" \
+       "${G07_DEPTH_ARGS[@]}"; then
       echo 'AXIA_G07_CI_DEMO_LIDAR_OVERLAY_BLOCKED_NO_GOAL' >&2
       exit 2
     fi
@@ -432,9 +484,11 @@ if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1 ]]; then
     fi
   fi
 fi
+g07_mark before_gazebo_launch
 setsid ros2 launch "$LAUNCH" "${LAUNCH_ARGS[@]}" \
    > "$OUT/launch.log" 2>&1 &
 LAUNCH_PID=$!
+g07_mark gazebo_launch_started
 # Owner WSL2 always runs the following real 14-topic SQLite recording
 # concurrently with Gazebo, Nav2 and its two-worker Observer.
 if [[ "${AXIA_G07_CI_OWNER_BAG_PARITY:-0}" == 1 ]]; then
@@ -538,6 +592,7 @@ finally:
 PY
 fi
 if "${STAGED_START[@]}" > "$OUT/staged_startup.log" 2>&1; then
+  g07_mark staged_nav2_ready
   echo 'P2_NO_GOAL_STATIC_AND_RUNTIME_READINESS_OBSERVED'
 else
   echo 'P2_NO_GOAL_BLOCKED: see staged_startup.log/launch.log' >&2
@@ -665,42 +720,49 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   fi
   echo "D07_H01_GUI_RENDERERS_AFTER_NAV2_READY watcher_pid=$GUI_WATCH_PID awaiting_stable_free_baseline=1 NO_GOAL"
 fi
-# Client-only GUI: attach after real shared staged Nav2 readiness.
-# Gazebo SERVER remains owned solely by the original ros2 launch process.
+# Client-only GUI is a diagnostics channel. A failed/missing WSLg GUI
+# CANNOT abort a correctly running headless Gazebo/Nav2/CM/Guard acceptance.
+# Record the GUI first failure separately. Never start a second server.
 if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
-  [[ -r "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" ]] || {
-    echo 'G07_TASK04_RVIZ_CONFIG_MISSING_NO_GOAL' >&2;exit 2;
-  }
-  # The original D07 NO_GOAL WSLg success scoped Mesa D3D12 ONLY to
-  # the GUI children. Do not inherit GPU renderer override into the
-  # Gazebo physics/sensor server or ROS safety nodes.
-  if [[ "$OWNER_MOVING" == 1 ]];then
-    case "${AXIA_G07_TASK04_GUI_D3D12_ADAPTER:-}" in
-      NVIDIA|Intel) ;;
-      *) echo 'G07_TASK04_GUI_D3D12_ADAPTER_NOT_VERIFIED_NO_GOAL' >&2;exit 2 ;;
-    esac
-    setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
-      MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
-      gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
-    MOVING_GAZEBO_GUI_PID=$!
-    setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
-      MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
-      rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
-      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
-    MOVING_RVIZ_PID=$!
+  printf '%s\n' 'scope=G07_GUI_DIAGNOSTIC_ONLY' > "$OUT/g07_gui_diagnostic.txt"
+  GUI_CONFIG="$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz"
+  if [[ -z "${DISPLAY:-}" ]];then
+    echo 'AXIA_G07_GUI_DIAGNOSTIC_ONLY DISPLAY_ABSENT HEADLESS_CONTINUES' \
+      | tee -a "$OUT/g07_gui_diagnostic.txt"
+  elif [[ ! -r "$GUI_CONFIG" ]];then
+    echo 'AXIA_G07_GUI_DIAGNOSTIC_ONLY RVIZ_CONFIG_MISSING HEADLESS_CONTINUES' \
+      | tee -a "$OUT/g07_gui_diagnostic.txt"
+  elif [[ "$OWNER_MOVING" == 1
+        && ! "${AXIA_G07_TASK04_GUI_D3D12_ADAPTER:-}" =~ ^(NVIDIA|Intel)$ ]];then
+    echo 'AXIA_G07_GUI_DIAGNOSTIC_ONLY WSLG_ADAPTER_UNVERIFIED HEADLESS_CONTINUES' \
+      | tee -a "$OUT/g07_gui_diagnostic.txt"
   else
-    # Preserve the already L2-verified Xvfb/llvmpipe client process flow.
-    setsid nice -n 10 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
-    MOVING_GAZEBO_GUI_PID=$!
-    setsid nice -n 10 rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
-      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
-    MOVING_RVIZ_PID=$!
+    if [[ "$OWNER_MOVING" == 1 ]];then
+      setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE QT_QPA_PLATFORM=xcb GALLIUM_DRIVER=d3d12 \
+        MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
+        gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+      MOVING_GAZEBO_GUI_PID=$!
+      setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE QT_QPA_PLATFORM=xcb GALLIUM_DRIVER=d3d12 \
+        MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
+        rviz2 -d "$GUI_CONFIG" --ros-args -p use_sim_time:=true \
+        > "$OUT/task04_rviz.log" 2>&1 &
+      MOVING_RVIZ_PID=$!
+    else
+      setsid nice -n 10 env QT_QPA_PLATFORM=xcb gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+      MOVING_GAZEBO_GUI_PID=$!
+      setsid nice -n 10 env QT_QPA_PLATFORM=xcb rviz2 -d "$GUI_CONFIG" --ros-args -p use_sim_time:=true \
+        > "$OUT/task04_rviz.log" 2>&1 &
+      MOVING_RVIZ_PID=$!
+    fi
+    sleep 3
+    if kill -0 "$MOVING_GAZEBO_GUI_PID" "$MOVING_RVIZ_PID" 2>/dev/null;then
+      echo 'AXIA_G07_GUI_DIAGNOSTIC_ONLY BOTH_CLIENTS_STARTED' \
+        | tee -a "$OUT/g07_gui_diagnostic.txt"
+    else
+      echo 'AXIA_G07_GUI_DIAGNOSTIC_ONLY CLIENT_EXITED HEADLESS_CONTINUES' \
+        | tee -a "$OUT/g07_gui_diagnostic.txt"
+    fi
   fi
-  sleep 3
-  kill -0 "$MOVING_GAZEBO_GUI_PID" "$MOVING_RVIZ_PID" 2>/dev/null || {
-    echo 'G07_TASK04_GUI_CLIENT_DIED_BEFORE_GOAL' >&2;exit 2;
-  }
-  echo 'AXIA_G07_TASK04_GAZEBO_SERVER_SINGLE_GUI_CLIENTS_ATTACHED'
 fi
 # New G07 shutdown-only regression: reuse the staged REAL Gazebo/Nav2
 # no-Goal session, avoid re-running the previously successful moving L2.
@@ -1101,7 +1163,27 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
       exit 2
     fi
     cat "$OUT/g07_ci_scan_pregoal.log"
-    echo 'AXIA_G07_PREGOAL_SCAN_WALL_GOAL_ADMISSION_PASS_SCOPED'
+    g07_mark pregoal_scan_evidence_ready
+    # G07 session-only depth-off: inspect actual Gazebo native topic graph
+    # and ROS graph already collected by the SAME Scan observer. Keep
+    # depth-enabled official model for D04/D05 and other scenarios.
+    if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
+          && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+          && "$G07_DEPTH_SENSOR_ENABLED" == 0 ]];then
+      timeout --signal=TERM --kill-after=2s 8s gz topic -l \
+        > "$OUT/g07_gz_topics.txt" 2>"$OUT/g07_gz_topics.err" || {
+        echo 'G07_DEPTH_GAZEBO_TOPIC_DISCOVERY_FAILED_NO_GOAL' >&2;exit 2;
+      }
+      python3 tools/p2_g07_depth_absence_audit.py \
+        --model "$OUT/g07_demo_waffle.sdf.xacro" \
+        --scan-report "$OUT/g07_ci_scan_pregoal.json" \
+        --gz-topics "$OUT/g07_gz_topics.txt" \
+        --output "$OUT/g07_depth_absence.json" || {
+        echo 'G07_DEPTH_ABSENCE_OR_SCAN_EVIDENCE_FAILED_NO_GOAL' >&2;exit 2;
+      }
+      g07_mark g07_depth_absence_scan_validated
+    fi
+    echo 'AXIA_G07_PREGOAL_SCAN_WALL_DIAGNOSTIC_GOAL_ADMISSION_PASS_SCOPED'
   fi
   # The real Owner shell must read the exact consent phrase from /dev/tty.
   # The single Goal is sent later by the existing Python Supervisor path.
