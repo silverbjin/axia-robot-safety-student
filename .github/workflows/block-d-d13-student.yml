@@ -1,0 +1,22 @@
+name: AXIA D13 Student TODO Contract
+on:
+  push:
+    branches:
+      - feat/block-d-d13-reachability-lab-20261121
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'block_D/day13/**'
+      - '.github/workflows/block-d-d13-student.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  d13-student:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: RED student TODO test
+        run: python3 -m unittest discover -s block_D/day13/tests -p 'test_*.py' -v
