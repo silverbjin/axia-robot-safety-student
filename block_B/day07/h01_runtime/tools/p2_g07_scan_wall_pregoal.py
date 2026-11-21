@@ -113,9 +113,16 @@ def assess_pregoal_samples(samples, *, window_sec=WINDOW_SEC):
                 result["first_failure"]="SCAN_PREFLIGHT_CLOCK_ODOM_NONMONOTONIC"
                 return result
             if gap>=SCAN_LIMIT_MS:
+                # Preserve the precise simulated Clock/Odom stamp pair.
+                # Offline rosbag2 may now match THIS first gap rather than a
+                # maximum from an unrelated point in the same session.
+                # Does not alter Clock/Odom 300ms blocking safety policy.
                 all_wall_breaches.append(dict(
                     channel=name,previous_rx_host_monotonic=round(a[0],9),
                     current_rx_host_monotonic=round(b[0],9),
+                    previous_header_sim=round(a[1],9),
+                    current_header_sim=round(b[1],9),
+                    header_sim_gap_ms=round((b[1]-a[1])*1000,6),
                     gap_ms=round(gap,6),limit_ms=SCAN_LIMIT_MS))
     failures=[]
     for topic in ("scan","safety_scan"):
