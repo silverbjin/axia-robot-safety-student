@@ -171,5 +171,35 @@ class ObserverIOFirstBoundary(unittest.TestCase):
         self.assertIn("spin_stop.set()",code)
         self.assertIn("if bounded_wait_candidate:",code)
 
+
+    def test_bounded_spin_once_inflight_overrun_is_recorded_at_first_gap(self):
+        import inspect
+        from types import SimpleNamespace
+        from p2_g07_observer_io_probe import FirstExecutorSilenceSnapshot
+        probe=FirstExecutorSilenceSnapshot(threshold_ms=160)
+        th=SimpleNamespace(ident=513,name="g07_observer_executor_spin")
+        frames={513:inspect.currentframe()}
+        self.assertTrue(probe.capture(
+            now=42.200,last_callback_at=42.000,goal_active=True,
+            spin_thread_ident=513,threads=[th],frames=frames,
+            spin_started_at=42.025,spin_timeout_ms=20))
+        r=probe.result()
+        self.assertEqual(r["status"],"FIRST_EXECUTOR_SILENCE_STACK_CAPTURED_HOLD")
+        self.assertAlmostEqual(r["spin_once_inflight_elapsed_ms"],175.)
+        self.assertEqual(r["spin_once_requested_timeout_ms"],20)
+        self.assertTrue(r["spin_once_timeout_overrun_observed"])
+        self.assertFalse(r["root_cause_proven"])
+        self.assertFalse(r["timing_safety_pass"])
+        self.assertEqual(r["release"],"HOLD")
+
+    def test_spin_once_overrun_probe_does_not_change_owner_spin_or_ttl(self):
+        from pathlib import Path
+        code=Path(__file__).with_name("p2_g07_ci_moving_goal.py").read_text()
+        self.assertIn("spin_started_at=spin_started_at",code)
+        self.assertIn("spin_timeout_ms=20 if bounded_wait_candidate else None",code)
+        self.assertIn("executor.spin_once(timeout_sec=.02)",code)
+        self.assertIn("else executor.spin",code)
+        self.assertNotIn("CERTIFIED_ESTOP=True",code)
+
 if __name__=="__main__":
     unittest.main()
