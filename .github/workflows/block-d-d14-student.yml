@@ -24,7 +24,7 @@ jobs:
           if grep -E '^[[:space:]]*(import rclpy|from rclpy|import rospy|from geometry_msgs)' block_D/day14/*.py; then
             echo 'D14_FORBIDDEN_ROS_IMPORT' >&2; exit 1
           fi
-      - name: Student TODO must fail exactly expected 11 assertions (no silent skip)
+      - name: D14 beginner demo and lab docs contract\n        shell: bash\n        run: python3 -m unittest discover -s block_D/tests -p 'test_d14_education_docs.py' -v\n      - name: Student TODO must fail exactly expected 11 assertions (no silent skip)
         shell: bash
         run: |
           set -Eeuo pipefail
