@@ -132,3 +132,75 @@ class BoundedObserverIoProbe:
                 "worst_io_operations":worst,
                 "first_gap_nearby_io":near_io,
                 "first_gap_within_scoped_window":bool(earliest)}
+
+
+class FirstExecutorSilenceSnapshot:
+    """CI-only one-shot bounded thread *function* snapshot at first global silence.
+
+    Runs in an existing 20ms heartbeat thread, not in ROS callbacks. Captures
+    no file paths, locals, arguments, source lines, Goal UUIDs or raw rosbag.
+    A stack snapshot is evidence for follow-up, NEVER proof of causal root.
+    """
+    def __init__(self, threshold_ms=160):
+        if type(threshold_ms) is not int or not 120 <= threshold_ms <= 250:
+            raise ValueError("G07_EXECUTOR_SILENCE_THRESHOLD_INVALID")
+        self.threshold_ms=threshold_ms
+        self._result=None
+
+    def capture(self, *, now,last_callback_at,goal_active,
+                spin_thread_ident,threads=None,frames=None):
+        if self._result is not None or goal_active is not True:
+            return False
+        if (type(now) not in (int,float)
+                or type(last_callback_at) not in (int,float)
+                or not (math.isfinite(now) and math.isfinite(last_callback_at))
+                or type(spin_thread_ident) is not int):
+            return False
+        silence_ms=(now-last_callback_at)*1000.
+        if not self.threshold_ms <= silence_ms <= 1000.:
+            return False
+        import sys
+        import threading
+        import re
+        threads=list(threading.enumerate() if threads is None else threads)
+        frames=sys._current_frames() if frames is None else frames
+        by_role={}
+        pools=0
+        for th in threads:
+            tid=getattr(th,"ident",None)
+            if tid==spin_thread_ident:
+                role="executor_spin"
+            elif (str(getattr(th,"name","")).startswith("ThreadPoolExecutor")
+                  and pools<2):
+                role="executor_pool_"+str(pools)
+                pools+=1
+            else:
+                continue
+            names=[]
+            fr=frames.get(tid)
+            while fr is not None and len(names)<8:
+                name=str(fr.f_code.co_name)
+                safe=re.sub(r"[^a-zA-Z0-9_]","_",name)[:64]
+                names.append(safe)
+                fr=fr.f_back
+            by_role[role]=names
+        self._result={
+            "schema":"axia.g07.first_executor_silence_stack.v1",
+            "status":("FIRST_EXECUTOR_SILENCE_STACK_CAPTURED_HOLD"
+                      if by_role.get("executor_spin") else
+                      "FIRST_EXECUTOR_SILENCE_STACK_UNAVAILABLE_HOLD"),
+            "silence_ms":round(silence_ms,6),
+            "threshold_ms":self.threshold_ms,
+            "thread_roles":sorted(by_role),
+            "frames_by_role":by_role,
+            "release":"HOLD","root_cause_proven":False,
+            "timing_safety_pass":False,"certified_estop":False}
+        return True
+
+    def result(self):
+        if self._result is None:
+            return {"schema":"axia.g07.first_executor_silence_stack.v1",
+                    "status":"FIRST_EXECUTOR_SILENCE_NOT_CAPTURED_HOLD",
+                    "release":"HOLD","root_cause_proven":False,
+                    "timing_safety_pass":False,"certified_estop":False}
+        return dict(self._result)
