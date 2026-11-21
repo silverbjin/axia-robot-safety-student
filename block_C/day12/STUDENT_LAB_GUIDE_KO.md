@@ -334,6 +334,51 @@ BLOCK_C_STUDENT_JAZZY_ROS_L1_ONLY_PASS owner_wsl2_verified=false
 
 `verdict.json`에는 `period_min_ms`, `period_max_ms`, `levels`, `cmd_vel_publisher_count`, `pub_rc`도 기록됩니다. 코드의 100ms 목표 발행 주기와 **측정된 수신 주기**를 구분하세요. 이 기존 L1 검사기는 수신 간격 **20~600ms** 범위를 허용하므로 100ms의 엄격한 보증이나 생산 안전 TTL PASS라고 발표하면 안 됩니다.
 
+
+### B2-1. 실제 ROS verdict.json을 직접 읽고 의미 해석하기 (B2 시간 안에)
+
+**왜 필요한가:** 화면에 PASS라는 문구가 보이는 것만으로는 데이터가 실제로 도착했는지 알 수 없습니다. 실무에서는 실행 명령, 종료 코드, 독립 수신 건수, 수신 간격을 **같은 증거 파일**에서 비교합니다.
+
+~~~bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+p = Path.home() / "axia_d12_course/student_evidence/ros_probe/ros_l1/verdict.json"
+if not p.exists():
+    print("TEST_HOLD ROS_L1_NOT_MEASURED verdict.json missing")
+else:
+    d = json.loads(p.read_text(encoding="utf-8"))
+    for k in ("status", "sample_count", "expected_count", "levels",
+              "period_target_ms", "period_min_ms", "period_max_ms",
+              "pub_rc", "ros_actual", "gazebo_actual",
+              "production_guard_ttl_verified"):
+        print(k, "=", d.get(k))
+    if d.get("status") == "PASS_REAL_ROS_L1_EDUCATION_ONLY":
+        print("D12_ROS_EDUCATION_EVIDENCE_PRESENT")
+    else:
+        print("TEST_HOLD ROS_L1_FAILED_OR_INCOMPLETE")
+PY
+~~~
+
+**실행 전 예상 출력:** 실제 Jazzy 실행을 하지 않은 PC에서는 `TEST_HOLD ROS_L1_NOT_MEASURED verdict.json missing`이 표시됩니다. 이 상태는 정상적인 **미실행/HOLD**입니다. 실제 성공 로그가 생성된 PC에서만 sample_count=8, levels=[0,1,2,3], pub_rc=0, ros_actual=True 같은 필드를 확인할 수 있습니다.
+
+**코드 한 줄씩 해설:**
+
+1. `p.exists()`는 **내 PC에 실제 증거 파일이 생성되었는지** 확인합니다. 다른 사람의 성공 로그를 복사하지 않습니다.
+2. `json.loads(...)`는 기존 독립 Subscriber가 쓴 결과 JSON을 읽습니다. JSONL 입력과 달리 verdict는 **단일 JSON 객체**입니다.
+3. `sample_count`는 실제 구독자가 받은 건수, `expected_count`는 이 실행기의 목표 건수(8)입니다.
+4. `levels`는 수신한 네 개 ROS 진단 코드 (0/1/2/3)입니다. 값 2는 교육 WARNING의 표시 코드이며 로봇 Stop 신호가 아닙니다.
+5. `period_target_ms`는 **발행 목표 주기 100ms**, `period_min_ms/max_ms`는 독립 수신자의 **실측 수신 간격**입니다. 같은 수치일 것이라고 가정하면 안 됩니다.
+6. `pub_rc`는 발행 프로세스 종료 코드입니다. 정상 종료인 0과 Subscriber 수신 증거가 모두 필요합니다.
+7. `gazebo_actual=false`, `production_guard_ttl_verified=false`는 **검증하지 않은 분야를 명시**하는 올바른 결과입니다.
+
+**최초 실패 지점 조사:** ROS_DOMAIN_ID가 달라 Subscriber가 구독하지 못할 수 있습니다. 실습에서 92를 사용한 경우 각 ROS 셸에서 `echo "$ROS_DOMAIN_ID"`를 확인하세요. 이어서 `python3 --version`과 `python3 -c "import rclpy; print('RCLPY_OK')"`를 확인합니다. venv Python으로 전환하면서 Jazzy 시스템 패키지를 찾지 못하는 경우도 있으므로, 오류의 최초 출력과 사용 Python 경로를 기록하십시오.
+
+**실무 사례:** 프로젝트의 송신 목표 주기 100ms와 실제 DDS 수신 간격은 다릅니다. 기존 C05 테스트의 수신 주기 허용 범위는 20~600ms입니다. 이 숫자로 센서→Safety Supervisor→Stop까지의 **종단 안전 TTL**이 검증됐다고 결론내려서는 안 됩니다. 시간은 동일한 monotonic 수신 시계 안에서 비교해야 하며, 합성 source_timestamp_ns와 단순 감산하면 안 됩니다.
+
+**스스로 점검:** 로봇을 움직이지 않고도 ROS L1을 검증할 수 있나요? → 네. 교육용 DiagnosticArray의 독립 발행/구독만 검증하고 Nav2 Goal·cmd_vel을 발행하지 않습니다.
+
 ### B3. /rosout·rqt_console과 DiagnosticArray의 차이 (10분)
 
 - `ros2 topic echo /axia/education/diagnostics`는 **발행자가 살아 있는 동안만** 메시지를 볼 수 있습니다. `--ros-l1`의 송신기는 8건 전송 후 종료하므로 순서가 뒤바뀌면 토픽이 안 보일 수 있습니다. **토픽 미발견 = 항상 오류**는 아닙니다.
