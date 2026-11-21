@@ -97,5 +97,49 @@ class ObserverIOFirstBoundary(unittest.TestCase):
         self.assertNotIn("E_STOP_CERTIFIED=True",live)
 
 
+
+    def test_executor_silence_snapshot_is_bounded_read_only_and_not_root_proof(self):
+        # Independent heartbeat kept running throughout the actual native
+        # 340.896ms seven-topic callback silence in #44867547228.
+        # The one-shot CI-only executor stack is a DIAGNOSTIC, never TTL PASS.
+        import inspect
+        from types import SimpleNamespace
+        from p2_g07_observer_io_probe import FirstExecutorSilenceSnapshot
+        probe=FirstExecutorSilenceSnapshot(threshold_ms=160)
+        spin=SimpleNamespace(ident=314159,name="g07_observer_executor_spin")
+        frames={314159:inspect.currentframe()}
+        self.assertFalse(probe.capture(now=10.20,last_callback_at=10.,
+                           goal_active=False,spin_thread_ident=314159,
+                           threads=[spin],frames=frames))
+        self.assertFalse(probe.capture(now=10.10,last_callback_at=10.,
+                           goal_active=True,spin_thread_ident=314159,
+                           threads=[spin],frames=frames))
+        self.assertTrue(probe.capture(now=10.20,last_callback_at=10.,
+                           goal_active=True,spin_thread_ident=314159,
+                           threads=[spin],frames=frames))
+        self.assertFalse(probe.capture(now=10.40,last_callback_at=10.,
+                           goal_active=True,spin_thread_ident=314159,
+                           threads=[spin],frames=frames))
+        result=probe.result()
+        self.assertEqual(result["status"],"FIRST_EXECUTOR_SILENCE_STACK_CAPTURED_HOLD")
+        self.assertGreaterEqual(result["silence_ms"],160)
+        self.assertEqual(result["thread_roles"],["executor_spin"])
+        self.assertTrue(result["frames_by_role"]["executor_spin"])
+        self.assertFalse(result["root_cause_proven"])
+        self.assertFalse(result["timing_safety_pass"])
+        self.assertEqual(result["release"],"HOLD")
+        self.assertNotIn("file_path",str(result))
+        self.assertNotIn("local",str(result))
+
+    def test_executor_silence_snapshot_requires_existing_ci_only_io_probe(self):
+        from pathlib import Path
+        runner=Path(__file__).with_name("p2_g07_ci_moving_goal.py").read_text()
+        self.assertIn("FirstExecutorSilenceSnapshot",runner)
+        self.assertIn("silence_probe.capture(",runner)
+        self.assertIn('"first_executor_silence_snapshot"',runner)
+        self.assertIn("if io_probe:",runner)
+        self.assertIn("not owner_mode",runner)
+        self.assertNotIn("AXIA_G07_EVENTS_EXECUTOR_AB: '1'",runner)
+
 if __name__=="__main__":
     unittest.main()
