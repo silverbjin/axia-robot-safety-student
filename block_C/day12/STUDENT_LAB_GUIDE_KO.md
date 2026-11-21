@@ -183,6 +183,70 @@ PY
 
 **질문:** 품질 결손의 점수를 0.0이라고 만들어 NORMAL로 저장하면 어떤 일이 생길까요? → 데이터 미수신이 정상 판단으로 둔갑합니다.
 
+
+### A4-1. CLI 기반 미니 대시보드 만들기 (A4와 같은 시간에 진행)
+
+**왜 필요한가:** JSON 객체 하나만 보면 전체 사건 중 얼마나 많은 WARNING이 있는지 알기 어렵습니다. 그래서 운영자는 상태별 건수, 발생 순서, 점수와 사건 ID를 한 화면에 나란히 놓습니다. 아래 코드는 데이터를 **읽기만** 하며 새 웹 서버나 로봇 제어를 실행하지 않습니다.
+
+~~~bash
+python3 - <<'PY'
+import json
+from collections import Counter
+from pathlib import Path
+
+p = Path("block_C/day12/ros_transport/sample_events.jsonl")
+events = [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
+counts = Counter(event["level"] for event in events)
+
+print("=== D12 CLI DASHBOARD : EDUCATION ONLY ===")
+for level in ("NORMAL", "CAUTION", "WARNING", "INSUFFICIENT_DATA"):
+    print(f'{level:18s} {counts[level]:2d} | {"#" * counts[level]}')
+
+print("TIME(s) | LEVEL              | SCORE    | EVENT_ID")
+for e in events[:4]:
+    seconds = e["source_timestamp_ns"] / 1_000_000_000
+    score = "UNSCORED" if e["risk_score"] is None else f'{e["risk_score"]:.2f}'
+    print(f'{seconds:7.1f} | {e["level"]:18s} | {score:8s} | {e["event_id"]}')
+
+first = next(e["event_id"] for e in events if e["level"] == "WARNING")
+print(f"D12_BEGINNER_TIMELINE_PASS events={len(events)} first_warning={first}")
+PY
+~~~
+
+**실행 전 예상 출력(공개 가상 이벤트 12건 기준):**
+
+~~~text
+=== D12 CLI DASHBOARD : EDUCATION ONLY ===
+NORMAL              3 | ###
+CAUTION             3 | ###
+WARNING             3 | ###
+INSUFFICIENT_DATA   3 | ###
+TIME(s) | LEVEL              | SCORE    | EVENT_ID
+    0.0 | NORMAL             | 0.10     | DEMO:TST_N_00:000
+    0.1 | CAUTION            | 0.45     | DEMO:TST_N_00:001
+    0.2 | WARNING            | 0.90     | DEMO:TST_N_00:002
+    0.3 | INSUFFICIENT_DATA  | UNSCORED | DEMO:TST_N_00:003
+D12_BEGINNER_TIMELINE_PASS events=12 first_warning=DEMO:TST_N_00:002
+~~~
+
+**코드 한 줄씩 해설:**
+
+1. `p = Path(...)`는 **입력 파일 위치**를 가리킵니다. 이 명령은 파일을 변경하지 않습니다.
+2. `p.read_text(...).splitlines()`는 줄 단위로 나눕니다. JSONL은 JSON 객체가 **줄마다 하나씩** 들어 있습니다.
+3. `json.loads(line)`는 한 줄의 JSON 문자열을 Python의 사전(dict)으로 변환합니다.
+4. `Counter(event["level"] for event in events)`는 NORMAL 등 네 상태의 건수를 셉니다.
+5. `"#" * counts[level]`는 건수만큼 문자 막대를 그립니다. 3건이면 ###이 됩니다.
+6. `events[:4]`는 처음 4건을 뜻합니다. 전체 사건을 보려면 `events[:4]`를 `events`로 바꿔보세요.
+7. `source_timestamp_ns / 1_000_000_000`은 **합성 Trace의 나노초를 초로 표현**할 뿐, 현재 시각이나 안전 반응 시간이 아닙니다.
+8. `risk_score is None`은 **점수가 존재하지 않는 상태**를 뜻합니다. 그때 0.0이 아니라 UNSCORED로 출력합니다.
+9. `next(... if ... == "WARNING")`는 첫 번째 WARNING 사건 ID를 찾아 화면에 표시합니다. 로봇을 정지시키지 않습니다.
+
+**직접 확인:** 4건을 표시할 때와 8건을 표시할 때 첫 번째 WARNING ID는 달라지나요? 바뀌지 않습니다. 몇 줄을 화면에 보여줄지만 달라집니다.
+
+**스스로 점검:** WARNING이 3건이라고 실제 로봇의 E-Stop이 3번 동작한 것인가요? → **아닙니다.** 교육용 WARNING은 모델·전송 예시의 상태 정보이며 인증된 E-Stop과 무관합니다.
+
+**실무 사례:** 관제 담당자가 건수만 보고 위험이라고 단정하면 품질 불량(INSUFFICIENT_DATA)이 정상 데이터에 섞여 버릴 수 있습니다. 원본 score=null과 event_id를 함께 표시하는 이유입니다.
+
 ### A5. 코드로 실제 계약 확인 (12분)
 
 원본을 **읽기만** 합니다.
