@@ -17,6 +17,7 @@ import sys
 import threading
 import time
 
+from p2_g07_events_executor_policy import select_events_executor
 from p2_l3_live_session import Observer, _call_start, _publish_goal, _map_robot_pose
 from p2_l3_coordinate_frames import make_frame_anchor, obstacle_world_pose
 from p2_g07_spawn_contract import official_tb3_spawn
@@ -225,6 +226,11 @@ def run(args):
             target=observer_probe_heartbeat,
             name="g07_readonly_io_probe_heartbeat",daemon=True)
         probe_thread.start()
+    events_candidate=select_events_executor(
+        os.environ,owner_mode=owner_mode)
+    if events_candidate:
+        print("AXIA_G07_MOVING_EVENTS_EXECUTOR_AB=CI_ONLY "
+              "OFFICIAL_JAZZY_QOS_GOAL_CM_GUARD_TTL_UNCHANGED",flush=True)
     observer_started_at=time.monotonic()
     obs=(Observer(node,args.output,buffered_evidence=True,
                   periodic_flush_sec=.75,io_probe=io_probe)
@@ -239,7 +245,11 @@ def run(args):
         guard_ticks.append(time.monotonic())
         if len(guard_ticks)>3000:del guard_ticks[:1500]
     extra=node.create_subscription(String,"/axia/p2/base_guard",on_guard,10)
-    executor=MultiThreadedExecutor(num_threads=2 if owner_observer_parity else 3)
+    if events_candidate:
+        from rclpy.experimental import EventsExecutor
+        executor=EventsExecutor()
+    else:
+        executor=MultiThreadedExecutor(num_threads=2 if owner_observer_parity else 3)
     executor.add_node(node)
     worker=threading.Thread(target=executor.spin,daemon=True)
     worker.start()

@@ -8,6 +8,8 @@ import argparse
 from collections import deque
 import json
 import math
+import os
+from p2_g07_events_executor_policy import select_events_executor
 from pathlib import Path
 import time
 
@@ -199,6 +201,7 @@ def run(output,window_sec=WINDOW_SEC):
     from sensor_msgs.msg import LaserScan
     from nav_msgs.msg import Odometry
     from rosgraph_msgs.msg import Clock
+    use_events=select_events_executor(os.environ,owner_mode=False)
     output=Path(output)
     output.parent.mkdir(parents=True,exist_ok=True)
     records={name:deque(maxlen=CLOCK_WINDOW_MAX_SAMPLES if name=="clock" else 400) for name in ("scan","safety_scan","clock","odom")}
@@ -219,11 +222,23 @@ def run(output,window_sec=WINDOW_SEC):
           node.create_subscription(LaserScan,"/safety/scan",scan_cb("safety_scan"),qos_profile_sensor_data),
           node.create_subscription(Clock,"/clock",clock_cb,qos_profile_sensor_data),
           node.create_subscription(Odometry,"/odom",odom_cb,qos_profile_sensor_data)]
+    executor=None
+    if use_events:
+        # Existing ROS Jazzy experimental backport: no added node or
+        # read-only QoS/Scan sampling policy change; fail closed if absent.
+        from rclpy.experimental import EventsExecutor
+        executor=EventsExecutor()
+        executor.add_node(node)
+        print("AXIA_G07_PREG0AL_EVENTS_EXECUTOR_AB=CI_ONLY "
+              "STRICT_12SEC_300MS_UNCHANGED",flush=True)
     t0=time.monotonic()
     try:
         ready=False
         while time.monotonic()-t0<DISCOVERY_WARMUP_MAX_SEC:
-            rclpy.spin_once(node,timeout_sec=.04)
+            if executor is not None:
+                executor.spin_once(timeout_sec=.04)
+            else:
+                rclpy.spin_once(node,timeout_sec=.04)
             if (time.monotonic()-t0>=WARMUP_SEC
                     and preflight_streams_ready(records,now=time.monotonic())):
                 ready=True
@@ -234,7 +249,10 @@ def run(output,window_sec=WINDOW_SEC):
             for rows in records.values():rows.clear()
             t1=time.monotonic()
             while time.monotonic()-t1<window_sec:
-                rclpy.spin_once(node,timeout_sec=.04)
+                if executor is not None:
+                    executor.spin_once(timeout_sec=.04)
+                else:
+                    rclpy.spin_once(node,timeout_sec=.04)
             report=assess_pregoal_samples({k:list(v) for k,v in records.items()},
                                           window_sec=window_sec)
         else:
@@ -244,6 +262,8 @@ def run(output,window_sec=WINDOW_SEC):
                         observed_topic_counts={k:len(v) for k,v in records.items()},
                         window_sec=window_sec,root_cause_proven=False)
     finally:
+        if executor is not None:
+            executor.shutdown(timeout_sec=2)
         for sub in subs:node.destroy_subscription(sub)
         node.destroy_node()
         rclpy.try_shutdown()
