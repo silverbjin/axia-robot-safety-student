@@ -188,7 +188,7 @@ PY
 ```text
 CASE_ID= P_then_N_never_autoclears
 STEP_COUNT= 2
-STEP 1 seq= 0 verdict= P time= 5.0
+STEP 1 seq= 0 verdict= P time= 5
 STEP 2 seq= 1 verdict= N time= 5.1
 EXPECTED_ACTION= KEEP_LIMITED_NO_AUTOMATIC_CLEAR
 EXPECTED_LIMITED= True
