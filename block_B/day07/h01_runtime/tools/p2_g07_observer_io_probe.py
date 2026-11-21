@@ -91,6 +91,17 @@ class BoundedObserverIoProbe:
                           default=None)
         heartbeat_window=[round(x,9) for x in beats if
                           earliest and abs(x-earliest["current_at"])<=.5][:100]
+        # Compare *only* the heartbeat interval inside the FIRST ROS
+        # callback gap. Global heartbeat maximum elsewhere in the run
+        # cannot prove first-gap process/GIL/host starvation.
+        inside_first=[x for x in beats if earliest and
+                      earliest["previous_at"] <= x <= earliest["current_at"]]
+        first_hb_max=(max(((b-a)*1000 for a,b in zip(
+            inside_first,inside_first[1:])),default=None)
+                      if len(inside_first)>=2 else None)
+        first_hb_covered=(bool(earliest) and len(inside_first)>=3
+                          and inside_first[0]-earliest["previous_at"]<=.04
+                          and earliest["current_at"]-inside_first[-1]<=.04)
         return {"schema":"axia.g07.observer_callback_io_probe.v1",
                 "status":("PROBE_CAPTURED_FIRST_BOUNDARY_UNPROVEN_HOLD"
                           if scope and rows and dropped==0 and self.invalid==0
@@ -113,6 +124,11 @@ class BoundedObserverIoProbe:
                 "heartbeat_max_gap_ms":(
                     round(heartbeat_max,6) if heartbeat_max is not None else None),
                 "heartbeat_in_first_gap_window":heartbeat_window,
+                "first_violation_heartbeat_count":len(inside_first),
+                "first_violation_heartbeat_max_gap_ms":(
+                    round(first_hb_max,6) if first_hb_max is not None else None),
+                "first_violation_heartbeat_coverage":first_hb_covered,
+                "process_wide_stall_at_first_violation_proven":False,
                 "worst_io_operations":worst,
                 "first_gap_nearby_io":near_io,
                 "first_gap_within_scoped_window":bool(earliest)}
