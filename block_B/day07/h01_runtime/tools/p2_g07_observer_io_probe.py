@@ -204,3 +204,30 @@ class FirstExecutorSilenceSnapshot:
                     "release":"HOLD","root_cause_proven":False,
                     "timing_safety_pass":False,"certified_estop":False}
         return dict(self._result)
+
+
+def select_bounded_executor_wait_candidate(env, *, owner_mode=False):
+    """Opt-in CI-only 20ms MultiThreadedExecutor wait-set A/B; never Owner.
+
+    This changes the scheduling experiment's wait horizon, not the existing
+    two workers, callback groups, ROS QoS, safety TTLs, Goal or evidence.
+    A correct run may STILL fail inter-node 120/150/300ms, never safety PASS.
+    """
+    if not isinstance(env,dict) and not hasattr(env,"get"):
+        raise ValueError("G07_BOUNDED_WAIT_ENV_INVALID")
+    raw=env.get("AXIA_G07_CI_EXECUTOR_WAIT_BOUNDED_AB","0")
+    if raw not in ("0","1"):
+        raise ValueError("G07_BOUNDED_WAIT_AB_INVALID_VALUE")
+    if raw=="0":
+        return False
+    required={
+        "GITHUB_ACTIONS":"true",
+        "AXIA_G07_CI_SIM_GOAL_ALLOWED":"1",
+        "AXIA_P0_SIM_ONLY":"1",
+        "AXIA_G07_CI_OWNER_OBSERVER_PARITY":"1",
+        "AXIA_G07_OBSERVER_IO_PROBE":"1",
+    }
+    if (owner_mode or any(env.get(k)!=v for k,v in required.items())
+            or env.get("AXIA_G07_EVENTS_EXECUTOR_AB","0")!="0"):
+        raise ValueError("G07_BOUNDED_WAIT_REQUIRES_CI_MULTI2_READONLY_AB")
+    return True
