@@ -28,7 +28,7 @@ class OwnerSensorRendererParity(unittest.TestCase):
         source = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("GALLIUM_DRIVER=d3d12", source)
         self.assertIn("MESA_D3D12_DEFAULT_ADAPTER_NAME=", source)
-        self.assertIn("env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12", source)
+        self.assertIn("env -u LIBGL_ALWAYS_SOFTWARE QT_QPA_PLATFORM=xcb GALLIUM_DRIVER=d3d12", source)
         self.assertIn("unset GALLIUM_DRIVER MESA_D3D12_DEFAULT_ADAPTER_NAME", source)
 
     def test_real_gazebo_model_pose_uses_whitespace_separated_coordinates(self):
