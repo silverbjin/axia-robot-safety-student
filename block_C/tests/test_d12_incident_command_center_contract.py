@@ -18,7 +18,7 @@ def test_single_file_offline_app_has_safety_and_controls():
         "EDUCATION_TRANSPORT_DEMO", "DEMO:TST_N_00:",
         "operator_feedback.jsonl", "INVESTIGATE", "CHECK_QUALITY",
         "Replay", "일시정지", "다시 시작", "1건 진행", "정답 공개",
-        "상태 필터", "피드백 기록", "JSONL 내보내기", "JSONL 불러오기",
+        "상태 필터", "피드백 기록", "JSONL 내보내기", "피드백 JSONL 다시 불러오기",
     ):
         assert key in src, key
     for id_ in (
