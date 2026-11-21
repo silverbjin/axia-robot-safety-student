@@ -237,7 +237,16 @@ cleanup() {
          grep -Eq '(^|[[:space:]])data:[[:space:]]*true([[:space:]]|$)' <<< "$server_reply";then
        printf '%s\n' "$server_reply" > "$OUT/g07_gz_server_stop.log"
        echo 'G07_NO_GOAL_GAZEBO_SERVER_STOP_ACK_BEFORE_SIGINT'
-       sleep .7  # server process drain, not a safety watchdog
+       # The positive ServerControl RPC only ACKs the stop request.
+       # Do not send a group-wide SIGINT until the Gazebo native child
+       # actually emitted clean exit0. WSLg Ogre2 GPU teardown may be slow.
+       echo 'G07_GAZEBO_SERVER_WAIT_NATIVE_EXIT0_BEFORE_GROUP_SIGINT'
+       if bash tools/g07_gazebo_server_exit_guard.sh --wait "$OUT/launch.log" 15;then
+         gz_native_exit_before_sigint=1
+       else
+         echo 'G07_NO_GOAL_GAZEBO_SERVER_NATIVE_EXIT0_HOLD' >&2
+         rc=3
+       fi
      else
        printf '%s\n' "$server_reply" > "$OUT/g07_gz_server_stop.log"
        echo 'G07_NO_GOAL_GAZEBO_SERVER_STOP_FAILED_HOLD no_server_control_ack' >&2
@@ -247,7 +256,18 @@ cleanup() {
    # Owner parity: recorder remains active until official Nav2 shutdown;
    # close bag before sending launch SIGINT, just as WSL2 Owner does.
    if ! stop_owner_parity_bag; then rc=3; fi
-   kill -INT -- "-$LAUNCH_PID" 2>/dev/null || true
+   if [[ "$SENSOR_NO_GOAL" == 1 && "$NO_GOAL_ORDERED" == 1
+         && "$NO_GOAL_GZ_STOP" == 1
+         && "${gz_native_exit_before_sigint:-0}" != 1 ]];then
+     # Without native exit0 evidence, never direct an additional SIGINT
+     # at the whole group including a possibly still-unwinding gz process.
+     # Ask the ROS launch manager to shut down owned children and HOLD.
+     echo 'G07_NO_GOAL_GAZEBO_DRAIN_UNPROVEN_LAUNCH_PID_ONLY_SIGINT_HOLD' >&2
+     rc=3
+     kill -INT "$LAUNCH_PID" 2>/dev/null || true
+   else
+     kill -INT -- "-$LAUNCH_PID" 2>/dev/null || true
+   fi
    local launch_grace_steps=25
    if [[ "${AXIA_G07_TASK03_POSITIVE_ONLY:-0}" == 1
       && -f "$OUT/task03_disposable_shutdown.marker" ]]; then
