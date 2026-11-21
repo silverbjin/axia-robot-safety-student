@@ -10,6 +10,7 @@ import json
 import math
 import os
 from p2_g07_events_executor_policy import select_events_executor
+from p2_g07_scan_take_first_pair import summarize_first_take_pair
 from p2_g07_scan_rmw_first_pair import normalize_scan_message_info, first_scan_rmw_pair, summarize_scan_rmw_metadata
 from pathlib import Path
 import time
@@ -203,6 +204,13 @@ def run(output,window_sec=WINDOW_SEC):
     from nav_msgs.msg import Odometry
     from rosgraph_msgs.msg import Clock
     use_events=select_events_executor(os.environ,owner_mode=False)
+    take_flag=os.environ.get("AXIA_G07_G10_D08_TAKE_AB","0")
+    if take_flag not in ("0","1"):
+        raise RuntimeError("G07_G10_TAKE_PROBE_INVALID_FLAG")
+    use_take_probe=(take_flag=="1")
+    if use_take_probe and (use_events or os.environ.get("GITHUB_ACTIONS")!="true"
+            or os.environ.get("AXIA_P0_SIM_ONLY")!="1"):
+        raise RuntimeError("G07_G10_D08_TAKE_PROBE_CI_ONLY_NO_GOAL_HOLD")
     output=Path(output)
     output.parent.mkdir(parents=True,exist_ok=True)
     records={name:deque(maxlen=CLOCK_WINDOW_MAX_SAMPLES if name=="clock" else 400) for name in ("scan","safety_scan","clock","odom")}
@@ -231,6 +239,23 @@ def run(output,window_sec=WINDOW_SEC):
           node.create_subscription(Clock,"/clock",clock_cb,qos_profile_sensor_data),
           node.create_subscription(Odometry,"/odom",odom_cb,qos_profile_sensor_data)]
     executor=None
+    take_timeline=None
+    if use_take_probe:
+        # Reuse D08 PR #201's existing tested /scan take-complete hook;
+        # do not fork rclpy, create a new subscriber or alter publisher QoS.
+        from rclpy.executors import SingleThreadedExecutor, await_or_execute
+        from rclpy.exceptions import InvalidHandle
+        from rclpy.subscription import Subscription
+        from d08_rcl_take_dispatch_probe import (TakeTimeline, build_scan_take_executor)
+        take_timeline=TakeTimeline(limit=1024)
+        Probe=build_scan_take_executor(
+            SingleThreadedExecutor,InvalidHandle,await_or_execute,
+            Subscription.CallbackType.MessageOnly)
+        executor=Probe(take_timeline)
+        executor.add_node(node)
+        executor.arm_scan(subs[0])
+        print("AXIA_G07_G10_D08_TAKE_PROBE_CI_ONLY "
+              "RCL_TAKE_NATIVE_NOT_TRACED_G07_300MS_UNCHANGED",flush=True)
     if use_events:
         # Existing ROS Jazzy experimental backport: no added node or
         # read-only QoS/Scan sampling policy change; fail closed if absent.
@@ -275,6 +300,9 @@ def run(output,window_sec=WINDOW_SEC):
                         observed_topic_counts={k:len(v) for k,v in records.items()},
                         window_sec=window_sec,root_cause_proven=False)
             report["scan_rmw_metadata_capability"]=summarize_scan_rmw_metadata(list(scan_rmw_rows))
+        if use_take_probe:
+            report["first_scan_take_pair"]=summarize_first_take_pair(
+                report.get("first_scan_timing_boundary"),take_timeline.snapshot())
     finally:
         if executor is not None:
             executor.shutdown(timeout_sec=2)
@@ -282,6 +310,9 @@ def run(output,window_sec=WINDOW_SEC):
         node.destroy_node()
         rclpy.try_shutdown()
     output.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+    if use_take_probe:
+        print("AXIA_G07_G10_TAKE_FIRST_PAIR "+
+              json.dumps(report.get("first_scan_take_pair",{}),sort_keys=True),flush=True)
     print("AXIA_G07_PREG0AL_RMW_CAPABILITY "+json.dumps(report.get("scan_rmw_metadata_capability",{}),sort_keys=True),flush=True)
     if report["status"]!="PASS_SCOPED_RECEIVED_SCAN_ONLY":
         print("AXIA_G07_PREGOAL_SCAN_FIRST_NUMERIC "+
