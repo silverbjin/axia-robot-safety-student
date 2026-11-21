@@ -151,6 +151,9 @@ class Observer:
             # callback dispatch; /clock, /scan, /odom, Guard, Goal untouched.
             print("G07_CM_OBSERVER_ISOLATED_CALLBACK_GROUPS=2 EXCLUSIVE "
                   "NO_TTL_OR_GOAL_CHANGE",flush=True)
+        # ROS2 Executor holds groups via weak ownership: preserve a strong
+        # reference for the entire Observer lifetime, not constructor locals.
+        self._g07_cm_observer_callback_groups=(cm_group,supervised_group)
         if self._g07_rmw_info:
             sub(Twist,'/cmd_vel_pre_guard',
                 lambda m,info:self._twist('pre_guard',m,info=info),10,
