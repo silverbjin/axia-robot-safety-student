@@ -46,6 +46,7 @@ jobs:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q block_C/tests/test_d12_guides_contract.py
           PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q block_C/tests/test_d12_incident_command_center_contract.py
           node block_C/tests/d12_incident_command_center_smoke.cjs
+          node block_C/tests/d12_incident_browser_smoke.cjs
           echo C06_STUDENT_SCAFFOLD_PUBLIC_L0_PASS
       - uses: actions/upload-artifact@v4
         if: always()
