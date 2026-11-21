@@ -1,0 +1,32 @@
+name: AXIA BLOCK_D Final Student D13-D15 L0
+on:
+  push:
+    branches:
+      - release/block-d-d13-d15-final-20261121
+      - main
+    paths:
+      - 'block_D/**'
+      - '.github/workflows/block-d-final-student-l0.yml'
+      - '.github/workflows/block-d-d15-classroom-l0.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'block_D/**'
+      - '.github/workflows/block-d-final-student-l0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  all-student-labs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Integrated D13-D15 student release test
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s block_D/tests -p 'test_*.py' -v
+          python3 block_D/tools/verify_student_release.py --out "$RUNNER_TEMP/block_d_final"
+          test -s "$RUNNER_TEMP/block_d_final/BLOCK_D_RELEASE_RESULT.json"
+          echo 'AXIA_BLOCK_D_STUDENT_MAIN_READY_L0=PASS_NO_ROS_GAZEBO_GOAL'
