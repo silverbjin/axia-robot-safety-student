@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>AXIA Incident Command Center · D12 Education Replay</title>
+<style>
+:root{font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;color:#e9f1fb;background:#09121f;font-size:16px;--edge:#263c52;--muted:#a4b6ca;--good:#32c7a7;--caution:#f0bb60;--bad:#f27c8e;--none:#a1adc0}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 88% 0%,#142f46 0,transparent 36%),#09121f}
+button,select,textarea{font:inherit;color:inherit}button,select{border:1px solid #466078;border-radius:9px;background:#1a3045;min-height:42px;padding:9px 13px}button{cursor:pointer}button:hover:not(:disabled){background:#294b61}button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible+label{outline:3px solid #64d9da;outline-offset:2px}button:disabled{cursor:not-allowed;opacity:.48}
+button.primary{background:#187d83;border-color:#32c7b5;font-weight:700}button.primary:hover:not(:disabled){background:#21979b}
+header{padding:20px 28px 13px;display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid var(--edge)}
+h1{font-size:26px;letter-spacing:.04em;margin:0;font-weight:800}h2{font-size:20px;margin:0 0 12px}h3{font-size:16px;margin:0 0 9px}
+.tagline{color:var(--muted);font-size:13px;margin-top:8px}strong{font-weight:800}
+.pill{font-size:12px;letter-spacing:.035em;font-weight:800;border:1px solid #5c8fa4;color:#92d9d7;border-radius:999px;padding:8px 12px;white-space:nowrap}
+.guard{padding:9px 28px;background:#193243;border-bottom:1px solid #34566d;font-size:12px;color:#d6eafa;display:flex;flex-wrap:wrap;gap:10px 28px}
+main{padding:16px 28px 14px;max-width:1760px;margin:auto}
+.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:11px;margin-bottom:14px}
+.metric{border:1px solid var(--edge);background:#122235;border-radius:12px;padding:12px 16px;min-height:85px}
+.metric-label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}.metric-num{font-size:27px;font-weight:800;font-variant-numeric:tabular-nums}
+.metric.warn .metric-num{color:var(--bad)}.metric.quality .metric-num{color:#b4b7ff}
+.layout{display:grid;grid-template-columns:minmax(0,1.42fr) minmax(385px,1fr);gap:14px;align-items:start}
+.panel{background:#101f30;border:1px solid var(--edge);border-radius:14px;padding:16px;min-width:0}
+.toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:12px 0 8px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+label{display:inline-block;font-size:13px;color:var(--muted);margin-bottom:5px}
+select{max-width:100%}.timeline{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;margin:16px 0 8px}
+.tick{padding:7px 0;min-width:0;min-height:49px;border:1px solid #3b5871;border-radius:8px;background:#15283d;color:#c9dbea;text-align:center;font:600 12px ui-monospace,monospace}
+.tick.future{opacity:.4}.tick.selected{outline:2px solid #e6f8fa;outline-offset:1px}
+.tick.good{background:#13544e;border-color:#32c7a7}.tick.caution{background:#624925;border-color:#f0bb60}.tick.warning{background:#6c303d;border-color:#f27c8e}.tick.missing{background:#34365f;border-color:#9b99e2}
+.timeline-help{font-size:12px;color:var(--muted);margin-bottom:13px;line-height:1.5}
+.feed{height:298px;max-height:38vh;overflow-y:auto;border:1px solid #2c4459;border-radius:9px;padding:8px;background:#0c1929}
+.feed-empty{padding:35px 12px;text-align:center;color:var(--muted);font-size:14px}
+.event-row{width:100%;text-align:left;display:grid;grid-template-columns:54px minmax(0,1fr) 154px;align-items:center;gap:8px;margin-bottom:5px;padding:9px 10px;min-height:47px;background:#16283a;border-color:#29465c}
+.event-row:last-child{margin-bottom:0}.event-row.active{border-color:#92e5e3;background:#21405a}
+.event-row .small{font:12px ui-monospace,monospace;color:#b4c8d8}
+.event-row .id{font:600 13px ui-monospace,monospace;overflow-wrap:anywhere}
+.event-row .level{text-align:right;font-size:11px;font-weight:700;overflow-wrap:anywhere;word-break:break-word}
+.level.good{color:var(--good)}.level.caution{color:var(--caution)}.level.warning{color:var(--bad)}.level.missing{color:#b9b4fa}.level.hidden{color:var(--muted)}
+.detail-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.detail{border:1px solid #35536c;border-radius:11px;background:#12273a;padding:14px;min-height:167px}
+.detail-id{font:700 14px ui-monospace,monospace;overflow-wrap:anywhere;margin:4px 0 10px}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 13px}
+.detail-grid p{margin:0;font-size:13px}.detail-grid small{color:var(--muted);display:block;font-size:11px;padding-bottom:3px}
+.detail-status{font-weight:800}.sub{color:var(--muted);font-size:12px;line-height:1.55}
+.decision{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:end;margin-top:13px}
+textarea{width:100%;min-height:68px;padding:11px;border:1px solid #466078;border-radius:9px;background:#0c1929;resize:vertical;font-size:14px}
+.feedback-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.log{max-height:146px;min-height:55px;overflow:auto;border:1px solid #314b5e;border-radius:9px;padding:8px;background:#0b1928}
+.log-item{padding:6px 3px;border-bottom:1px solid #304659;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.log-item:last-child{border-bottom:0}.log-empty{color:var(--muted);font-size:12px}
+.file-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}.file-trigger{display:inline-flex;align-items:center;cursor:pointer;padding:8px 12px;border:1px solid #446079;border-radius:8px;background:#1a3045;color:#edf4fa;font-size:12px;min-height:38px}
+.file-trigger:hover{background:#294b61}.file-hidden{position:absolute;width:1px;height:1px;opacity:0}
+#toast{min-height:23px;margin-top:9px;font-size:12px;color:#bdece3}footer{padding:13px 28px;color:var(--muted);font-size:12px;border-top:1px solid var(--edge);line-height:1.5}
+@media(max-width:1080px){header{flex-wrap:wrap}.layout{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.feed{max-height:none}.panel{padding:14px}}
+@media(max-width:610px){main,header,.guard{padding-left:12px;padding-right:12px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.timeline{grid-template-columns:repeat(6,minmax(0,1fr))}.decision{grid-template-columns:1fr}.event-row{grid-template-columns:45px minmax(0,1fr) 108px}.event-row .id{font-size:11px}h1{font-size:21px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>AXIA INCIDENT COMMAND CENTER</h1><div class="tagline">야간 관제실 02:13 — 몰입형 위험 이벤트 조사 훈련 (연출된 상황)</div></div>
+  <span class="pill" id="modeBadge">SYNTHETIC REPLAY · EDUCATION ONLY</span>
+</header>
+<div class="guard"><strong>NO CONTROL AUTHORITY</strong><span>NOT LIVE ROS DDS · 실제 로봇 계측 아님 · SW Stop / 인증된 E-Stop 아님</span><span>데이터 출처: EDUCATION_TRANSPORT_DEMO</span></div>
+<main>
+  <section class="metrics" aria-label="교육용 사건 집계">
+    <div class="metric"><span class="metric-label">합성 입력 전체</span><span class="metric-num" id="totalCount">12</span></div>
+    <div class="metric"><span class="metric-label">Replay 관찰 완료</span><span class="metric-num" id="seenCount">0</span></div>
+    <div class="metric"><span class="metric-label">공개된 NORMAL / CAUTION</span><span class="metric-num" id="normalCount">0 / 0</span></div>
+    <div class="metric warn"><span class="metric-label">공개된 WARNING</span><span class="metric-num" id="warningCount">0</span></div>
+    <div class="metric quality"><span class="metric-label">공개된 INSUFFICIENT_DATA</span><span class="metric-num" id="qualityCount">0</span></div>
+  </section>
+  <div class="layout">
+    <section class="panel" aria-label="사건 Replay 화면">
+      <h2>01 / 사건 모니터링 Replay</h2>
+      <div class="sub" id="sourceNotice">기본 제공: 공개 합성 이벤트 12건. 실제 D11 AE 추론 결과가 아닙니다.</div>
+      <div class="toolbar">
+        <div class="controls">
+          <button id="playBtn" class="primary" type="button">▶ Replay</button>
+          <button id="pauseBtn" type="button">Ⅱ 일시정지</button>
+          <button id="stepBtn" type="button">1건 진행</button>
+          <button id="resetBtn" type="button">↺ 다시 시작</button>
+        </div>
+        <div class="controls">
+          <label for="speedSelect">재생 속도</label>
+          <select id="speedSelect" aria-label="Replay 속도">
+            <option value="1800">느리게</option><option value="1100" selected>보통</option><option value="500">빠르게</option>
+          </select>
+          <label for="filterSelect">상태 필터</label>
+          <select id="filterSelect"><option value="ALL">전체</option><option value="NORMAL">NORMAL</option><option value="CAUTION">CAUTION</option><option value="WARNING">WARNING</option><option value="INSUFFICIENT_DATA">INSUFFICIENT_DATA</option></select>
+        </div>
+      </div>
+      <h3>시간선 <span class="sub" id="progressLabel">0 / 12건 관찰</span></h3>
+      <div class="timeline" id="timeline" aria-label="관찰된 사건 타임라인"></div>
+      <div class="timeline-help">각 칸은 합성 Trace의 0.1초 간격입니다. 아직 공개하지 않은 사건의 상태는 색상으로 드러나지 않습니다.</div>
+      <h3>사건 목록 · 관찰 후 선택 가능</h3>
+      <div class="feed" id="eventStream" aria-live="polite"><div class="feed-empty">Replay 또는 1건 진행을 눌러 사건을 접수하세요.</div></div>
+      <div class="file-row">
+        <input id="importEvents" type="file" accept=".jsonl,.txt,application/json" class="file-hidden" aria-label="공개 합성 sample_events.jsonl 선택">
+        <label class="file-trigger" for="importEvents">교육용 sample_events.jsonl 불러오기</label>
+        <span class="sub">오프라인 파일 읽기만 수행 · 인증 정보/네트워크 전송 없음</span>
+      </div>
+    </section>
+    <section class="panel" aria-label="운영자 사건 조사 및 피드백">
+      <div class="detail-head"><h2>02 / 사건 조사·판단</h2><span class="pill" id="caseCounter">대기 중</span></div>
+      <div class="detail" id="detail">
+        <div class="sub">선택된 이벤트 ID</div><div class="detail-id" id="caseId">—</div>
+        <div class="detail-grid">
+          <p><small>합성 Trace 시간</small><span id="caseTime">—</span></p>
+          <p><small>공개된 상태</small><span id="caseLevel" class="detail-status">미공개</span></p>
+          <p><small>위험 점수</small><span id="caseScore">—</span></p>
+          <p><small>교육용 임계값</small><span id="caseThreshold">—</span></p>
+          <p><small>품질 원인</small><span id="caseQuality">—</span></p>
+          <p><small>데이터 출처</small><span id="caseSource">합성 교육자료</span></p>
+        </div>
+      </div>
+      <div class="decision">
+        <div><label for="guessSelect">먼저 사건 상태를 예측해 보세요</label><select id="guessSelect" style="width:100%">
+            <option value="">상태 예측 선택</option><option value="NORMAL">NORMAL</option><option value="CAUTION">CAUTION</option><option value="WARNING">WARNING</option><option value="INSUFFICIENT_DATA">INSUFFICIENT_DATA</option>
+        </select></div>
+        <button type="button" id="revealBtn" class="primary">정답 공개</button>
+      </div>
+      <p class="sub" id="revealHint">예측 후 공개되는 값은 교육용 임의 사건의 레벨입니다. 실제 고장 정답이나 로봇 정지를 뜻하지 않습니다.</p>
+      <h3 style="margin-top:17px">03 / 피드백 기록</h3>
+      <div><label for="feedbackAction">운영자 조치 분류</label><select id="feedbackAction" style="width:100%">
+        <option value="INVESTIGATE">INVESTIGATE · 추가 조사</option>
+        <option value="CHECK_QUALITY">CHECK_QUALITY · 데이터 품질 확인</option>
+        <option value="ACKNOWLEDGED">ACKNOWLEDGED · 내용 확인</option>
+        <option value="SUSPECT_FALSE_POSITIVE">SUSPECT_FALSE_POSITIVE · 오탐 의심</option>
+      </select></div>
+      <div style="margin-top:9px"><label for="feedbackReason">선택한 이유 (5~400자, 사건 ID 근거 포함 권장)</label><textarea id="feedbackReason" maxlength="400" placeholder="예: risk_score=0.9 > threshold=0.5, 실제 로봇 고장은 추가 확인이 필요함"></textarea></div>
+      <div class="feedback-actions">
+        <button id="saveFeedbackBtn" class="primary" type="button">피드백 기록</button>
+        <button id="exportFeedbackBtn" type="button">JSONL 내보내기</button>
+      </div>
+      <div class="sub" style="margin:10px 0 5px">작성된 운영자 기록 (원본 이벤트는 수정하지 않음)</div>
+      <div class="log" id="feedbackList"><div class="log-empty">기록 없음. WARNING과 품질 오류를 각각 조사해 보세요.</div></div>
+      <div class="file-row">
+        <input id="importFeedback" type="file" accept=".jsonl,.txt,application/json" class="file-hidden" aria-label="내보낸 피드백 파일 검증 불러오기">
+        <label class="file-trigger" for="importFeedback">피드백 JSONL 다시 불러오기</label>
+      </div>
+      <div role="status" aria-live="polite" id="toast">준비 완료 · ▶ Replay 버튼을 눌러 사건을 접수하세요.</div>
+    </section>
+  </div>
+</main>
+<footer>
+  D12 교육 전용 · source_timestamp_ns는 합성 Trace 내부 시각 · 화면의 02:13은 이야기 연출 · 실제 ROS DDS 송수신은 별도 <code>--ros-l1</code> / <code>verdict.json</code>으로 검증하십시오.
+</footer>
+<script>
+'use strict';
+(function(){
+  const SOURCE='SYNTHETIC_COURSE_FIXTURE';
+  const MODEL='EDUCATION_TRANSPORT_DEMO';
+  const LEVELS=['NORMAL','CAUTION','WARNING','INSUFFICIENT_DATA'];
+  const ACTIONS=['INVESTIGATE','CHECK_QUALITY','ACKNOWLEDGED','SUSPECT_FALSE_POSITIVE'];
+
+  function makeSampleEvents(){
+    return Array.from({length:12},function(_,i){
+      const level=LEVELS[i%4],missing=level==='INSUFFICIENT_DATA';
+      return {
+        schema_version:1,event_id:'DEMO:TST_N_00:'+String(i).padStart(3,'0'),trace_id:'TST_N_00',
+        source:SOURCE,source_timestamp_ns:i*100000000,model_id:MODEL,
+        risk_score:missing?null:[0.1,0.45,0.9][i%4],threshold:missing?null:0.5,
+        level:level,quality_reason:missing?'DEMO_SAMPLE_MISSING':null,
+        input_sha256:'a'.repeat(64),control_authority:false,certified_estop:false
+      };
+    });
+  }
+  function fail(message){throw new Error(message)}
+  function validateEvent(e,i){
+    const expected=makeSampleEvents()[i];
+    if(!expected||!e||typeof e!=='object'||Array.isArray(e))fail('교육용 사건 객체가 아닙니다');
+    const keys=Object.keys(expected).sort(),actual=Object.keys(e).sort();
+    if(JSON.stringify(keys)!==JSON.stringify(actual))fail('이벤트 필드가 교육용 계약과 다릅니다 (행 '+(i+1)+')');
+    for(const key of keys){
+      if(e[key]!==expected[key])fail('이벤트 값/출처 불일치: '+key+' (행 '+(i+1)+')');
+    }
+    return true;
+  }
+  function parseEventJSONL(input){
+    if(typeof input!=='string'||input.length>1000000)fail('교육용 JSONL 파일 크기/형식 오류');
+    const rows=input.split(/\r?\n/).filter(function(s){return s.trim().length>0});
+    if(rows.length!==12)fail('고정 교육용 이벤트는 반드시 12건입니다 (현재 '+rows.length+'건)');
+    return rows.map(function(line,i){
+      let obj;
+      try{obj=JSON.parse(line)}catch(e){fail('JSON 형식 오류: '+(i+1)+'행')}
+      validateEvent(obj,i);
+      return obj;
+    });
+  }
+  function countLevels(events){
+    const result={NORMAL:0,CAUTION:0,WARNING:0,INSUFFICIENT_DATA:0};
+    events.forEach(function(e){if(!Object.prototype.hasOwnProperty.call(result,e.level))fail('알 수 없는 레벨');result[e.level]++});
+    return result;
+  }
+  function makeFeedbackRecord(event,action,reason,iso){
+    if(!event||!makeSampleEvents().some(function(e){return e.event_id===event.event_id}))fail('존재하지 않는 사건 ID');
+    if(!ACTIONS.includes(action))fail('교육용 운영자 조치 목록에서 선택하세요');
+    if(typeof reason!=='string'||reason.trim().length<5||reason.length>400)fail('판단 근거를 5~400자로 입력하세요');
+    if(typeof iso!=='string'||!/Z$/.test(iso)||Number.isNaN(Date.parse(iso)))fail('UTC 기록 시각 형식 오류');
+    return {event_id:event.event_id,operator_action:action,reason:reason.trim(),reviewed_at_utc:iso,control_authority:false};
+  }
+  function parseFeedbackJSONL(input,events){
+    if(typeof input!=='string'||input.length>200000)fail('피드백 파일 크기/형식 오류');
+    const rows=input.split(/\r?\n/).filter(function(s){return s.trim().length>0});
+    if(rows.length<1||rows.length>12)fail('피드백은 1~12건만 불러올 수 있습니다');
+    const ids=new Set(events.map(function(e){return e.event_id})),seen=new Set();
+    return rows.map(function(line,i){
+      let obj;
+      try{obj=JSON.parse(line)}catch(e){fail('피드백 JSON 형식 오류: '+(i+1)+'행')}
+      if(!obj||typeof obj!=='object'||Array.isArray(obj)||!ids.has(obj.event_id)||seen.has(obj.event_id))fail('피드백 사건 ID 누락/중복/불일치');
+      if(obj.control_authority!==false)fail('피드백에는 제어 권한이 없어야 합니다');
+      const rebuilt=makeFeedbackRecord(events.find(function(e){return e.event_id===obj.event_id}),obj.operator_action,obj.reason,obj.reviewed_at_utc);
+      if(JSON.stringify(Object.keys(obj).sort())!==JSON.stringify(Object.keys(rebuilt).sort()))fail('피드백 필드 불일치');
+      seen.add(obj.event_id);
+      return rebuilt;
+    });
+  }
+  function serializeFeedback(records,events){
+    if(!records.length)fail('내보낼 피드백이 없습니다');
+    return parseFeedbackJSONL(records.map(function(r){return JSON.stringify(r)}).join('\n'),events)
+      .map(function(r){return JSON.stringify(r)}).join('\n')+'\n';
+  }
+  if(typeof document==='undefined'){
+    globalThis.AXIA_D12_TEST_API={makeSampleEvents,validateEvent,parseEventJSONL,countLevels,makeFeedbackRecord,parseFeedbackJSONL,serializeFeedback};
+    return;
+  }
+  function init(){
+    const byId=function(id){return document.getElementById(id)};
+    let events=makeSampleEvents(),cursor=-1,selected=-1,playing=false,timer=null;
+    let revealed=new Set(),guesses={},feedback=[];
+    const palette={NORMAL:'good',CAUTION:'caution',WARNING:'warning',INSUFFICIENT_DATA:'missing'};
+    function toast(msg,isError){const n=byId('toast');n.textContent=msg;n.style.color=isError?'#ffadbb':'#bdece3'}
+    function pause(){if(timer!==null){window.clearInterval(timer);timer=null}playing=false;byId('playBtn').disabled=false}
+    function step(){
+      if(cursor>=events.length-1){pause();toast('12건 Replay가 끝났습니다. 사건을 선택하고 피드백을 기록하세요.');return}
+      cursor++;selected=cursor;render();if(cursor>=events.length-1)pause();
+    }
+    function play(){
+      if(playing)return;
+      if(cursor>=events.length-1){toast('마지막 사건입니다. ↺ 다시 시작을 눌러 주세요.');return}
+      playing=true;byId('playBtn').disabled=true;
+      step();
+      if(cursor<events.length-1)timer=window.setInterval(step,Number(byId('speedSelect').value));
+    }
+    function reset(keepFeedback){
+      pause();cursor=-1;selected=-1;revealed=new Set();guesses={};
+      if(!keepFeedback)feedback=[];
+      byId('filterSelect').value='ALL';byId('guessSelect').value='';byId('feedbackReason').value='';
+      render();toast(keepFeedback?'Replay 초기화: 기존 피드백 기록은 유지됩니다.':'입력 자료가 다시 설정되어 피드백도 초기화되었습니다.');
+    }
+    function cls(level){return palette[level]||'hidden'}
+    function render(){
+      byId('totalCount').textContent=String(events.length);
+      byId('seenCount').textContent=String(cursor+1);
+      byId('progressLabel').textContent=(cursor+1)+' / '+events.length+'건 관찰';
+      const visible=events.slice(0,cursor+1).filter(function(e){return revealed.has(e.event_id)});
+      const c=countLevels(visible);
+      byId('normalCount').textContent=c.NORMAL+' / '+c.CAUTION;
+      byId('warningCount').textContent=String(c.WARNING);
+      byId('qualityCount').textContent=String(c.INSUFFICIENT_DATA);
+      const timeline=byId('timeline');timeline.replaceChildren();
+      events.forEach(function(e,i){
+        const btn=document.createElement('button');btn.type='button';
+        btn.className='tick '+(i>cursor?'future':(revealed.has(e.event_id)?cls(e.level):''))+(i===selected?' selected':'');
+        btn.textContent=String(i).padStart(2,'0');btn.title=e.event_id;
+        btn.disabled=i>cursor;btn.setAttribute('aria-label','사건 '+(i+1)+' '+(i>cursor?'미관찰': '열기'));
+        btn.addEventListener('click',function(){selected=i;render()});timeline.appendChild(btn);
+      });
+      const feed=byId('eventStream');feed.replaceChildren();
+      const filter=byId('filterSelect').value;
+      const filtered=events.slice(0,cursor+1).filter(function(e){
+        return filter==='ALL'||(revealed.has(e.event_id)&&e.level===filter);
+      });
+      if(!filtered.length){const p=document.createElement('div');p.className='feed-empty';p.textContent=cursor<0?'Replay 또는 1건 진행을 눌러 사건을 접수하세요.':'현재 필터에 표시할 공개 사건이 없습니다.';feed.appendChild(p)}
+      filtered.forEach(function(e){
+        const i=events.indexOf(e),known=revealed.has(e.event_id);
+        const b=document.createElement('button');b.type='button';b.className='event-row'+(i===selected?' active':'');
+        const time=document.createElement('span');time.className='small';time.textContent=(e.source_timestamp_ns/1e9).toFixed(1)+'s';
+        const id=document.createElement('span');id.className='id';id.textContent=e.event_id;
+        const lvl=document.createElement('span');lvl.className='level '+(known?cls(e.level):'hidden');lvl.textContent=known?e.level:'판정 대기';
+        b.append(time,id,lvl);b.addEventListener('click',function(){selected=i;render()});feed.appendChild(b);
+      });
+      const e=selected>=0?events[selected]:null,known=!!(e&&revealed.has(e.event_id));
+      byId('caseCounter').textContent=e?'#'+String(selected+1).padStart(2,'0')+' / 12':'대기 중';
+      byId('caseId').textContent=e?e.event_id:'—';
+      byId('caseTime').textContent=e?(e.source_timestamp_ns/1e9).toFixed(1)+'초 (합성 Trace)':'—';
+      byId('caseLevel').textContent=known?e.level:'미공개';
+      byId('caseLevel').className='detail-status '+(known?cls(e.level):'');
+      byId('caseScore').textContent=known?(e.risk_score===null?'UNSCORED':e.risk_score.toFixed(2)):'—';
+      byId('caseThreshold').textContent=known?(e.threshold===null?'없음':e.threshold.toFixed(2)):'—';
+      byId('caseQuality').textContent=known?(e.quality_reason===null?'품질 결손 이유 없음':e.quality_reason):'—';
+      byId('caseSource').textContent=e?e.model_id+' · 합성':'합성 교육자료';
+      byId('guessSelect').disabled=!e||known;
+      byId('guessSelect').value=e?(guesses[e.event_id]||''):'';
+      byId('revealBtn').disabled=!e||known;
+      byId('revealHint').textContent=!e?'사건을 선택하세요.':known?
+        '공개된 가상 이벤트 레벨: '+e.level+' · 학생 예측: '+guesses[e.event_id]+(guesses[e.event_id]===e.level?' (일치)':' (다름)')+
+        ' · 실제 로봇 고장 정답 또는 Stop 아님':
+        '상태를 먼저 예측한 뒤 정답 공개를 누르세요. 실제 D11 모델 추론 결과가 아닙니다.';
+      renderFeedback();
+    }
+    function renderFeedback(){
+      const list=byId('feedbackList');list.replaceChildren();
+      if(!feedback.length){const p=document.createElement('div');p.className='log-empty';p.textContent='기록 없음. WARNING과 품질 오류를 각각 조사해 보세요.';list.appendChild(p);return}
+      feedback.forEach(function(item){
+        const d=document.createElement('div');d.className='log-item';
+        d.textContent=item.event_id+' · '+item.operator_action+' · '+item.reason+' · '+item.reviewed_at_utc;
+        list.appendChild(d);
+      });
+    }
+    byId('playBtn').addEventListener('click',play);
+    byId('pauseBtn').addEventListener('click',function(){pause();toast('일시정지했습니다. 사건과 판단 근거를 확인하세요.')});
+    byId('stepBtn').addEventListener('click',function(){pause();step()});
+    byId('resetBtn').addEventListener('click',function(){reset(true)});
+    byId('speedSelect').addEventListener('change',function(){if(playing){pause();play()}});
+    byId('filterSelect').addEventListener('change',render);
+    byId('guessSelect').addEventListener('change',function(){
+      if(selected>=0)guesses[events[selected].event_id]=byId('guessSelect').value;
+    });
+    byId('revealBtn').addEventListener('click',function(){
+      if(selected<0)return;
+      const e=events[selected];if(!guesses[e.event_id]){toast('먼저 상태를 예측해 주세요.',true);return}
+      revealed.add(e.event_id);render();toast('교육용 사건 레벨을 공개했습니다. 제어 명령은 발행되지 않았습니다.');
+    });
+    byId('saveFeedbackBtn').addEventListener('click',function(){
+      try{
+        if(selected<0||!revealed.has(events[selected].event_id))fail('사건을 선택하고 예측 후 정답을 공개하세요');
+        const e=events[selected];
+        const item=makeFeedbackRecord(e,byId('feedbackAction').value,byId('feedbackReason').value,new Date().toISOString());
+        const other=feedback.filter(function(f){return f.event_id!==item.event_id});
+        feedback=parseFeedbackJSONL(other.concat(item).map(function(r){return JSON.stringify(r)}).join('\n'),events);
+        renderFeedback();byId('feedbackReason').value='';
+        toast('운영자 의견 기록: '+e.event_id+' (로봇 제어/정지 없음)');
+      }catch(err){toast(err.message,true)}
+    });
+    byId('exportFeedbackBtn').addEventListener('click',function(){
+      try{
+        const body=serializeFeedback(feedback,events);
+        const blob=new Blob([body],{type:'application/x-ndjson;charset=utf-8'});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');a.href=url;a.download='operator_feedback.jsonl';
+        document.body.appendChild(a);a.click();a.remove();
+        window.setTimeout(function(){URL.revokeObjectURL(url)},1500);
+        toast('operator_feedback.jsonl 내려받기 요청 완료 · 파일을 다시 불러와 확인해 주세요.');
+      }catch(err){toast(err.message,true)}
+    });
+    byId('importEvents').addEventListener('change',async function(ev){
+      const file=ev.target.files&&ev.target.files[0];if(!file)return;
+      try{
+        const parsed=parseEventJSONL(await file.text());
+        events=parsed;byId('sourceNotice').textContent='선택 파일 '+file.name+' · 공개 EDUCATION_TRANSPORT_DEMO 12건 계약 통과 · 오프라인 입력';
+        reset(false);toast('교육용 12건 검증·읽기 성공. 외부 서버 전송 없음.');
+      }catch(err){toast('입력 거절: '+err.message,true)}
+      ev.target.value='';
+    });
+    byId('importFeedback').addEventListener('change',async function(ev){
+      const file=ev.target.files&&ev.target.files[0];if(!file)return;
+      try{
+        feedback=parseFeedbackJSONL(await file.text(),events);
+        renderFeedback();toast('피드백 JSONL 구조·사건 ID·제어권 없음 검증 통과: '+feedback.length+'건');
+      }catch(err){toast('피드백 입력 거절: '+err.message,true)}
+      ev.target.value='';
+    });
+    document.addEventListener('keydown',function(e){
+      if(e.target&&['INPUT','TEXTAREA','SELECT','BUTTON'].includes(e.target.tagName))return;
+      if(e.code==='Space'){e.preventDefault();playing?pause():play()}
+      if(e.code==='ArrowRight'){e.preventDefault();pause();step()}
+    });
+    render();toast('교육용 합성 이벤트 준비 완료. ▶ Replay 또는 1건 진행을 눌러 시작하세요.');
+  }
+  document.addEventListener('DOMContentLoaded',init);
+})();
+</script>
+</body>
+</html>

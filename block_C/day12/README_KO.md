@@ -30,3 +30,12 @@ bash block_C/scripts/block_c_once.sh --ros-l1
 **제출:** `events_view.log`, `operator_feedback.jsonl`, `d12_report.md` (ROS 실행 시 `verdict.json` 추가). 운영자 기록은 **사람의 조사 의견**이지 로봇 정지 명령이 아닙니다.
 
 **공식 문서:** [ROS 2 Jazzy Topics](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics/Understanding-ROS2-Topics.html) · [ROS Logging](https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Logging.html) · [diagnostic_msgs](https://docs.ros.org/en/jazzy/p/diagnostic_msgs/index.html).
+
+
+## D12 몰입형 라이브 시연 — 오프라인 Incident Command Center
+
+- [실행 가능한 단일 오프라인 HTML 관제 데모](incident_command_center/AXIA_D12_INCIDENT_COMMAND_CENTER.html): 공개 합성 사건 12건 Replay·예측 후 공개·상태 필터·운영자 JSONL 작성/내보내기/다시 읽기
+- [학생용 최초 클론부터 12분 라이브 실습까지 상세 사용 가이드](INCIDENT_COMMAND_CENTER_STUDENT_GUIDE_KO.md)
+- [기존 120분 초심자 상세 실습](STUDENT_LAB_GUIDE_KO.md)의 **S25–S29 관제 대응 단계**와 연결합니다.
+
+이 데모는 **SYNTHETIC REPLAY / EDUCATION ONLY / NO CONTROL AUTHORITY / NOT LIVE ROS DDS**입니다. 새로운 웹 ROS Bridge, E-Stop, Nav2 Goal 및 cmd_vel 발행 기능은 없으며 실제 DDS 8건 수신 여부는 기존 C05 Jazzy `--ros-l1` 실행 결과만으로 판단합니다.

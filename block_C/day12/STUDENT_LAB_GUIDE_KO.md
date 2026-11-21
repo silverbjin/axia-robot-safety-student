@@ -622,3 +622,8 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q \
 오류가 새로 발견되면 **첫 실패 시각·첫 데이터/시간 경계**를 기록합니다. 가능한 부분을 공개 CI 회귀에 RED로 추가한 후 GREEN 처리합니다. 범위를 넘어 Safety Supervisor/Collision Monitor/Nav2를 수정하지 않습니다.
 
 **공식 학습 링크:** [ROS Jazzy Topics](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics/Understanding-ROS2-Topics.html) · [ROS Logging](https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Logging.html) · [ROS QoS](https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Quality-of-Service-Settings.html) · [diagnostic_msgs](https://docs.ros.org/en/jazzy/p/diagnostic_msgs/index.html).
+
+
+## D12 시연 확장 — 실제 작동하는 오프라인 관제 화면
+
+기존 CLI 기반 120분 실습은 그대로 유지하며, S25–S29 구간에서 [Incident Command Center 학생 실습 안내](INCIDENT_COMMAND_CENTER_STUDENT_GUIDE_KO.md)를 참고하여 **단일 HTML Replay**를 추가로 시연할 수 있습니다. [오프라인 HTML](incident_command_center/AXIA_D12_INCIDENT_COMMAND_CENTER.html)은 공개 합성 12건을 Replay하고 예측 후 공개·상태 필터·운영자 판단을 기록하여 `operator_feedback.jsonl`로 내보내고 다시 불러오는 **실제 구현 기능**입니다. 단, 실시간 ROS DDS 웹 연동은 **미구현**이고, 별도 `--ros-l1`의 verdict만 실제 ROS 송수신 증거로 인정합니다. 기존 필수 제출 파일 및 학생 TODO의 EXPECTED_RED 조건은 변하지 않습니다.
