@@ -21,8 +21,8 @@ class WSLgOwnerChildOnlyRenderer(unittest.TestCase):
 
     def test_existing_ci_gui_path_remains_software(self):
         source=SH.read_text(encoding="utf-8")
-        self.assertIn('setsid nice -n 10 gz sim -g',source)
-        self.assertIn('setsid nice -n 10 rviz2 -d',source)
+        self.assertIn('setsid nice -n 10 env QT_QPA_PLATFORM=xcb gz sim -g',source)
+        self.assertIn('setsid nice -n 10 env QT_QPA_PLATFORM=xcb rviz2 -d',source)
         self.assertIn('if [[ "$OWNER_MOVING" == 1 ]]',source)
         self.assertNotIn("pkill -f",source)
 
