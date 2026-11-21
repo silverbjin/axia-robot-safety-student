@@ -32,7 +32,7 @@ def forward_entry(snap,data):
     if not all(_num(x) for x in (command,cm,final,front)):
         return None
     # Same forward motion proof already used by original CLEAR stage.
-    if not (command>.05 and cm>.03 and final>.03 and front>.75):
+    if not (command>.03 and cm>.03 and final>.03 and front>.75):
         return None
     if (not isinstance(pose,(tuple,list)) or len(pose)!=3
             or not all(_num(x) for x in pose)):
@@ -93,7 +93,7 @@ def diagnose_forward_entry(snap,data):
     if front<=.75:
         result["first_blocker"]="FRONT_NOT_CLEAR"
         return result
-    if v<=.05:
+    if v<=.03:
         result["first_blocker"]="SUPERVISED_FORWARD_BELOW_ENTRY_GATE"
         return result
     if cm<=.03 or final<=.03:
