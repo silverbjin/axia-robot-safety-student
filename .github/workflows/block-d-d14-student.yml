@@ -1,7 +1,7 @@
 name: AXIA D14 Student TODO Scaffold L0 (intentional RED)
 on:
   push:
-    branches: [feat/block-d-d14-risk-policy-20261121]
+    branches: [feat/block-d-d14-risk-policy-20261121, fix/block-d-d14-main-clone-release-20261121, main]
   pull_request:
     branches: [main]
     paths: ['block_D/day14/**', '.github/workflows/block-d-d14-student.yml']
