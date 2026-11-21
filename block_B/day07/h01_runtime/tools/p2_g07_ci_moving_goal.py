@@ -6,6 +6,7 @@ source SHA and three run-owned processes before any Goal. Neither mode grants
 final Owner L3 acceptance or certified hardware E-Stop.
 """
 import argparse
+from collections import deque
 import faulthandler
 import json
 import math
@@ -199,10 +200,37 @@ def run(args):
         print("AXIA_G07_CI_OWNER_OBSERVER_PARITY_ADMITTED "
               "workers=2 buffered=true bounded_flush_sec=0.75 "
               "periodic_watchdog=false",flush=True)
+    requested_probe=os.environ.get("AXIA_G07_OBSERVER_IO_PROBE","0")
+    if requested_probe not in ("0","1"):
+        raise ValueError("G07_OBSERVER_IO_PROBE_INVALID_SETTING")
+    io_probe=(requested_probe=="1")
+    if io_probe:
+        if not (not owner_mode and
+                os.environ.get("GITHUB_ACTIONS")=="true" and
+                os.environ.get("AXIA_G07_CI_SIM_GOAL_ALLOWED")=="1" and
+                os.environ.get("AXIA_P0_SIM_ONLY")=="1" and
+                owner_observer_parity):
+            raise ValueError("G07_OBSERVER_IO_PROBE_REQUIRES_PUBLIC_SIM_ONLY")
+        print("AXIA_G07_OBSERVER_IO_PROBE=CI_ONLY_READ_ONLY "
+              "NO_CALLBACK_IO_ADDED ORIGINAL_FLUSH_RETAINED",flush=True)
+    heartbeat_ticks=deque(maxlen=14000)
+    heartbeat_stop=threading.Event()
+    probe_thread=None
+    if io_probe:
+        def observer_probe_heartbeat():
+            while not heartbeat_stop.is_set():
+                heartbeat_ticks.append(time.monotonic())
+                heartbeat_stop.wait(.020)
+        probe_thread=threading.Thread(
+            target=observer_probe_heartbeat,
+            name="g07_readonly_io_probe_heartbeat",daemon=True)
+        probe_thread.start()
     observer_started_at=time.monotonic()
-    obs=(Observer(node,args.output,buffered_evidence=True,periodic_flush_sec=.75)
+    obs=(Observer(node,args.output,buffered_evidence=True,
+                  periodic_flush_sec=.75,io_probe=io_probe)
          if owner_observer_parity
-         else Observer(node,args.output,buffered_evidence=True))
+         else Observer(node,args.output,buffered_evidence=True,
+                       io_probe=io_probe))
     parity_trace=(args.output/"owner_parity_fatal_trace.log").open("x",buffering=1) if owner_observer_parity else None
     if parity_trace is not None:
         faulthandler.enable(file=parity_trace, all_threads=True)
@@ -750,7 +778,25 @@ def run(args):
         save()
         executor.shutdown(timeout_sec=2)
         worker.join(timeout=2)
+        heartbeat_stop.set()
+        if probe_thread is not None:
+            probe_thread.join(timeout=1.)
         node.destroy_subscription(extra)
+        if io_probe:
+            try:
+                diag=obs.io_probe_summary(heartbeats=list(heartbeat_ticks))
+                (args.output/"g07_observer_io_probe_summary.json").write_text(
+                    json.dumps(diag,sort_keys=True,indent=2)+"\n")
+                print("AXIA_G07_OBSERVER_IO_FIRST_BOUNDARY "+
+                      json.dumps({k:diag.get(k) for k in (
+                          "status","first_violation","correlated_channels",
+                          "max_lock_wait_ms","max_json_ms","max_write_ms",
+                          "max_flush_ms","heartbeat_max_gap_ms",
+                          "root_cause_proven","release")},sort_keys=True),
+                      flush=True)
+            except (OSError,ValueError,TypeError) as probe_exc:
+                print("AXIA_G07_OBSERVER_IO_CAPTURE_UNVERIFIED_HOLD "+
+                      type(probe_exc).__name__,flush=True)
         obs.close()
         node.destroy_node()
         if parity_trace is not None:
