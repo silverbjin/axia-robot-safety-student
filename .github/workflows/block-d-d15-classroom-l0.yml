@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - feat/block-d-d15-evidence-replay-20261121
+      - release/block-d-d13-d15-final-20261121
+      - main
   pull_request:
     branches: [main]
     paths:
