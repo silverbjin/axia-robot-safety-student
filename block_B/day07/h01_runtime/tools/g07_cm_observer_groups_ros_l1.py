@@ -1,135 +1,183 @@
 #!/usr/bin/env python3
-"""Real Jazzy rclpy L1 scheduling A/B, NO Gazebo, NO actual robot topics.
+"""Real Jazzy rclpy two-PROCESS L1 diagnostic A/B — NO robot/Goal/Gazebo.
 
-A controlled 240ms default-group callback stall is deliberately introduced
-on this synthetic test node. We verify that its read-only Twist subscribers
-share default-group serialization (RED-like baseline) but can keep 120ms
-callback delivery under two independent MutuallyExclusiveCallbackGroups.
-This is NOT proof of the NVIDIA WSL2 underlying scheduling root or hardware.
+The publisher is in an independent OS process (like official CM); a single
+synthetic String subscriber in the observer's DEFAULT callback group blocks
+for 240ms exactly while both read-only Twist topics continue publishing.
+The original DEFAULT CM group must exhibit callback starvation; the
+two distinct MutuallyExclusiveCallbackGroups are the proposed local change.
+Every result is diagnostic-only. Source timing/received RMW timing recorded.
 """
 import json
-import os
+import subprocess
+import sys
 import threading
 import time
 from p2_g07_observer_cb_group_policy import scoped_cm_groups
 
-TOPIC_ROOT="/axia_test_g07_cm_observer_group_l1"
+ROOT="/axia_test_g07_cm_observer_group_l1"
 
 
-def measure(rclpy, Node, MultiThreadedExecutor, String, Twist, MutuallyExclusiveCallbackGroup,
-            mode):
+def synthetic_publisher(mode):
+    import rclpy
+    from rclpy.node import Node
+    from geometry_msgs.msg import Twist
+    from std_msgs.msg import String
+    rclpy.init()
+    n=Node("axia_g07_cm_l1_independent_publisher_"+mode)
+    topic=ROOT+"/"+mode
+    pub_cm=n.create_publisher(Twist,topic+"/cm",10)
+    pub_sup=n.create_publisher(Twist,topic+"/supervised",10)
+    pub_block=n.create_publisher(String,topic+"/block_default",10)
+    deadline=time.monotonic()+10
+    while (time.monotonic()<deadline and
+           not all(p.get_subscription_count()>=1 for p in
+                   (pub_cm,pub_sup,pub_block))):
+        time.sleep(.05)
+    ready=all(p.get_subscription_count()>=1 for p in
+              (pub_cm,pub_sup,pub_block))
+    send=[]
+    if ready:
+        msg=Twist()
+        for i in range(75):
+            msg.angular.z=float(i)  # an exact small sequence integer
+            send.append((time.monotonic(),i))
+            pub_cm.publish(msg)
+            pub_sup.publish(msg)
+            if i==15:
+                pub_block.publish(String(data="HOLD_DEFAULT_CALLBACK_GROUP_240MS"))
+            time.sleep(.040)
+        time.sleep(.35)
+    n.destroy_node()
+    rclpy.try_shutdown()
+    print(json.dumps(dict(status="READY" if ready else "PUBLISHER_DISCOVERY_HOLD",
+                          sent=send,source_process_independent=True)),flush=True)
+    return 0 if ready else 3
+
+
+def measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
+            Twist,String,mode):
     node=Node("axia_g07_cm_observer_l1_"+mode)
-    pubnode=Node("axia_g07_cm_synthetic_publisher_"+mode)
-    groups=scoped_cm_groups({
+    cm_group,sup_group=scoped_cm_groups({
         "AXIA_G07_OWNER_STARTUP_PARITY":"1",
         "AXIA_G07_CM_OBSERVER_GROUPS":"1" if mode=="isolated" else "0",
     },MutuallyExclusiveCallbackGroup)
-    topic=TOPIC_ROOT+"/"+mode
+    topic=ROOT+"/"+mode
     data={"cm":[],"supervised":[]}
-    mutex=threading.Lock()
-    def on_msg(name,msg):
-        t=time.monotonic()
-        with mutex:data[name].append((t,int(msg.angular.z)))
-    subs=[]
-    for name,group in zip(("cm","supervised"),groups):
-        args={}
-        if group is not None:
-            args["callback_group"]=group
-        subs.append(node.create_subscription(
-            Twist,topic+"/"+name,lambda msg,n=name:on_msg(n,msg),10,**args))
-    writers=[pubnode.create_publisher(Twist,topic+"/"+name,10)
-             for name in ("cm","supervised")]
+    lock=threading.Lock()
     blocked=threading.Event()
-    def long_default_group_callback():
-        # Strictly diagnostic: only a synthetic String subscriber/timer; no
-        # actual safety ROS node, Gazebo topic, or publisher is accessed.
+    def on_speed(name,msg,info):
+        t=time.monotonic()
+        seq=int(msg.angular.z)
+        received=getattr(info,"received_timestamp",None)
+        source=getattr(info,"source_timestamp",None)
+        with lock:
+            data[name].append((t,seq,received,source))
+    for name,group in (("cm",cm_group),("supervised",sup_group)):
+        kw={"callback_group":group} if group is not None else {}
+        node.create_subscription(Twist,topic+"/"+name,
+            lambda m,info,k=name:on_speed(k,m,info),10,**kw)
+
+    def block_default(_):
         blocked.set()
         time.sleep(.240)
-        timer.cancel()
-    timer=node.create_timer(.600,long_default_group_callback)
-    ex=MultiThreadedExecutor(num_threads=2)
-    ex.add_node(node)
-    worker=threading.Thread(target=ex.spin,daemon=True)
+    node.create_subscription(String,topic+"/block_default",block_default,10)
+    executor=MultiThreadedExecutor(num_threads=2)
+    executor.add_node(node)
+    worker=threading.Thread(target=executor.spin,daemon=True)
     worker.start()
-    msg=Twist()
-    sent=[]
-    started=time.monotonic()
+    publisher={}
+    start=time.monotonic()
     try:
-        for i in range(70):
-            msg.angular.z=float(i)
-            sent.append((time.monotonic(),i))
-            for pub in writers:pub.publish(msg)
-            time.sleep(.040)
-        time.sleep(.18)
+        proc=subprocess.run([sys.executable,__file__,"--publisher",mode],
+                capture_output=True,text=True,timeout=30)
+        if proc.returncode==0:
+            try:publisher=json.loads(proc.stdout.strip().splitlines()[-1])
+            except (ValueError,IndexError):publisher={}
+        time.sleep(.25)
+    except subprocess.TimeoutExpired:
+        publisher={"status":"PUBLISHER_PROCESS_TIMEOUT"}
     finally:
-        ex.shutdown(timeout_sec=4)
-        worker.join(timeout=4)
+        executor.shutdown(timeout_sec=3)
+        worker.join(timeout=3)
         node.destroy_node()
-        pubnode.destroy_node()
-    def maximum(values):
-        return max(((b-a)*1000 for a,b in zip(values,values[1:])),default=None)
-    sent_t=[t for t,_ in sent]
-    cm_t=[t for t,_ in data["cm"]]
-    sup_t=[t for t,_ in data["supervised"]]
-    sent_by_seq={seq:t for t,seq in sent}
-    def worst_callback_interval_vs_publisher(rows):
-        # Join by explicit integer sequence, same process monotonic timebase.
-        matched=[(t,seq) for t,seq in rows if seq in sent_by_seq]
-        gaps=sorted(((t1-t0)*1000,(sent_by_seq[s1]-sent_by_seq[s0])*1000,
-                    int(s0),int(s1))
-                   for (t0,s0),(t1,s1) in zip(matched,matched[1:]))
-        return [dict(callback_gap_ms=round(a,6),
-                     publisher_gap_ms=round(b,6),
-                     previous_seq=i,current_seq=j)
-                for a,b,i,j in gaps[-3:]]
+    send=publisher.get("sent",[])
+    sent={int(seq):float(t) for t,seq in send
+          if isinstance(seq,int) and isinstance(t,(int,float))}
+    def gaps(times):
+        return max(((b-a)*1000 for a,b in zip(times,times[1:])),default=None)
+    def matched(name):
+        records=[row for row in data[name] if row[1] in sent]
+        pairs=[]
+        for (a,seq0,rx0,src0),(b,seq1,rx1,src1) in zip(records,records[1:]):
+            d={"previous_seq":seq0,"current_seq":seq1,
+               "callback_gap_ms":round((b-a)*1000,6),
+               "publisher_gap_ms":round((sent[seq1]-sent[seq0])*1000,6)}
+            if all(type(x) is int and x>0 for x in (rx0,rx1)):
+                d["rmw_received_gap_ms"]=round((rx1-rx0)/1e6,6)
+            if all(type(x) is int and x>0 for x in (src0,src1)):
+                d["rmw_source_gap_ms"]=round((src1-src0)/1e6,6)
+            pairs.append(d)
+        return sorted(pairs,key=lambda row:row["callback_gap_ms"])[-3:]
     return {
-        "mode":mode,"blocked_callback_test_event_observed":blocked.is_set(),
-        "cm_count":len(cm_t),"supervised_count":len(sup_t),
-        "publisher_count":len(sent),
-        "publisher_max_gap_ms":round(maximum(sent_t),6),
-        "cm_worst_callback_pairs":worst_callback_interval_vs_publisher(data["cm"]),
-        "supervised_worst_callback_pairs":worst_callback_interval_vs_publisher(data["supervised"]),
-        "cm_observer_max_gap_ms":round(maximum(cm_t),6) if len(cm_t)>1 else None,
-        "supervised_observer_max_gap_ms":(
-            round(maximum(sup_t),6)
-            if len(data["supervised"])>1 else None),
-        "elapsed_sec":round(time.monotonic()-started,6)}
+        "mode":mode,"independent_publisher_status":publisher.get("status"),
+        "source_process_independent":publisher.get("source_process_independent"),
+        "default_group_blocker_executed":blocked.is_set(),
+        "publisher_count":len(send),
+        "publisher_max_gap_ms":round(gaps([t for t,_ in send]),6) if len(send)>1 else None,
+        "cm_count":len(data["cm"]),"supervised_count":len(data["supervised"]),
+        "cm_observer_max_gap_ms":round(gaps([row[0] for row in data["cm"]]),6)
+          if len(data["cm"])>1 else None,
+        "supervised_observer_max_gap_ms":round(gaps([row[0] for row in data["supervised"]]),6)
+          if len(data["supervised"])>1 else None,
+        "cm_worst_callback_pairs":matched("cm"),
+        "supervised_worst_callback_pairs":matched("supervised"),
+        "elapsed_sec":round(time.monotonic()-start,6)}
 
 
 def main():
+    if len(sys.argv)==3 and sys.argv[1]=="--publisher" and sys.argv[2] in ("baseline","isolated"):
+        return synthetic_publisher(sys.argv[2])
+    if len(sys.argv)!=1:
+        return 3
     import rclpy
     from rclpy.node import Node
     from rclpy.executors import MultiThreadedExecutor
     from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
-    from std_msgs.msg import String
     from geometry_msgs.msg import Twist
+    from std_msgs.msg import String
     rclpy.init()
     try:
-        base=measure(rclpy,Node,MultiThreadedExecutor,String,Twist,
-                     MutuallyExclusiveCallbackGroup,"baseline")
-        candidate=measure(rclpy,Node,MultiThreadedExecutor,String,Twist,
-                          MutuallyExclusiveCallbackGroup,"isolated")
+        base=measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
+                     Twist,String,"baseline")
+        candidate=measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
+                          Twist,String,"isolated")
     finally:
         rclpy.try_shutdown()
-    limits=[base["cm_observer_max_gap_ms"],candidate["cm_observer_max_gap_ms"],
-            candidate["supervised_observer_max_gap_ms"]]
-    permitted=(all(isinstance(x,float) for x in limits)
-               and base["blocked_callback_test_event_observed"]
-               and candidate["blocked_callback_test_event_observed"]
-               and base["cm_count"]>=25 and candidate["cm_count"]>=25
-               and candidate["supervised_count"]>=25
-               and base["cm_observer_max_gap_ms"]>=180
-               and candidate["cm_observer_max_gap_ms"]<=120
-               and candidate["supervised_observer_max_gap_ms"]<=120)
-    output=dict(schema="axia.g07.cm_observer_callback_group_ros_l1.v1",
-                baseline=base,candidate=candidate,status=(
-                    "SYNTHETIC_JAZZY_RCLPY_GROUP_ISOLATION_L1_PASS"
-                    if permitted else "SYNTHETIC_JAZZY_RCLPY_GROUP_ISOLATION_L1_HOLD"),
-                actual_gazebo=False,actual_goal=False,
-                wsl2_nvidia_cause_proven=False,certified_estop=False)
-    print("AXIA_G07_CM_OBSERVER_GROUP_ROS_L1 "+
-          json.dumps(output,sort_keys=True),flush=True)
-    return 0 if permitted else 3
+    nums=[base.get("cm_observer_max_gap_ms"),candidate.get("cm_observer_max_gap_ms"),
+          candidate.get("supervised_observer_max_gap_ms")]
+    source_stable=(all(isinstance(x,(float,int)) for x in
+                       (base.get("publisher_max_gap_ms"),
+                        candidate.get("publisher_max_gap_ms")))
+                   and base["publisher_max_gap_ms"]<120
+                   and candidate["publisher_max_gap_ms"]<120)
+    ok=(source_stable and all(isinstance(x,(int,float)) for x in nums)
+        and base["default_group_blocker_executed"]
+        and candidate["default_group_blocker_executed"]
+        and min(base["cm_count"],candidate["cm_count"],
+                candidate["supervised_count"])>=35
+        and base["cm_observer_max_gap_ms"]>=180
+        and candidate["cm_observer_max_gap_ms"]<=120
+        and candidate["supervised_observer_max_gap_ms"]<=120)
+    out=dict(schema="axia.g07.cm_observer_callback_group_ros_l1.v2",
+             baseline=base,candidate=candidate,
+             status=("SYNTHETIC_JAZZY_TWO_PROCESS_CALLBACK_GROUP_L1_PASS" if ok
+                     else "SYNTHETIC_JAZZY_TWO_PROCESS_CALLBACK_GROUP_L1_HOLD"),
+             independent_publisher_source_stable=bool(source_stable),
+             root_cause_proven=False,actual_gazebo=False,actual_goal=False,
+             wsl2_nvidia_root_cause_proven=False,certified_estop=False)
+    print("AXIA_G07_CM_OBSERVER_GROUP_ROS_L1 "+json.dumps(out,sort_keys=True),flush=True)
+    return 0 if ok else 3
 
 if __name__=="__main__":
     raise SystemExit(main())
