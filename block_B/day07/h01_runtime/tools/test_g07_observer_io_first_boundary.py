@@ -141,5 +141,35 @@ class ObserverIOFirstBoundary(unittest.TestCase):
         self.assertIn("not owner_mode",runner)
         self.assertNotIn("AXIA_G07_EVENTS_EXECUTOR_AB: '1'",runner)
 
+
+    def test_bounded_multi_wait_candidate_is_ci_only_fail_closed(self):
+        from p2_g07_observer_io_probe import select_bounded_executor_wait_candidate
+        base={"GITHUB_ACTIONS":"true","AXIA_G07_CI_SIM_GOAL_ALLOWED":"1",
+              "AXIA_P0_SIM_ONLY":"1","AXIA_G07_CI_OWNER_OBSERVER_PARITY":"1",
+              "AXIA_G07_OBSERVER_IO_PROBE":"1"}
+        self.assertFalse(select_bounded_executor_wait_candidate(base,owner_mode=False))
+        good={**base,"AXIA_G07_CI_EXECUTOR_WAIT_BOUNDED_AB":"1"}
+        self.assertTrue(select_bounded_executor_wait_candidate(good,owner_mode=False))
+        for bad,owner in (({**good,"GITHUB_ACTIONS":"false"},False),
+                          ({**good,"AXIA_G07_OBSERVER_IO_PROBE":"0"},False),
+                          ({**good,"AXIA_G07_EVENTS_EXECUTOR_AB":"1"},False),
+                          (good,True)):
+            with self.subTest(bad=bad,owner=owner):
+                with self.assertRaises(ValueError):
+                    select_bounded_executor_wait_candidate(bad,owner_mode=owner)
+        with self.assertRaises(ValueError):
+            select_bounded_executor_wait_candidate(
+                {**base,"AXIA_G07_CI_EXECUTOR_WAIT_BOUNDED_AB":"yes"},
+                owner_mode=False)
+
+    def test_bounded_candidate_uses_existing_multi_two_threads_not_events_or_single(self):
+        from pathlib import Path
+        code=Path(__file__).with_name("p2_g07_ci_moving_goal.py").read_text()
+        self.assertIn("select_bounded_executor_wait_candidate",code)
+        self.assertIn("executor.spin_once(timeout_sec=.02)",code)
+        self.assertIn("MultiThreadedExecutor(num_threads=2 if owner_observer_parity else 3)",code)
+        self.assertIn("spin_stop.set()",code)
+        self.assertIn("if bounded_wait_candidate:",code)
+
 if __name__=="__main__":
     unittest.main()
