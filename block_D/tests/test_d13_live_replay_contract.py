@@ -3,6 +3,7 @@ import importlib.util
 import json
 import re
 import shutil
+import struct
 from pathlib import Path
 import subprocess
 import sys
@@ -81,6 +82,35 @@ class D13LiveReplayContract(unittest.TestCase):
                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                  text=True, timeout=15, check=False)
             self.assertEqual(res.returncode, 0, res.stdout)
+
+    def test_1920x1080_headless_browser_when_available(self):
+        """Optional real Chrome/Chromium smoke; skip means browser NOT_RUN."""
+        chrome = (shutil.which("google-chrome") or shutil.which("chromium")
+                  or shutil.which("chromium-browser"))
+        if not chrome:
+            self.skipTest("No Chrome/Chromium binary: BROWSER_1920_NOT_RUN")
+        with tempfile.TemporaryDirectory(prefix="d13-live-chrome-") as td:
+            result = subprocess.run(
+                [sys.executable, str(APP), "--out", td], cwd=ROOT,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                timeout=20, check=False)
+            self.assertEqual(result.returncode, 0, result.stdout)
+            shot = Path(td) / "d13_live_1920.png"
+            url = (Path(td) / "axia_d13_live_replay.html").as_uri()
+            command = [chrome, "--headless=new", "--no-sandbox",
+                       "--disable-dev-shm-usage", "--disable-gpu",
+                       "--hide-scrollbars", "--window-size=1920,1080",
+                       "--screenshot=" + str(shot), "--dump-dom", url]
+            browser = subprocess.run(command, stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT, text=True,
+                                     timeout=35, check=False)
+            self.assertEqual(browser.returncode, 0, browser.stdout[-2200:])
+            self.assertTrue(shot.is_file(), "Chrome screenshot missing")
+            raw = shot.read_bytes()
+            self.assertEqual(raw[:8], bytes.fromhex("89504e470d0a1a0a"))
+            self.assertEqual(struct.unpack(">II", raw[16:24]), (1920,1080))
+            self.assertRegex(browser.stdout, r'id="distanceA"[^>]*>2\\.000 m')
+            self.assertRegex(browser.stdout, r'id="distanceB"[^>]*>1\\.000 m')
 
     def test_first_invalid_is_fixture_evidence_not_learner_success(self):
         sys.path.insert(0, str(D13))
