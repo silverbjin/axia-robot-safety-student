@@ -56,7 +56,8 @@ class G07AcceptancePolicy(unittest.TestCase):
              "AXIA_G07_STARTUP_READONLY_RECONCILE":"1",
              "GZ_PARTITION":"axia_p2_acceptance_123",
              "GITHUB_ACTIONS":"true",
-             "AXIA_G07_CI_SIM_GOAL_ALLOWED":"1"}
+             "AXIA_G07_CI_SIM_GOAL_ALLOWED":"1",
+             "AXIA_P2_G07_PHYSICAL_PREFLIGHT":"1"}
         sample={"manager_active":True,
                 "map_server":{"id":3,"label":"active"},
                 "amcl":{"id":3,"label":"active"}}
@@ -134,7 +135,8 @@ class G07AcceptancePolicy(unittest.TestCase):
         self.assertTrue((package/"package.xml").is_file())
         self.assertTrue((package/"setup.py").is_file())
         setup=(package/"setup.py").read_text()
-        self.assertIn("axia_tb3_p2.launch.py",setup)
+        self.assertTrue((package/"launch/axia_tb3_p2.launch.py").is_file())
+        self.assertIn('glob("*.py")',setup)
         self.assertIn("resource_index/packages",setup)
         self.assertIn("launch",setup)
         self.assertIn("config",setup)
