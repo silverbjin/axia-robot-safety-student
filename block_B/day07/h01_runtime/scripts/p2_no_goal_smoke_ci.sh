@@ -305,7 +305,9 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   }
   export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}" LIBGL_ALWAYS_SOFTWARE=1 AXIA_P0_SIM_ONLY=1
 elif [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
-  export QT_QPA_PLATFORM=xcb AXIA_P0_SIM_ONLY=1
+  # Physics/LiDAR/Nav2 receive offscreen QT; only independently owned
+  # GUI clients get xcb+D3D12. Never export GUI renderer to safety nodes.
+  export QT_QPA_PLATFORM=offscreen AXIA_P0_SIM_ONLY=1
   # The pinned real Gazebo+Goal CI L2 rendered gpu_lidar with software Mesa.
   # Owner WSLg previously UNSET this, and its 360-ray /scan contained a
   # near-complete 0.5m ring at the stationary -2,-0.5 spawn. Keep the same
@@ -718,19 +720,19 @@ if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
       | tee -a "$OUT/g07_gui_diagnostic.txt"
   else
     if [[ "$OWNER_MOVING" == 1 ]];then
-      setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
+      setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE QT_QPA_PLATFORM=xcb GALLIUM_DRIVER=d3d12 \
         MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
         gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
       MOVING_GAZEBO_GUI_PID=$!
-      setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
+      setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE QT_QPA_PLATFORM=xcb GALLIUM_DRIVER=d3d12 \
         MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
         rviz2 -d "$GUI_CONFIG" --ros-args -p use_sim_time:=true \
         > "$OUT/task04_rviz.log" 2>&1 &
       MOVING_RVIZ_PID=$!
     else
-      setsid nice -n 10 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+      setsid nice -n 10 env QT_QPA_PLATFORM=xcb gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
       MOVING_GAZEBO_GUI_PID=$!
-      setsid nice -n 10 rviz2 -d "$GUI_CONFIG" --ros-args -p use_sim_time:=true \
+      setsid nice -n 10 env QT_QPA_PLATFORM=xcb rviz2 -d "$GUI_CONFIG" --ros-args -p use_sim_time:=true \
         > "$OUT/task04_rviz.log" 2>&1 &
       MOVING_RVIZ_PID=$!
     fi
