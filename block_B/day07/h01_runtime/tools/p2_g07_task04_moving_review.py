@@ -137,12 +137,12 @@ def main(argv=None):
     v=review(a.motion_root,a.witness,a.source_sha,a.gui_windows)
     a.output.parent.mkdir(parents=True,exist_ok=True)
     a.output.write_text(json.dumps(v,sort_keys=True,indent=2)+"\n")
-    print("AXIA_G07_TASK04_NATIVE_MOVING_GUI_VERDICT "+
+    print("AXIA_G07_TASK04_NATIVE_MOVING_HEADLESS_SAFETY_VERDICT "+
           json.dumps({k:v.get(k) for k in ("status","first_failure","source_sha","gui_windows_seen")},
                      sort_keys=True),flush=True)
     print("AXIA_G07_TASK04_OWNER_MOVING_L3=NOT_RUN AXIA_MVP_DEMO_ACCEPTED=HOLD CERTIFIED_ESTOP=false")
     return 0 if v["status"] in (
-        "TASK04_REAL_GAZEBO_MOVING_GUI_L2_SCOPED_PASS",
+        "TASK04_REAL_GAZEBO_MOVING_L2_SCOPED_PASS",
         "TASK04_OWNER_WSL2_NUMERICAL_CANDIDATE_REVIEW_PENDING") else 3
 
 if __name__=="__main__":
