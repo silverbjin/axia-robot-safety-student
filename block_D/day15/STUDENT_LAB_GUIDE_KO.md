@@ -100,3 +100,75 @@ explorer.exe "$(wslpath -w /tmp/axia-d15/d15_offline_replay.html)"
 `STUDENT_EVIDENCE_WORKSHEET_KO.md` + `d15_evidence_review.json` + `d15_counterexamples.json` + 발표 3~5분 + 수행 환경 Python 버전/수정이 없는 Git SHA.
 
 실습 성공 기준은 **기존 Baseline 실행 계약을 그대로 읽고, 범위 한계를 지키며 합성 반례가 올바르게 실패하는지 공개 CI L0로 확인**하는 것입니다. 신규 ROS·Gazebo·WSL2 실제 시연 성공을 주장하지 않습니다.
+
+
+---
+
+## 9. 38장 슬라이드 연계 초심자 실습 상세 절차 (교육용 문서 보강)
+
+**이 절은 기존 1~8절을 대체하지 않는 설명 보강이다.** 전체 화면 따라하기는 [STUDENT_DEMO_GUIDE_KO.md](STUDENT_DEMO_GUIDE_KO.md)에서 확인한다. 강사가 배부한 38장 PPTX는 별도 강의자료이며, Student 공개 저장소에 정답이나 비공개 강의 자료를 포함하지 않는다.
+
+### 9-1. 수업의 두 주제와 내가 실제 하는 일
+
+| 주제 | 이 실습에서 구현·검증하는 부분 | 이 실습에서 하지 않는 부분 |
+|---|---|---|
+| 1. Human-aware Safety AMR 통합 MVP 구현 | 기존 ROS 2 노드 책임, 토픽 계약 및 D13·D14 합성 정책을 코드 수준으로 **연결해 설명** | 새 사람 검출기 연결, 새 실제 G07 사람 회피 E2E 실행 |
+| 2. 통합 안전제어 시나리오 검증 및 결과정리 | 이전 `jrCIgoGl` 실주행의 공개 파생 수치, 7단계 Replay, 5개 반례, 검증 보고서 | 새로운 ROS/Gazebo/Owner L3/인증 E-Stop |
+
+### 9-2. 입력 → 처리 → 출력의 세 함수 흐름
+
+~~~text
+입력: block_D/day15/fixtures/jrcigogl_public_derived.json (Git blob SHA 확인)
+       | load_evidence()                 - 수정되었으면 즉시 실패
+       v
+처리: review_baseline(data)            - 거리·속도·Goal·odom·TTL·HOLD
+       | negative_counterexamples(data) - 복사본에 5개 숫자 변조, 원본 유지
+       | validate_g09_g10_separation()  - D13/D14 합성 출처 구분
+       v
+출력: d15_evidence_review.json, d15_counterexamples.json,
+      d15_offline_replay.html (교육용 7단계, 원본 이벤트 타임스탬프 없음)
+~~~
+
+**코드 위치:** `block_D/day15/evidence_review.py`의 `load_evidence()`와 `review_baseline()`; `block_D/day15/run_lab.py`의 `run()`. 두 파일은 새 기능 구현 대상이 아니며, 기존 안전 코드 수정 없이 **읽기와 증거 해석**만 한다.
+
+### 9-3. 정확히 따라 하기 (Ubuntu Terminal)
+
+~~~bash
+cd ~
+git clone --branch main --depth 1 \
+  https://github.com/silverbjin/axia-robot-safety-student.git axia-d15-classroom
+cd ~/axia-d15-classroom
+git rev-parse HEAD
+python3 --version
+python3 -m unittest discover -s block_D/day15/tests -p 'test_*.py' -v
+python3 block_D/day15/run_lab.py --out /tmp/axia-d15
+ls -lh /tmp/axia-d15/d15_evidence_review.json /tmp/axia-d15/d15_counterexamples.json /tmp/axia-d15/d15_offline_replay.html
+~~~
+
+같은 이름의 클론이 이미 있으면 절대 삭제·덮어쓰지 않고 다른 새 폴더명을 사용한다. **원본 학생 Starter에서 예상:** `Ran 18 tests` / `OK` 및 `D15_SYNTHETIC_NEGATIVE_DETECTION=5/5`. 출력은 반드시 자신의 실행 결과를 제출한다. **NO_ROS_GAZEBO**: 이 명령은 새로운 로봇을 실행하거나 안전 신호를 발행하지 않는다.
+
+### 9-4. 장면별 학생 설명 순서
+
+- **CLEAR·SLOW·STOP:** LiDAR 전방 거리 2.024826→0.662775→0.384303m는 *이전 실물 세션에서 보고된 숫자*다. Supervisor 명령 속도와 Guard final 속도를 구분한다. 명령 0이 odom ZERO 유지 자체를 증명하지는 않는다.
+- **CANCEL:** `goal_cancel_status=5`는 동일 Nav2 Goal UUID가 CANCELED됐음을 뜻한다. 성공(SUCCEEDED)이나 인증 정지는 아니다.
+- **ODOM_DWELL:** `zero_dwell_sec≈1.029446`은 별도의 정지 유지 근거다. Goal Cancel 플래그와 독립해 비교한다.
+- **SAFETY_TTL:** Scan 253.822/300, CM source 68.093/120, CM Observer 70.981/120, Guard 내부 CM age 47.653/150, Guard status 72.352/150(ms). 서로 다른 **채널/시계**를 하나의 지연값으로 합치지 않는다.
+- **PNU_AND_SCOPE:** D13 P/N/U와 D14 LIMITED 요청은 **합성 데이터**다. `jrCIgoGl`의 실제 사람 검출 E2E를 증명하지 않는다. 자동 원본 `HOLD_RAW_REVIEW_AND_VISUAL_PENDING` 보존.
+
+### 9-5. 반례를 읽는 이유
+
+~~~bash
+python3 -m json.tool /tmp/axia-d15/d15_counterexamples.json | head -100
+python3 -m json.tool /tmp/axia-d15/d15_evidence_review.json | head -100
+~~~
+
+`SCAN_301MS`, `GUARD_151MS` 등의 실패는 **학생이 안전 임계값을 완화하면 안 되는 이유**를 설명한다. 실제 최초 안전 상태 전이나 최초 타이밍 위반의 시각은 파생 집계 JSON만으로 특정할 수 없으므로 `first_violation_timestamp=null`로 기록한다.
+
+### 9-6. 제출·실패 대체
+
+- 제출: `git rev-parse HEAD`, 테스트 출력, 생성 JSON 2개, 워크시트 A~H, 3~5분 발표, 100점 평가표.
+- WSL2 Windows 브라우저: `explorer.exe "$(wslpath -w /tmp/axia-d15/d15_offline_replay.html)"`. 실패하면 `python3 -m json.tool`로 같은 실습을 진행하고 `HTML_BROWSER_NOT_RUN` 또는 `HTML_BROWSER_FAILED`로 기록한다.
+- `D15_DERIVED_FIXTURE_BLOB_SHA_MISMATCH`면 원본 파일 변경을 우선 조사한다. `EDUCATION_NUMERIC_GATE=NOT_ACCEPTED`면 `failed_gates`부터 점검한다. 원본 SHA나 TTL 완화 금지.
+- **SW Stop ≠ 인증 E-Stop**. D15 L0 PASS는 새 ROS 2/Gazebo 안전 인수 PASS가 아니다.
+
+공식 근거: [Nav2 Collision Monitor](https://docs.nav2.org/configuration/packages/collision_monitor/configuring-collision-monitor-node.html), [ROS 2 Jazzy QoS](https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Quality-of-Service-Settings.html), [Gazebo ROS2 Bridge](https://gazebosim.org/docs/harmonic/ros2_integration/).
