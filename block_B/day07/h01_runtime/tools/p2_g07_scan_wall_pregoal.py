@@ -250,9 +250,9 @@ def run(output,window_sec=WINDOW_SEC):
             t1=time.monotonic()
             while time.monotonic()-t1<window_sec:
                 if executor is not None:
-                executor.spin_once(timeout_sec=.04)
-            else:
-                rclpy.spin_once(node,timeout_sec=.04)
+                    executor.spin_once(timeout_sec=.04)
+                else:
+                    rclpy.spin_once(node,timeout_sec=.04)
             report=assess_pregoal_samples({k:list(v) for k,v in records.items()},
                                           window_sec=window_sec)
         else:
