@@ -1,0 +1,77 @@
+{
+  "schema": "axia.block_d.d14.g10_educational_events.v1",
+  "scope": "SYNTHETIC_L0_NO_GAZEBO_NO_GOAL",
+  "source_fixture_git_blob_sha1": "620f769f812e32f2c3d1fa193629668090fa756f",
+  "exercise": "Analyze only: no faults, Stop, reset or rearm are actually executed.",
+  "events": [
+    {
+      "t_sec": 0,
+      "event": "GOAL_EXECUTING",
+      "goal_uuid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "t_sec": 0.1,
+      "event": "ODOM_MOVING",
+      "speed_mps": 0.2
+    },
+    {
+      "t_sec": 0.2,
+      "event": "SCAN_FAULT"
+    },
+    {
+      "t_sec": 0.25,
+      "event": "CM_LOST"
+    },
+    {
+      "t_sec": 0.36,
+      "event": "GUARD_LATCH"
+    },
+    {
+      "t_sec": 0.4,
+      "event": "FINAL_CMD",
+      "vx": 0,
+      "wz": 0
+    },
+    {
+      "t_sec": 1.7,
+      "event": "ODOM_STOP_DWELL",
+      "stop_t": 0.65,
+      "dwell_sec": 1.05
+    },
+    {
+      "t_sec": 1.8,
+      "event": "NAV2_GOAL_CANCELED",
+      "goal_uuid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "t_sec": 2,
+      "event": "RESET_REJECTED_ACTIVE_FAULT"
+    },
+    {
+      "t_sec": 2.2,
+      "event": "HEALTH_RESTORED"
+    },
+    {
+      "t_sec": 2.3,
+      "event": "OWNER_RESET_APPROVED"
+    },
+    {
+      "t_sec": 2.35,
+      "event": "RESET_OK"
+    },
+    {
+      "t_sec": 2.45,
+      "event": "OWNER_REARM_APPROVED"
+    },
+    {
+      "t_sec": 2.5,
+      "event": "REARM_OK"
+    },
+    {
+      "t_sec": 2.6,
+      "event": "NO_AUTO_RESUME",
+      "vx": 0,
+      "wz": 0
+    }
+  ]
+}

@@ -1,0 +1,269 @@
+{
+  "schema": "axia.block_d.d14.policy_events.v1",
+  "source": "Educational synthetic cases derived from pinned G09 S04 policy contract; not physical Gazebo or actual Supervisor transitions",
+  "risk_receipt_ttl_sec": 0.5,
+  "verdict_scope": "SYNTHETIC_ROS_L1_NO_MOTION",
+  "cases": [
+    {
+      "id": "N_fresh_keeps_normal",
+      "description": "정상 N의 시작: LIMITED 요청하지 않음",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "N"
+        }
+      ],
+      "expected_last_action": "NORMAL_UNCHANGED_NO_FALSE_RISK",
+      "expected_limited": false
+    },
+    {
+      "id": "P_predicted_requests_limit",
+      "description": "P가 최초 제한 요청",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "P"
+        }
+      ],
+      "expected_last_action": "LIMIT_ON_PREDICTED_P",
+      "expected_limited": true
+    },
+    {
+      "id": "U_unknown_requests_limit",
+      "description": "U 관측 불확실성은 제한",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "U"
+        }
+      ],
+      "expected_last_action": "LIMIT_ON_UNKNOWN_U",
+      "expected_limited": true
+    },
+    {
+      "id": "P_then_N_never_autoclears",
+      "description": "P 다음 N으로 자동 제한 해제 금지",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "P"
+        },
+        {
+          "kind": "verdict",
+          "mono": 5.1,
+          "seq": 1,
+          "verdict": "N"
+        }
+      ],
+      "expected_last_action": "KEEP_LIMITED_NO_AUTOMATIC_CLEAR",
+      "expected_limited": true
+    },
+    {
+      "id": "U_then_N_never_autoclears",
+      "description": "U 다음 N으로도 자동 해제 금지",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "U"
+        },
+        {
+          "kind": "verdict",
+          "mono": 5.1,
+          "seq": 1,
+          "verdict": "N"
+        }
+      ],
+      "expected_last_action": "KEEP_LIMITED_NO_AUTOMATIC_CLEAR",
+      "expected_limited": true
+    },
+    {
+      "id": "duplicate_N_rejected",
+      "description": "동일 시퀀스 N은 제한 해제 불가",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 2,
+          "verdict": "P"
+        },
+        {
+          "kind": "verdict",
+          "mono": 5.1,
+          "seq": 2,
+          "verdict": "N"
+        }
+      ],
+      "expected_last_action": "REJECT_REPLAY_OR_REORDERED",
+      "expected_limited": true
+    },
+    {
+      "id": "reordered_N_rejected",
+      "description": "이전 시퀀스 N은 제한 해제 불가",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 2,
+          "verdict": "P"
+        },
+        {
+          "kind": "verdict",
+          "mono": 5.1,
+          "seq": 1,
+          "verdict": "N"
+        }
+      ],
+      "expected_last_action": "REJECT_REPLAY_OR_REORDERED",
+      "expected_limited": true
+    },
+    {
+      "id": "invalid_scope_requests_limit",
+      "description": "source scope 위변조",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "N",
+          "scope": "WRONG_SCOPE"
+        }
+      ],
+      "expected_last_action": "LIMIT_ON_INVALID_PROVENANCE",
+      "expected_limited": true
+    },
+    {
+      "id": "invalid_gate_requests_limit",
+      "description": "gate_accepted=True라고 주장한 합성 데이터 거부",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "N",
+          "gate_accepted": true
+        }
+      ],
+      "expected_last_action": "LIMIT_ON_INVALID_PROVENANCE",
+      "expected_limited": true
+    },
+    {
+      "id": "two_sources_requests_limit",
+      "description": "발행자가 둘이어서 신뢰할 수 없음",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "N",
+          "unique_source": false
+        }
+      ],
+      "expected_last_action": "LIMIT_ON_UNTRUSTED",
+      "expected_limited": true
+    },
+    {
+      "id": "invalid_sequence_requests_limit",
+      "description": "잘못된 seq -1",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": -1,
+          "verdict": "N"
+        }
+      ],
+      "expected_last_action": "LIMIT_ON_INVALID_SEQUENCE",
+      "expected_limited": true
+    },
+    {
+      "id": "invalid_label_unknown",
+      "description": "알 수 없는 SAFE 라벨은 U로 취급",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "SAFE"
+        }
+      ],
+      "expected_last_action": "LIMIT_ON_UNKNOWN_U",
+      "expected_limited": true
+    },
+    {
+      "id": "N_receipt_stale_requests_limit",
+      "description": "N 수신 후 호스트 기준 0.52초 경과: TTL 만료",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "N"
+        },
+        {
+          "kind": "tick",
+          "mono": 5.52
+        }
+      ],
+      "expected_last_action": "RECEIPT_EXPIRED_REQUEST_LIMIT",
+      "expected_limited": true
+    },
+    {
+      "id": "N_clock_regression_requests_limit",
+      "description": "호스트 monotonic 시계 역행은 만료",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "N"
+        },
+        {
+          "kind": "tick",
+          "mono": 4
+        }
+      ],
+      "expected_last_action": "RECEIPT_EXPIRED_REQUEST_LIMIT",
+      "expected_limited": true
+    },
+    {
+      "id": "no_owned_goal_cannot_arm",
+      "description": "Goal 권한 없는 동안 새로운 제한/완화 권한 없음",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "P",
+          "owned_goal": false
+        }
+      ],
+      "expected_last_action": "NO_OWNED_HEALTHY_GOAL",
+      "expected_limited": false
+    },
+    {
+      "id": "unhealthy_robot_cannot_arm",
+      "description": "로봇 상태 비정상 중 명령 권한 없음",
+      "steps": [
+        {
+          "kind": "verdict",
+          "mono": 5,
+          "seq": 0,
+          "verdict": "N",
+          "healthy": false
+        }
+      ],
+      "expected_last_action": "NO_OWNED_HEALTHY_GOAL",
+      "expected_limited": false
+    }
+  ]
+}
