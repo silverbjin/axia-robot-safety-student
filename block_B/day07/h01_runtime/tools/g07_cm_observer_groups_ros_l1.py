@@ -185,7 +185,8 @@ def main():
         return synthetic_publisher(sys.argv[2])
     if len(sys.argv)==3 and sys.argv[1]=="--witness" and sys.argv[2] in ("baseline","isolated","multi_unblocked","single_unblocked"):
         return independent_witness(sys.argv[2])
-    if len(sys.argv)!=1:
+    if not (len(sys.argv)==1 or
+            (len(sys.argv)==2 and sys.argv[1]=="--multi-v-single")):
         return 3
     import rclpy
     from rclpy.node import Node
