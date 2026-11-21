@@ -166,5 +166,70 @@ print("D14_LIVE_XSS_ESCAPING_PASS")
             self.assertEqual(check.returncode,0,check.stdout+check.stderr)
             self.assertIn("initPolicy();initIntent();initG10();",m.group(1))
 
+    def test_browser_controls_node_dom_smoke(self):
+        """Execute the real HTML's JS against a tiny DOM stand-in, no packages."""
+        import shutil
+        if not shutil.which("node"):
+            self.skipTest("Node unavailable: interactive JS DOM smoke NOT_RUN")
+        node_script = r"""
+const fs = require("fs"), vm = require("vm"), assert = require("assert");
+const html = fs.readFileSync(process.argv[2], "utf8");
+const data = html.match(/<script type="application\/json" id="axia-data">([\s\S]*?)<\/script>/);
+const script = html.match(/<script>\s*([\s\S]*?)<\/script>/);
+assert(data && script, "standalone embedded data and script required");
+class Fake {
+  constructor(id) {
+    this.id=id;this.children=[];this.listeners={};this.style={display:"none"};
+    this.textContent="";this.value="";this.max="";this.hidden=true;
+    this.classList={toggle:()=>{}};this.attributes={};
+  }
+  appendChild(child){this.children.push(child);return child;}
+  addEventListener(type,fn){this.listeners[type]=fn;}
+  setAttribute(key,value){this.attributes[key]=value;}
+}
+const nodes = new Map();
+const get = id => {
+  if(!nodes.has(id))nodes.set(id,new Fake(id));
+  return nodes.get(id);
+};
+get("axia-data").textContent=data[1];
+const document={getElementById:get,createElement:tag=>new Fake(tag)};
+const context={document,setInterval:()=>1,clearInterval:()=>{}};
+vm.runInNewContext(script[1],context,{timeout:1000});
+const click=id => {assert(get(id).listeners.click,"click handler: "+id);get(id).listeners.click.call(get(id));};
+const change=id => {assert(get(id).listeners.change,"change handler: "+id);get(id).listeners.change.call(get(id));};
+assert.equal(get("policySelect").children.length,16);
+assert.equal(get("g10Rail").children.length,15);
+assert.equal(get("intentSelect").children.length,4);
+get("policySelect").value="3";change("policySelect");
+click("policyNext");
+assert.equal(get("policyVerdict").textContent,"N");
+get("policyVote").value="LIMITED_REQUEST";click("policyReveal");
+assert.equal(get("policyAnswer").style.display,"block");
+assert(get("fixtureExpected").textContent.includes("KEEP_LIMITED_NO_AUTOMATIC_CLEAR"));
+assert(get("learnerActual").textContent.includes("D14_TODO_NOT_IMPLEMENTED"));
+click("policyHide");
+assert.equal(get("policyAnswer").style.display,"none");
+get("intentSelect").value="2";change("intentSelect");
+get("intentVote").value="STOP";click("intentReveal");
+assert(get("intentAnswer").textContent.includes("STOP"));
+for(let i=0;i<5;i++)click("g10Next");
+assert.equal(get("g10Event").textContent,"FINAL_CMD");
+assert(get("g10Details").textContent.includes("vx=0"));
+assert(get("g10Details").textContent.includes("wz=0"));
+console.log("D14_LIVE_NODE_DOM_INTERACTION_PASS policy=16 intent=4 g10=15");
+"""
+        with tempfile.TemporaryDirectory() as t:
+            out=Path(t)
+            p=self.run_demo(out)
+            self.assertEqual(p.returncode,0,p.stdout)
+            smoke=out/"smoke.cjs"
+            smoke.write_text(node_script,encoding="utf-8")
+            check=subprocess.run(["node",str(smoke),
+                                  str(out/"axia_d14_safety_control_room.html")],
+                                 cwd=out,capture_output=True,text=True,timeout=20)
+            self.assertEqual(check.returncode,0,check.stdout+check.stderr)
+            self.assertIn("D14_LIVE_NODE_DOM_INTERACTION_PASS",check.stdout)
+
 if __name__=="__main__":
     unittest.main()
