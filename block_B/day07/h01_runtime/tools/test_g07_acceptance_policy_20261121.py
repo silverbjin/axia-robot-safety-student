@@ -95,10 +95,35 @@ class G07AcceptancePolicy(unittest.TestCase):
             self.assertIn(b'intel_realsense_r200_depth',target2.read_bytes())
             self.assertFalse(report2["depth_sensor_disabled_in_session"])
 
+    def test_depth_absence_requires_real_scan_gazebo_and_ros_graph(self):
+        from p2_g07_depth_absence_audit import assess
+        model='<robot><sensor name="hls_lfcd_lds" type="gpu_lidar"/></robot>'
+        ros=[{"name":"/scan","types":["sensor_msgs/msg/LaserScan"]},
+             {"name":"/safety/scan","types":["sensor_msgs/msg/LaserScan"]}]
+        gz=["/world/default/clock","/world/default/model/turtlebot3/link/base_scan"]
+        report={"status":"PASS_SCOPED_RECEIVED_SCAN_ONLY",
+                "topic_results":{"scan":{"pairs":119},
+                                 "safety_scan":{"pairs":119}}}
+        ok=assess(model,ros,gz,report)
+        self.assertEqual(ok["status"],"G07_REAL_DEPTH_ABSENT_SCAN_PRESENT_PASS",ok)
+        self.assertFalse(ok["depth_sensor_enabled"])
+        missing=assess(model,ros,[],report)
+        self.assertEqual(missing["status"],"HOLD")
+        ros_depth=ros+[{"name":"/depth_camera/image_raw",
+                        "types":["sensor_msgs/msg/Image"]}]
+        self.assertEqual(assess(model,ros_depth,gz,report)["status"],"HOLD")
+        gz_depth=gz+["/world/default/sensor/intel_realsense_r200_depth/depth_image"]
+        self.assertEqual(assess(model,ros,gz_depth,report)["status"],"HOLD")
+        model_enabled=model.replace("</robot>",
+                       '<sensor name="intel_realsense_r200_depth" type="depth"/></robot>')
+        self.assertEqual(assess(model_enabled,ros,gz,report)["status"],"HOLD")
+
     def test_g07_script_selects_depth_off_gui_optional_with_existing_entry(self):
         source=SCRIPT.read_text()
         self.assertIn("AXIA_G07_DEPTH_SENSOR_ENABLED",source)
         self.assertIn("--disable-depth",source)
+        self.assertIn("g07_depth_absence.json",source)
+        self.assertIn("g07_phase_timings.tsv",source)
         self.assertIn("AXIA_G07_GUI_DIAGNOSTIC_ONLY",source)
         self.assertIn("AXIA_G07_GUI_DIAGNOSTIC_ONLY",source)
         self.assertIn('LAUNCH="$ROOT/ros2_ws/src/axia_safety_bringup/launch/axia_tb3_p2.launch.py"',source)
