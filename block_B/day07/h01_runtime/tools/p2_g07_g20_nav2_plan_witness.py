@@ -160,3 +160,44 @@ class PlanWitness:
         if fixture is not None and math.isfinite(min_fixture):
             result["obstacle_min_path_distance_m"]=round(min_fixture,6)
         return result
+
+
+def assess_first_plan_change(before,after):
+    """Same-run first path pair; reorientation is NOT Nav2 local root proof."""
+    r=dict(schema="axia.g07.g20.first_global_plan_response.v1",
+        status="FIRST_GLOBAL_PLAN_PAIR_UNVERIFIED_HOLD",release="HOLD",
+        root_cause="UNDETERMINED",root_cause_proven=False,
+        actual_local_controller_replan_proven=False,
+        obstacle_intersection_proven=False,certified_estop=False,
+        owner_l3_accepted=False,safety_ttl_changed=False)
+    if not isinstance(before,dict) or not isinstance(after,dict):
+        return r
+    if (before.get("status")!="NAV2_GLOBAL_PLAN_GEOMETRY_CANDIDATE_HOLD"
+        or after.get("status")!="NAV2_GLOBAL_PLAN_GEOMETRY_CANDIDATE_HOLD"
+        or before.get("release")!="HOLD" or after.get("release")!="HOLD"
+        or before.get("phase")!="PRE_FIXTURE"
+        or after.get("phase")!="AFTER_FIXTURE_ACK"
+        or any(type(row.get("plan_points")) is not int or
+               row["plan_points"]<2 or row["plan_points"]>MAX_PATH_POINTS
+               for row in (before,after))):
+        return r
+    vals=[before.get("plan_tangent_yaw_rad"),
+          after.get("plan_tangent_yaw_rad"),
+          before.get("robot_map_yaw_rad"),
+          after.get("robot_map_yaw_rad"),
+          after.get("obstacle_min_path_distance_m")]
+    if not all(_finite(v) for v in vals):
+        return r
+    if not 0<=vals[4]<=3:
+        return r
+    delta=abs(_angle(vals[1]-vals[0]))
+    robot=abs(_angle(vals[3]-vals[2]))
+    r.update(plan_tangent_change_abs_rad=round(delta,6),
+        robot_yaw_change_abs_rad=round(robot,6),
+        fixture_global_path_distance_m=round(vals[4],6),
+        before_points=before["plan_points"],after_points=after["plan_points"])
+    if delta>.4 and delta>robot+.25:
+        r["status"]="AFTER_FIXTURE_GLOBAL_PLAN_REORIENTATION_CANDIDATE_HOLD"
+    else:
+        r["status"]="NO_MAJOR_GLOBAL_PLAN_CHANGE_NOT_ACCEPTANCE_HOLD"
+    return r
