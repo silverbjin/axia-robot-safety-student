@@ -9,7 +9,14 @@ import tempfile
 import yaml
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parents[3] / 'tools'))
+# The existing standalone source launch and new installed package share the
+# SAME P2 YAML/tool implementations. Check a real file rather than assuming
+# the current working directory or a fixed number of parent directories.
+SOURCE_RUNTIME=HERE.parents[3]
+TOOL_DIR=(SOURCE_RUNTIME / 'tools'
+          if (SOURCE_RUNTIME / 'tools/p2_zone_overlay.py').is_file()
+          else HERE.parent / 'tools')
+sys.path.insert(0,str(TOOL_DIR))
 from p2_zone_overlay import patch_p2_zone_parameters
 from p2_g07_cm_stop_zero_delivery import apply_g07_zero_delivery
 from p2_mvp_one_goal_oracle import DEMO_GOAL_TOLERANCE_M
@@ -90,7 +97,11 @@ def apply_g07_task02_simple_tf_candidate(params, env):
 def write_p2_parameters(source):
     src = Path(source).expanduser().resolve(strict=True)
     raw = src.read_bytes()
-    zones = HERE.parents[3] / 'configs' / 'p2_collision_monitor_zones.yaml'
+    zones = (SOURCE_RUNTIME / 'configs/p2_collision_monitor_zones.yaml'
+             if (SOURCE_RUNTIME / 'configs/p2_collision_monitor_zones.yaml').is_file()
+             else HERE.parent / 'config/p2_collision_monitor_zones.yaml')
+    if not zones.is_file():
+        raise ValueError('P2_COLLISION_MONITOR_ZONE_CONFIG_NOT_INSTALLED')
     p = patch_p2_zone_parameters(yaml.safe_load(raw), yaml.safe_load(zones.read_text()))
     if os.environ.get('AXIA_P2_MVP_ONE_GOAL') == '1':
         set_mvp_goal_tolerance(p)
