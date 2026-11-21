@@ -6,6 +6,10 @@ cd "$ROOT"
 OUT="${AXIA_P2_SMOKE_RESULTS:-$ROOT/results/p2-smoke-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd -P)"
+# Shell builtin EPOCHREALTIME: no new ROS CLI process/DDS participant per mark.
+printf 'phase\tepoch_realtime\n' > "$OUT/g07_phase_timings.tsv"
+g07_mark() { printf '%s\t%s\n' "$1" "$EPOCHREALTIME" >> "$OUT/g07_phase_timings.tsv"; }
+g07_mark start
 LAUNCH_PID=''
 BAG_PID=''
 GUI_WATCH_PID=''
@@ -280,10 +284,13 @@ set +u; source /opt/ros/jazzy/setup.bash; set -u
 for cmd in ros2 colcon gz python3 setsid timeout; do command -v "$cmd" >/dev/null || exit 2; done
 for pkg in nav2_bringup nav2_minimal_tb3_sim ros_gz_sim; do ros2 pkg prefix "$pkg" >/dev/null || exit 2; done
 # Keep existing frozen P1 unchanged. New P2 package code built in overlay.
+g07_mark before_colcon_build
 colcon build --base-paths ros2_ws/src --packages-select \
   axia_safety_supervisor axia_fault_injector axia_scenario_verifier axia_safety_bringup \
   --event-handlers console_direct+ > "$OUT/build.log" 2>&1 || { echo 'P2_BUILD_BLOCKED'; exit 2; }
+g07_mark after_colcon_build
 set +u; source install/setup.bash; set -u
+g07_mark after_overlay_source
 ros2 pkg prefix axia_safety_bringup > "$OUT/bringup_package_prefix.txt" || {
   echo 'G07_INSTALLED_BRINGUP_PACKAGE_UNDISCOVERABLE' >&2;exit 2;
 }
@@ -335,6 +342,7 @@ ros2 launch axia_safety_bringup axia_tb3_p2.launch.py --show-args \
   echo 'G07_INSTALLED_LAUNCH_ARGS_BLOCKED' >&2;exit 2;
 }
 ros2 launch "$LAUNCH" --show-args > "$OUT/launch_args.log" 2>&1 || { echo 'P2_LAUNCH_ARGS_BLOCKED'; exit 2; }
+g07_mark installed_and_source_launch_args_ready
 # For physical G07 only, reuse the official WORLD with Contact system
 # overlay; do not replace Nav2, its robot spawn, or the world layout.
 # S03 experimental simulation ONLY: allow the existing /safety/scan relay
@@ -456,9 +464,11 @@ if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1 ]]; then
     fi
   fi
 fi
+g07_mark before_gazebo_launch
 setsid ros2 launch "$LAUNCH" "${LAUNCH_ARGS[@]}" \
    > "$OUT/launch.log" 2>&1 &
 LAUNCH_PID=$!
+g07_mark gazebo_launch_started
 # Owner WSL2 always runs the following real 14-topic SQLite recording
 # concurrently with Gazebo, Nav2 and its two-worker Observer.
 if [[ "${AXIA_G07_CI_OWNER_BAG_PARITY:-0}" == 1 ]]; then
@@ -562,6 +572,7 @@ finally:
 PY
 fi
 if "${STAGED_START[@]}" > "$OUT/staged_startup.log" 2>&1; then
+  g07_mark staged_nav2_ready
   echo 'P2_NO_GOAL_STATIC_AND_RUNTIME_READINESS_OBSERVED'
 else
   echo 'P2_NO_GOAL_BLOCKED: see staged_startup.log/launch.log' >&2
@@ -1132,7 +1143,27 @@ if [[ "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 1 || "$OWNER_MOVING" == 1 ]];then
       exit 2
     fi
     cat "$OUT/g07_ci_scan_pregoal.log"
-    echo 'AXIA_G07_PREGOAL_SCAN_WALL_GOAL_ADMISSION_PASS_SCOPED'
+    g07_mark pregoal_scan_evidence_ready
+    # G07 session-only depth-off: inspect actual Gazebo native topic graph
+    # and ROS graph already collected by the SAME Scan observer. Keep
+    # depth-enabled official model for D04/D05 and other scenarios.
+    if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1
+          && "${AXIA_G07_OWNER_STARTUP_PARITY:-0}" == 1
+          && "$G07_DEPTH_SENSOR_ENABLED" == 0 ]];then
+      timeout --signal=TERM --kill-after=2s 8s gz topic -l \
+        > "$OUT/g07_gz_topics.txt" 2>"$OUT/g07_gz_topics.err" || {
+        echo 'G07_DEPTH_GAZEBO_TOPIC_DISCOVERY_FAILED_NO_GOAL' >&2;exit 2;
+      }
+      python3 tools/p2_g07_depth_absence_audit.py \
+        --model "$OUT/g07_demo_waffle.sdf.xacro" \
+        --scan-report "$OUT/g07_ci_scan_pregoal.json" \
+        --gz-topics "$OUT/g07_gz_topics.txt" \
+        --output "$OUT/g07_depth_absence.json" || {
+        echo 'G07_DEPTH_ABSENCE_OR_SCAN_EVIDENCE_FAILED_NO_GOAL' >&2;exit 2;
+      }
+      g07_mark g07_depth_absence_scan_validated
+    fi
+    echo 'AXIA_G07_PREGOAL_SCAN_WALL_DIAGNOSTIC_GOAL_ADMISSION_PASS_SCOPED'
   fi
   # The real Owner shell must read the exact consent phrase from /dev/tty.
   # The single Goal is sent later by the existing Python Supervisor path.
