@@ -48,6 +48,24 @@ class ObserverIOFirstBoundary(unittest.TestCase):
         self.assertEqual(x["status"],"PROBE_CAPTURED_FIRST_BOUNDARY_UNPROVEN_HOLD")
         self.assertFalse(x["timing_safety_pass"])
 
+    def test_first_gap_heartbeat_not_confused_with_session_global_max(self):
+        # Exact prior native #44859905000: main ROS Observer first 335ms
+        # gap but independent Python heartbeat remained 20ms in THAT gap.
+        p=BoundedObserverIoProbe(max_samples=8)
+        for t in (179.413292627,179.749053764):
+            ns=int(t*1e9)
+            p.record("odom",t,ns,ns,ns,ns,ns,ns,False)
+        # A separate unrelated 350ms heartbeat scheduling hiccup occurred
+        # OUTSIDE the first ROS timing failure. Never call it process-wide
+        # stall proof at the first violation.
+        beats=[178.,178.35]+[179.40+i*.020 for i in range(20)]
+        d=p.summary(start=179.3,end=179.9,heartbeats=beats)
+        self.assertGreater(d["heartbeat_max_gap_ms"],300)
+        self.assertGreaterEqual(d["first_violation_heartbeat_count"],14)
+        self.assertLess(d["first_violation_heartbeat_max_gap_ms"],40)
+        self.assertFalse(d["process_wide_stall_at_first_violation_proven"])
+        self.assertEqual(d["release"],"HOLD")
+
     def test_bounded_overflow_and_no_goal_stay_hold(self):
         p=BoundedObserverIoProbe(max_samples=2)
         for i in range(4):
