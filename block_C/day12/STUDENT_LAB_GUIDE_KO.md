@@ -130,6 +130,67 @@ echo D12_PUBLIC_SAMPLE_PRESENT
 
 > 선택: pytest가 없는 PC는 Python 3.12 가상환경을 만들 수 있습니다. `python3 -m venv --system-site-packages "$HOME/axia_d12_course/.venv"`, `source "$HOME/axia_d12_course/.venv/bin/activate"`, `python -m pip install pytest==8.3.5`. WSL2에 `python3-venv`가 없거나 인터넷 연결이 없으면 **표준 라이브러리 A/C 실습을 먼저** 수행합니다. ROS Python 패키지는 공식 Jazzy 설치가 별도로 필요합니다.
 
+
+### A2-1. JSONL 한 줄을 사람의 말로 번역해 보기 (A2~A3 사이, 필수)
+
+**상황:** D12에서 운영자에게 첫 번째 경고가 나타났습니다. 아래는 공개 sample_events.jsonl의 세 번째 행을 **읽기 좋게 줄바꿈한 동일 사건**입니다(실제 파일에는 한 줄로 저장).
+
+~~~json
+{
+  "schema_version": 1,
+  "event_id": "DEMO:TST_N_00:002",
+  "trace_id": "TST_N_00",
+  "source": "SYNTHETIC_COURSE_FIXTURE",
+  "source_timestamp_ns": 200000000,
+  "model_id": "EDUCATION_TRANSPORT_DEMO",
+  "risk_score": 0.9,
+  "threshold": 0.5,
+  "level": "WARNING",
+  "quality_reason": null,
+  "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "control_authority": false,
+  "certified_estop": false
+}
+~~~
+
+**한 필드씩 뜻 풀이:**
+
+- `schema_version=1`은 교육용 이벤트 데이터 형식의 버전입니다.
+- `event_id`는 사고 기록을 나중에 재조회할 **고유 사건 이름**입니다. 다른 사건의 점수나 피드백을 섞지 않도록 연결합니다.
+- `trace_id`는 원래 데이터가 속한 시나리오/시험을 뜻합니다. D12의 공개 12행은 하나의 가상 Trace입니다.
+- `source`는 값이 **합성 교육자료**에서 왔음을 알려줍니다. 실제 터틀봇 센서 값이 아닙니다.
+- `source_timestamp_ns=200000000`은 Trace 내부의 **0.2초**입니다. 현재 시계나 DDS 수신 시간이 아닙니다.
+- `model_id=EDUCATION_TRANSPORT_DEMO`는 학습용 임의 점수의 출처입니다. D11 AutoEncoder가 새로 추론한 값이 아닙니다.
+- `risk_score=0.9`와 `threshold=0.5`를 비교해 WARNING으로 표시합니다. 이 상태 메시지가 실제 로봇 제어를 발생시키지는 않습니다.
+- `quality_reason=null`은 이 사건은 별도 품질 결손 이유가 없다는 뜻입니다. **JSON의 null은 Python의 None**으로 변환됩니다.
+- `input_sha256`의 a 문자 64개는 형식 검사 placeholder입니다. 실제 공개 CSV 원본을 해시한 데이터 무결성 증거가 아닙니다.
+- `control_authority=false`, `certified_estop=false`는 **교육 이벤트에 로봇 제어권/인증된 E-Stop이 없다는 데이터 계약**을 뜻합니다.
+
+**비교할 사건:** 네 번째 행 `DEMO:TST_N_00:003`은 risk_score와 threshold가 모두 null이며 quality_reason이 `DEMO_SAMPLE_MISSING`입니다. 이 사건을 0점/NORMAL로 바꾸면 "측정 데이터 부족"이라는 정보를 잃게 됩니다.
+
+**직접 확인(원본 출력):**
+
+~~~bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+p = Path("block_C/day12/ros_transport/sample_events.jsonl")
+rows = [json.loads(s) for s in p.read_text(encoding="utf-8").splitlines() if s.strip()]
+for i in (2, 3):
+    e = rows[i]
+    print(e["event_id"], e["level"], "score=", e["risk_score"], "quality=", e["quality_reason"])
+PY
+~~~
+
+**실행 전 예상 출력:**
+
+~~~text
+DEMO:TST_N_00:002 WARNING score= 0.9 quality= None
+DEMO:TST_N_00:003 INSUFFICIENT_DATA score= None quality= DEMO_SAMPLE_MISSING
+~~~
+
+**스스로 점검:** WARNING과 INSUFFICIENT_DATA 중 어느 것이 더 심각합니까? → 이 정보만으로 실제 장비 위험 순위를 단정할 수 없습니다. 전자는 모형의 이상 후보, 후자는 판정 가능한 입력 부족이므로 **조사 방향이 다릅니다.**
+
 ### A3. 파일을 실제로 읽고 상태별 건수를 세기 (10분)
 
 ~~~bash
