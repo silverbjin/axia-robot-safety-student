@@ -46,7 +46,7 @@ class HealthBoundaryContract(unittest.TestCase):
         r=p.result()
         self.assertEqual(r["first_readiness_blockers"],
                          ["clock_not_advancing","scan_missing"])
-        self.assertIsNone(r["first_sample"]["scan_at"])
+        self.assertIsNone(r["first_sample"]["scan_observer_age_ms"])
         self.assertEqual(r["samples"],1)
 
     def test_first_state_transition_and_last_sample_survive_bounded_history(self):
@@ -75,7 +75,7 @@ class HealthBoundaryContract(unittest.TestCase):
         self.assertIn("HealthFirstBoundary",src)
         self.assertIn('label=="HEALTH"',src)
         self.assertIn('first_health_boundary.json',src)
-        self.assertIn('CI_MOVING_GOAL_TIMEOUT_HEALTH',src)
+        self.assertIn('CI_MOVING_GOAL_TIMEOUT_'+ '"+label',src)
         self.assertIn("probe.record(",src)
         self.assertIn("health_boundary.result()",src)
         self.assertIn("health_first_boundary",src)
