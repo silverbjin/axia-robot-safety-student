@@ -386,7 +386,8 @@ if [[ "${AXIA_P2_G07_PHYSICAL_PREFLIGHT:-0}" == 1 ]]; then
   # leaving an otherwise healthy server /scan and Nav2 but a BLANK 3D GUI.
   # Keep staged headless startup and all P2/G07 motion cases untouched.
   if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
-     || "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
+     || ( ( "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 )
+          && -n "${DISPLAY:-}" ) ]];then
     [[ "${AXIA_P0_SIM_ONLY:-0}" == 1
        && ( ( "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1
               && "${AXIA_G07_CI_SIM_GOAL_ALLOWED:-0}" == 0 )
@@ -688,42 +689,49 @@ if [[ "${AXIA_D07_H01_GUI_NO_GOAL:-0}" == 1 ]]; then
   fi
   echo "D07_H01_GUI_RENDERERS_AFTER_NAV2_READY watcher_pid=$GUI_WATCH_PID awaiting_stable_free_baseline=1 NO_GOAL"
 fi
-# Client-only GUI: attach after real shared staged Nav2 readiness.
-# Gazebo SERVER remains owned solely by the original ros2 launch process.
+# Client-only GUI is a diagnostics channel. A failed/missing WSLg GUI
+# CANNOT abort a correctly running headless Gazebo/Nav2/CM/Guard acceptance.
+# Record the GUI first failure separately. Never start a second server.
 if [[ "$OWNER_MOVING" == 1 || "$CI_MOVING_GUI" == 1 ]];then
-  [[ -r "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" ]] || {
-    echo 'G07_TASK04_RVIZ_CONFIG_MISSING_NO_GOAL' >&2;exit 2;
-  }
-  # The original D07 NO_GOAL WSLg success scoped Mesa D3D12 ONLY to
-  # the GUI children. Do not inherit GPU renderer override into the
-  # Gazebo physics/sensor server or ROS safety nodes.
-  if [[ "$OWNER_MOVING" == 1 ]];then
-    case "${AXIA_G07_TASK04_GUI_D3D12_ADAPTER:-}" in
-      NVIDIA|Intel) ;;
-      *) echo 'G07_TASK04_GUI_D3D12_ADAPTER_NOT_VERIFIED_NO_GOAL' >&2;exit 2 ;;
-    esac
-    setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
-      MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
-      gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
-    MOVING_GAZEBO_GUI_PID=$!
-    setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
-      MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
-      rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
-      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
-    MOVING_RVIZ_PID=$!
+  printf '%s\n' 'scope=G07_GUI_DIAGNOSTIC_ONLY' > "$OUT/g07_gui_diagnostic.txt"
+  GUI_CONFIG="$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz"
+  if [[ -z "${DISPLAY:-}" ]];then
+    echo 'AXIA_G07_GUI_DIAGNOSTIC_ONLY DISPLAY_ABSENT HEADLESS_CONTINUES' \
+      | tee -a "$OUT/g07_gui_diagnostic.txt"
+  elif [[ ! -r "$GUI_CONFIG" ]];then
+    echo 'AXIA_G07_GUI_DIAGNOSTIC_ONLY RVIZ_CONFIG_MISSING HEADLESS_CONTINUES' \
+      | tee -a "$OUT/g07_gui_diagnostic.txt"
+  elif [[ "$OWNER_MOVING" == 1
+        && ! "${AXIA_G07_TASK04_GUI_D3D12_ADAPTER:-}" =~ ^(NVIDIA|Intel)$ ]];then
+    echo 'AXIA_G07_GUI_DIAGNOSTIC_ONLY WSLG_ADAPTER_UNVERIFIED HEADLESS_CONTINUES' \
+      | tee -a "$OUT/g07_gui_diagnostic.txt"
   else
-    # Preserve the already L2-verified Xvfb/llvmpipe client process flow.
-    setsid nice -n 10 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
-    MOVING_GAZEBO_GUI_PID=$!
-    setsid nice -n 10 rviz2 -d "$ROOT/training/block_B/instructor/rviz/d07_h01_physical_replan.rviz" \
-      --ros-args -p use_sim_time:=true > "$OUT/task04_rviz.log" 2>&1 &
-    MOVING_RVIZ_PID=$!
+    if [[ "$OWNER_MOVING" == 1 ]];then
+      setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
+        MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
+        gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+      MOVING_GAZEBO_GUI_PID=$!
+      setsid nice -n 10 env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 \
+        MESA_D3D12_DEFAULT_ADAPTER_NAME="$AXIA_G07_TASK04_GUI_D3D12_ADAPTER" \
+        rviz2 -d "$GUI_CONFIG" --ros-args -p use_sim_time:=true \
+        > "$OUT/task04_rviz.log" 2>&1 &
+      MOVING_RVIZ_PID=$!
+    else
+      setsid nice -n 10 gz sim -g > "$OUT/task04_gazebo_gui.log" 2>&1 &
+      MOVING_GAZEBO_GUI_PID=$!
+      setsid nice -n 10 rviz2 -d "$GUI_CONFIG" --ros-args -p use_sim_time:=true \
+        > "$OUT/task04_rviz.log" 2>&1 &
+      MOVING_RVIZ_PID=$!
+    fi
+    sleep 3
+    if kill -0 "$MOVING_GAZEBO_GUI_PID" "$MOVING_RVIZ_PID" 2>/dev/null;then
+      echo 'AXIA_G07_GUI_DIAGNOSTIC_ONLY BOTH_CLIENTS_STARTED' \
+        | tee -a "$OUT/g07_gui_diagnostic.txt"
+    else
+      echo 'AXIA_G07_GUI_DIAGNOSTIC_ONLY CLIENT_EXITED HEADLESS_CONTINUES' \
+        | tee -a "$OUT/g07_gui_diagnostic.txt"
+    fi
   fi
-  sleep 3
-  kill -0 "$MOVING_GAZEBO_GUI_PID" "$MOVING_RVIZ_PID" 2>/dev/null || {
-    echo 'G07_TASK04_GUI_CLIENT_DIED_BEFORE_GOAL' >&2;exit 2;
-  }
-  echo 'AXIA_G07_TASK04_GAZEBO_SERVER_SINGLE_GUI_CLIENTS_ATTACHED'
 fi
 # New G07 shutdown-only regression: reuse the staged REAL Gazebo/Nav2
 # no-Goal session, avoid re-running the previously successful moving L2.
