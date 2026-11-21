@@ -208,7 +208,7 @@ def run(output,window_sec=WINDOW_SEC):
     records={name:deque(maxlen=CLOCK_WINDOW_MAX_SAMPLES if name=="clock" else 400) for name in ("scan","safety_scan","clock","odom")}
     scan_rmw_rows=deque(maxlen=1000)
     def scan_cb(name):
-        def cb(msg, info=None):
+        def cb(msg, info):
             at=time.monotonic()
             sim=msg.header.stamp.sec+msg.header.stamp.nanosec*1e-9
             records[name].append((at,sim))
