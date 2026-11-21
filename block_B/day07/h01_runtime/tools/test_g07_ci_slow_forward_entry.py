@@ -96,11 +96,11 @@ class TestSlowForwardEntry(unittest.TestCase):
         self.assertEqual(diagnose_forward_entry(s,d,ANCHOR)["first_blocker"],
                          "STALE_OR_MISSING_SCAN")
 
-    def test_runtime_failure_must_emit_bounded_first_blocker_before_error(self):
+    def test_rejected_runtime_first_blocker_does_not_override_original_slow(self):
         src=(Path(__file__).parent/"p2_g07_ci_moving_goal.py").read_text()
-        self.assertIn("AXIA_G07_G20_FIRST_FORWARD_ENTRY_BLOCKER",src)
-        self.assertIn("diagnose_forward_entry",src)
-        self.assertIn("CI_MOVING_GOAL_TIMEOUT_SLOW_ENTRY_FORWARD",src)
+        self.assertNotIn("AXIA_G07_G20_FIRST_FORWARD_ENTRY_BLOCKER",src)
+        self.assertNotIn("CI_MOVING_GOAL_TIMEOUT_SLOW_ENTRY_FORWARD",src)
+        self.assertIn("CI_MOVING_GOAL_TIMEOUT_SLOW",src)
 
     def test_rejected_goal_bearing_gate_not_enabled_in_original_moving_runtime(self):
         # Native #44878195833 L2 FAIL despite L0; Goal straight bearing
