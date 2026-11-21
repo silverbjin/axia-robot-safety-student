@@ -74,7 +74,8 @@ def _target_pid(name, session, required_environment):
 
 class Observer:
     def __init__(self, node, folder, *, buffered_evidence=False,
-                 periodic_flush_sec=None, sensor_header_ledger=False):
+                 periodic_flush_sec=None, sensor_header_ledger=False,
+                 io_probe=False):
         from action_msgs.msg import GoalStatusArray
         from geometry_msgs.msg import Twist, PoseWithCovarianceStamped
         from nav_msgs.msg import Odometry
@@ -82,6 +83,12 @@ class Observer:
         from sensor_msgs.msg import LaserScan
         from std_msgs.msg import String
         from rclpy.qos import qos_profile_sensor_data, QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
+        if type(io_probe) is not bool:
+            raise ValueError("G07_OBSERVER_IO_PROBE_BOOL_REQUIRED")
+        self._g07_io_probe=None
+        if io_probe:
+            from p2_g07_observer_io_probe import BoundedObserverIoProbe
+            self._g07_io_probe=BoundedObserverIoProbe(max_samples=12000)
         self.node=node
         self.amcl_map_pose=None
         self.amcl_map_pose_at=None
@@ -176,16 +183,32 @@ class Observer:
 
     def _write(self,kind,*,at=None,**kv):
         t=time.monotonic() if at is None else at
+        # Strictly a gated CI read-only timing probe. No extra disk I/O,
+        # middleware actions, publishers or safety verdicts in callbacks.
+        probe=self._g07_io_probe
+        probe_started_ns=time.monotonic_ns() if probe is not None else 0
         with self.lock:
-            self.event_file.write(json.dumps({'kind':kind,'t':t,**kv},sort_keys=True)+'\n')
+            locked_ns=time.monotonic_ns() if probe is not None else 0
+            payload=json.dumps({'kind':kind,'t':t,**kv},sort_keys=True)+'\n'
+            serialized_ns=time.monotonic_ns() if probe is not None else 0
+            self.event_file.write(payload)
+            wrote_ns=time.monotonic_ns() if probe is not None else 0
             flush_sec=getattr(self, "_periodic_flush_sec", None)
+            did_flush=False
             if flush_sec is not None:
                 if 0 <= t-self._last_periodic_flush_mono >= flush_sec:
-                    # Reduce ~250 callback-driven flushes/s to one every
-                    # 0.75s, but keep bounded on-disk evidence on native abort.
+                    # Existing original 0.75s callback flush retained here
+                    # until the actual first gap's I/O cause is proven.
+                    did_flush=True
                     self.event_file.flush()
                     self._last_periodic_flush_mono=t
+            flushed_ns=time.monotonic_ns() if probe is not None else 0
             self.latest[kind]=t
+            if probe is not None:
+                finalized_ns=time.monotonic_ns()
+                probe.record(kind,t,probe_started_ns,locked_ns,
+                             serialized_ns,wrote_ns,flushed_ns,
+                             finalized_ns,did_flush)
         return t
     def _odom(self,m):
         # Host MONOTONIC callback entry vs genuine ROS sim-time Header; do
@@ -308,6 +331,29 @@ class Observer:
                     'pose':self.pose,
                     'amcl_map_pose':self.amcl_map_pose,
                     'amcl_map_pose_at':self.amcl_map_pose_at}
+    def io_probe_summary(self, *, heartbeats=()):
+        """Pure numeric diagnostic; cannot waive CM120 or sensor300 HOLD."""
+        if self._g07_io_probe is None:
+            return {"status":"NOT_ENABLED_HOLD","release":"HOLD",
+                    "root_cause_proven":False,
+                    "certified_estop":False}
+        with self.lock:
+            goal=[row[1] for row in self._g07_io_probe.rows
+                  if row[0]=="owner_goal_published"]
+            ends=[row[1] for row in self._g07_io_probe.rows
+                  if row[0]=="task03_motion_window_end"]
+            start=goal[0] if len(goal)==1 else None
+            end=(ends[0] if start is not None and len(ends)==1
+                 and ends[0]>start else
+                 max((row[1] for row in self._g07_io_probe.rows
+                      if start is not None and row[1]>start),default=None))
+            result=self._g07_io_probe.summary(
+                start=start,end=end,heartbeats=heartbeats)
+        result["scope"]="G07_CI_ONLY_READ_ONLY_OBSERVER"
+        result["actual_same_process_monotonic"]=True
+        result["rmw_exact_publication_pair_proven"]=False
+        return result
+
     def flush_events(self):
         """Sync all callbacks through the monotonic evidence boundary."""
         with self.lock:
