@@ -410,9 +410,10 @@ def run(*, limit=60.0):
             ack=_call_shutdown_stage_for_ab(
                 rclpy, node, manager=key,
                 timeout_sec=budget, scope_env=os.environ,
-                prewarmed_client=(
-                    nav_shutdown_client if key=="navigation"
-                    else loc_shutdown_client if key=="localization" else None))
+                # Keep the existing navigation prewarm handoff exactly;
+                # localization is the new optional same-node endpoint.
+                prewarmed_client=nav_shutdown_client if key=="navigation" else (
+                    loc_shutdown_client if key=="localization" else None))
             # Preserve FIRST lifecycle service response boundary, not just
             # the final shell rc. This is diagnostic, NEVER a substitute
             # for the required actual Navigation + Localization ACK.
