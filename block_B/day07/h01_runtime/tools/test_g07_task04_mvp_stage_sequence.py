@@ -32,5 +32,38 @@ class MVPStageSequence(unittest.TestCase):
         self.assertIn('plan_stop_fixture(', source)
 
 
+
+    def test_historical_slow_negative_speed_and_heading_turn_remains_hold(self):
+        from p2_g07_ci_stop_stage import classify_slow_fixture_alignment
+        # Actual #44871515361 Cycle2: 97 SLOW samples; forward vx negative
+        # when front was 0.6776m, eventual yaw 1.520 rad and no SLOW pass.
+        d=classify_slow_fixture_alignment(
+            start_pose=(0.,0.,0.), live_odom=(0.1248,0.006,0.1257),
+            odom_speed=-0.00252508298, odom_yaw_rate=0.045,
+            supervised_speed=-0.01668697596, goal_status=2, guard_latched=False)
+        self.assertEqual(d["status"],"FORWARD_ALIGNMENT_NOT_PROVEN_HOLD")
+        self.assertFalse(d["aligned_for_positive_slow_demo"])
+        self.assertAlmostEqual(d["yaw_change_rad"],0.1257)
+        self.assertFalse(d["root_cause_proven"])
+        self.assertEqual(d["release"],"HOLD")
+        self.assertFalse(d["certified_estop"])
+
+    def test_slow_alignment_is_diagnostic_never_changes_speed_or_goal(self):
+        from p2_g07_ci_stop_stage import classify_slow_fixture_alignment
+        d=classify_slow_fixture_alignment(
+            start_pose=(0.,0.,0.),live_odom=(0.125,0.,0.01),
+            odom_speed=0.08, odom_yaw_rate=0.01,
+            supervised_speed=0.08, goal_status=2, guard_latched=False)
+        self.assertEqual(d["status"],"FORWARD_ALIGNMENT_CANDIDATE_ONLY")
+        self.assertTrue(d["aligned_for_positive_slow_demo"])
+        self.assertFalse(d["timing_safety_pass"])
+        self.assertEqual(d["release"],"HOLD")
+        src=RUNNER.read_text()
+        self.assertIn('classify_slow_fixture_alignment(',src)
+        self.assertIn('"slow_fixture_alignment_before_move"',src)
+        self.assertLess(src.index('classify_slow_fixture_alignment('),
+                        src.index('slow_ack=move_ci_verified('))
+        self.assertIn('rows["slow"]=wait(phase("slow")',src)
+
 if __name__ == "__main__":
     unittest.main()
