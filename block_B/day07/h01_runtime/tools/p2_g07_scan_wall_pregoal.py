@@ -10,7 +10,7 @@ import json
 import math
 import os
 from p2_g07_events_executor_policy import select_events_executor
-from p2_g07_scan_rmw_first_pair import normalize_scan_message_info, first_scan_rmw_pair
+from p2_g07_scan_rmw_first_pair import normalize_scan_message_info, first_scan_rmw_pair, summarize_scan_rmw_metadata
 from pathlib import Path
 import time
 
@@ -264,6 +264,7 @@ def run(output,window_sec=WINDOW_SEC):
                     rclpy.spin_once(node,timeout_sec=.04)
             report=assess_pregoal_samples({k:list(v) for k,v in records.items()},
                                           window_sec=window_sec)
+            report["scan_rmw_metadata_capability"]=summarize_scan_rmw_metadata(list(scan_rmw_rows))
             if isinstance(report.get("first_scan_timing_boundary"),dict):
                 report["first_scan_rmw_pair"]=first_scan_rmw_pair(report.get(
                     "first_scan_timing_boundary"),list(scan_rmw_rows))
@@ -273,6 +274,7 @@ def run(output,window_sec=WINDOW_SEC):
                         first_failure="SCAN_PREFLIGHT_STREAM_DISCOVERY_TIMEOUT",
                         observed_topic_counts={k:len(v) for k,v in records.items()},
                         window_sec=window_sec,root_cause_proven=False)
+            report["scan_rmw_metadata_capability"]=summarize_scan_rmw_metadata(list(scan_rmw_rows))
     finally:
         if executor is not None:
             executor.shutdown(timeout_sec=2)
@@ -280,6 +282,7 @@ def run(output,window_sec=WINDOW_SEC):
         node.destroy_node()
         rclpy.try_shutdown()
     output.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+    print("AXIA_G07_PREG0AL_RMW_CAPABILITY "+json.dumps(report.get("scan_rmw_metadata_capability",{}),sort_keys=True),flush=True)
     if report["status"]!="PASS_SCOPED_RECEIVED_SCAN_ONLY":
         print("AXIA_G07_PREGOAL_SCAN_FIRST_NUMERIC "+
               json.dumps({"first_failure":report["first_failure"],
