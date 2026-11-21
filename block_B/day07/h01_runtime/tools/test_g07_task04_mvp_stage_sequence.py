@@ -84,5 +84,30 @@ class MVPStageSequence(unittest.TestCase):
         self.assertNotIn('SLOW_REQUIREMENT_RELAXED',src)
         self.assertNotIn('NAV2_NEW_GOAL_FOR_ALIGNMENT',src)
 
+
+    def test_native_first_slow_aligned_live_heading_despite_accumulated_path_turn(self):
+        # Actual native #44901777431 C1: odom vx=0.014034, wz=0.00558,
+        # supervisor vx=0.043752, cumulative yaw since Goal=0.21088.
+        # The same physical cylinder is projected from the robot CURRENT pose.
+        # Cumulative path rotation is not current yaw/angular motion.
+        from p2_g07_ci_stop_stage import classify_slow_fixture_alignment
+        candidate=classify_slow_fixture_alignment(
+            start_pose=(0.,0.,0.),live_odom=(0.16,0.03,0.21088),
+            odom_speed=0.014034,odom_yaw_rate=0.00558,
+            supervised_speed=0.043752,goal_status=2,guard_latched=False)
+        self.assertTrue(candidate["aligned_for_positive_slow_demo"],candidate)
+        self.assertEqual(candidate["status"],"FORWARD_ALIGNMENT_CANDIDATE_ONLY")
+        self.assertAlmostEqual(candidate["yaw_change_rad"],0.21088)
+        turning=classify_slow_fixture_alignment(
+            start_pose=(0.,0.,0.),live_odom=(0.16,0.03,0.21),
+            odom_speed=0.014,odom_yaw_rate=0.08,
+            supervised_speed=0.044,goal_status=2,guard_latched=False)
+        self.assertFalse(turning["aligned_for_positive_slow_demo"])
+        reversing=classify_slow_fixture_alignment(
+            start_pose=(0.,0.,0.),live_odom=(0.16,0.03,0.21),
+            odom_speed=-0.014,odom_yaw_rate=0.005,
+            supervised_speed=0.044,goal_status=2,guard_latched=False)
+        self.assertFalse(reversing["aligned_for_positive_slow_demo"])
+
 if __name__ == "__main__":
     unittest.main()
