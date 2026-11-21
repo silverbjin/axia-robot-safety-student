@@ -68,7 +68,7 @@ def independent_witness(mode):
     topic=ROOT+"/"+mode
     for kind in ("cm","supervised"):
         node.create_subscription(Twist,topic+"/"+kind,
-             lambda msg,k=kind:data[k].append((time.monotonic(),int(msg.angular.z))),10)
+             lambda msg,info,k=kind:data[k].append((time.monotonic(),int(msg.angular.z))),10)
     deadline=time.monotonic()+7
     while time.monotonic()<deadline:
         rclpy.spin_once(node,timeout_sec=.08)
