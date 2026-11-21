@@ -10,6 +10,7 @@ on:
     paths:
       - 'block_D/day15/**'
       - '.github/workflows/block-d-d15-classroom-l0.yml'
+      - 'block_D/tests/test_d15_guides_v2.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -28,3 +29,6 @@ jobs:
           test -s "$RUNNER_TEMP/d15/d15_evidence_review.json"
           test -s "$RUNNER_TEMP/d15/d15_offline_replay.html"
           echo D15_PUBLIC_DERIVED_EVIDENCE_L0_PASS_NO_ROS_GAZEBO_GOAL
+
+      - name: D15 detailed student guide documentation contract
+        run: python3 -m unittest discover -s block_D/tests -p 'test_d15_guides_v2.py' -v
