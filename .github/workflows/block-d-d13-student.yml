@@ -1,7 +1,7 @@
 name: AXIA D13 Student TODO Packaging L0 (expected algorithm RED)
 on:
   push:
-    branches: [feat/block-d-d13-reachability-lab-20261121]
+    branches: [feat/block-d-d13-reachability-lab-20261121, release/block-d-d13-main-entrypoint-20261121, main]
   pull_request:
     branches: [main]
     paths:
