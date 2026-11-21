@@ -201,5 +201,41 @@ class ObserverIOFirstBoundary(unittest.TestCase):
         self.assertIn("else executor.spin",code)
         self.assertNotIn("CERTIFIED_ESTOP=True",code)
 
+
+    def test_ci_only_executor_guard_wake_ab_fails_closed_on_owner_or_old_candidates(self):
+        from p2_g07_observer_io_probe import select_ci_executor_guard_wake_ab
+        base={"GITHUB_ACTIONS":"true","AXIA_P0_SIM_ONLY":"1",
+              "AXIA_G07_CI_SIM_GOAL_ALLOWED":"1",
+              "AXIA_G07_CI_OWNER_OBSERVER_PARITY":"1",
+              "AXIA_G07_OBSERVER_IO_PROBE":"1",
+              "AXIA_G07_EVENTS_EXECUTOR_AB":"0",
+              "AXIA_G07_CI_EXECUTOR_WAIT_BOUNDED_AB":"0"}
+        self.assertFalse(select_ci_executor_guard_wake_ab(base,owner_mode=False))
+        allowed={**base,"AXIA_G07_CI_EXECUTOR_GUARD_WAKE_AB":"1"}
+        self.assertTrue(select_ci_executor_guard_wake_ab(allowed,owner_mode=False))
+        for bad,owner in ((allowed,True),
+                          ({**allowed,"GITHUB_ACTIONS":"false"},False),
+                          ({**allowed,"AXIA_G07_OBSERVER_IO_PROBE":"0"},False),
+                          ({**allowed,"AXIA_G07_EVENTS_EXECUTOR_AB":"1"},False),
+                          ({**allowed,"AXIA_G07_CI_EXECUTOR_WAIT_BOUNDED_AB":"1"},False)):
+            with self.subTest(owner=owner,bad=bad):
+                with self.assertRaises(ValueError):
+                    select_ci_executor_guard_wake_ab(bad,owner_mode=owner)
+        with self.assertRaises(ValueError):
+            select_ci_executor_guard_wake_ab(
+                {**base,"AXIA_G07_CI_EXECUTOR_GUARD_WAKE_AB":"true"},
+                owner_mode=False)
+
+    def test_exact_legacy_multi2_retained_and_ci_only_heartbeat_wakes_guard(self):
+        from pathlib import Path
+        runner=Path(__file__).with_name("p2_g07_ci_moving_goal.py").read_text()
+        self.assertIn("select_ci_executor_guard_wake_ab",runner)
+        self.assertIn("executor.wake()",runner)
+        self.assertIn("wake_ready.set()",runner)
+        self.assertIn("MultiThreadedExecutor(num_threads=2 if owner_observer_parity else 3)",runner)
+        self.assertIn("AXIA_G07_CI_EXECUTOR_GUARD_WAKE_AB=CI_ONLY",runner)
+        self.assertIn("if wake_candidate and wake_ready.is_set()",runner)
+        self.assertNotIn("E_STOP_CERTIFIED=True",runner)
+
 if __name__=="__main__":
     unittest.main()
