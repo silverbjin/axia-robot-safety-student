@@ -6,7 +6,7 @@ before deciding DDS-receipt vs Python Executor/take. No safety release.
 import unittest
 from pathlib import Path
 from p2_g07_scan_rmw_first_pair import (
-    normalize_scan_message_info, first_scan_rmw_pair)
+    normalize_scan_message_info, first_scan_rmw_pair, summarize_scan_rmw_metadata)
 
 HERE=Path(__file__).parent
 
@@ -75,6 +75,37 @@ class ScanExactFirstRmwPair(unittest.TestCase):
         self.assertIsNone(r["source_gap_ms"])
         self.assertFalse(r["root_cause_proven"])
         self.assertEqual(r["release"],"HOLD")
+
+    def test_real_success_run_still_exports_rmw_capability_without_first_gap(self):
+        rows=[dict(topic="scan",rmw_source_ns=1_800_000_000_000,
+                   rmw_received_ns=1_800_000_000_100,rmw_publication_seq=10),
+              dict(topic="safety_scan",rmw_source_ns=1_800_000_100_000,
+                   rmw_received_ns=1_800_000_100_100,rmw_publication_seq=11)]
+        r=summarize_scan_rmw_metadata(rows)
+        self.assertEqual(r["status"],"RMW_METADATA_PRESENT_NO_FIRST_BOUNDARY_HOLD")
+        self.assertEqual(r["samples"],2)
+        self.assertEqual(r["source_valid"],2)
+        self.assertEqual(r["received_valid"],2)
+        self.assertEqual(r["sequence_valid"],2)
+        self.assertEqual(r["release"],"HOLD")
+        self.assertFalse(r["root_cause_proven"])
+
+    def test_jazzy_publication_seq_absent_keeps_source_receive_capability(self):
+        rows=[dict(topic="scan",rmw_source_ns=1_800_000_000_000,
+                   rmw_received_ns=1_800_000_000_100,rmw_publication_seq=-1)]
+        r=summarize_scan_rmw_metadata(rows)
+        self.assertEqual(r["status"],"RMW_SEQ_MISSING_EXACT_PUBLICATION_UNVERIFIED_HOLD")
+        self.assertEqual(r["source_valid"],1)
+        self.assertEqual(r["received_valid"],1)
+        self.assertEqual(r["sequence_valid"],0)
+        self.assertFalse(r["exact_pub_pair_proven"])
+        self.assertEqual(r["release"],"HOLD")
+
+    def test_runtime_exports_capability_on_success_and_failure_without_extra_callback_io(self):
+        src=(HERE/"p2_g07_scan_wall_pregoal.py").read_text()
+        self.assertIn('report["scan_rmw_metadata_capability"]=',src)
+        self.assertIn("summarize_scan_rmw_metadata",src)
+        self.assertNotIn('scan_rmw_rows.append(json',src)
 
     def test_runtime_records_scan_metadata_without_writing_in_callback(self):
         src=(HERE/"p2_g07_scan_wall_pregoal.py").read_text()
