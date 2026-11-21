@@ -473,6 +473,56 @@ cat > "$HOME/axia_d12_course/student_evidence/d12_report.md" <<'EOF'
 EOF
 ~~~
 
+
+### C2-1. 피드백이 진짜 원본 사건을 가리키는지 검증하기 (C2 시간 안에)
+
+**왜 필요한가:** 운영자 피드백에 사건 ID를 잘못 쓰면 나중에 사고를 재구성할 수 없습니다. 별도 JSONL을 만들었더라도 **원본 파일의 event_id와 연결되는지** 확인해야 합니다.
+
+~~~bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+source = Path("block_C/day12/ros_transport/sample_events.jsonl")
+events = [json.loads(x) for x in source.read_text(encoding="utf-8").splitlines() if x.strip()]
+by_id = {e["event_id"]: e for e in events}
+
+p = Path.home() / "axia_d12_course/student_evidence/operator_feedback.jsonl"
+items = [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines() if x.strip()]
+assert len(items) == 2
+assert len({x["event_id"] for x in items}) == len(items)
+assert all(x["event_id"] in by_id for x in items)
+assert all(x["control_authority"] is False for x in items)
+assert all(isinstance(x.get("reason"), str) and x["reason"].strip() for x in items)
+
+for x in items:
+    print(x["operator_action"], "<-", by_id[x["event_id"]]["level"], x["event_id"])
+print("D12_FEEDBACK_VALIDATION_PASS count=2 no_control=true")
+PY
+~~~
+
+**실행 전 예상 출력(기본 실습 파일 기준):**
+
+~~~text
+INVESTIGATE <- WARNING DEMO:TST_N_00:002
+CHECK_QUALITY <- INSUFFICIENT_DATA DEMO:TST_N_00:003
+D12_FEEDBACK_VALIDATION_PASS count=2 no_control=true
+~~~
+
+**코드 한 줄씩 해설:**
+
+1. `by_id = { ... }`는 사건 ID를 이용해 원본을 찾아보는 Python 사전(dict)을 만듭니다.
+2. `len(items)==2`는 운영자가 경고 1건과 품질 오류 1건에 대해 **두 개의 판단 기록을 남겼는지** 확인합니다.
+3. `len({ ... })`은 같은 ID가 두 번 제출되지 않았는지 확인합니다.
+4. `x["event_id"] in by_id`는 근거 없이 존재하지 않는 사건을 보고하지 못하게 합니다.
+5. `control_authority is False`는 파일에 제어권이 없다는 **교육용 계약**입니다. 운영 PC의 모든 보안이나 실제 E-Stop 안전 인증을 입증하는 것은 아닙니다.
+6. `reason.strip()`은 공백만 있는 판단 근거를 거절합니다.
+7. 마지막 출력은 피드백 action과 원본 WARNING/INSUFFICIENT_DATA가 어떤 ID에서 연결되었는지 보여줍니다.
+
+**직접 확인:** 운영자 의견의 event_id를 존재하지 않는 `DEMO:UNKNOWN`으로 바꾸었다고 가정해 보세요. 검사는 `AssertionError`로 실패해야 합니다. **실습 원본을 건드리지 말고**, 이해한 뒤 필요한 경우 작성한 피드백 파일만 고쳐 다시 검사합니다.
+
+**실무 사례:** 모니터링 운영자는 경고를 검토하고 근거를 기록하지만, 이것으로 실제 로봇 고장 원인이 규명되었다고 주장하지 않습니다. 한계와 미확인 사항을 보고서에 남기는 편이 잘못된 안전 승인보다 중요합니다.
+
 ### C3. 스스로 점검·제출 (10분)
 
 - "왜 `INSUFFICIENT_DATA`를 NORMAL로 치환하면 위험한가?" → 데이터 부재를 정상 판정으로 위장하기 때문입니다.
