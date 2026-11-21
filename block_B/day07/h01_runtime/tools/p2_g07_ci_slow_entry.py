@@ -11,7 +11,30 @@ import math
 def _num(v):
     return type(v) in (int,float) and math.isfinite(v)
 
-def forward_entry(snap,data):
+def _heading_error(anchor,live):
+    """Use only verified map/odom origin + original DEMO_GOAL, no invented TF."""
+    from p2_g07_demo_corridor import DEMO_GOAL,within_demo_corridor
+    if (not isinstance(anchor,dict)
+            or anchor.get("relative_motion_source")!="ros_odom"
+            or anchor.get("world_pose_source")!="validated_official_nav2_world_spawn"):
+        return None
+    mp=anchor.get("map_pose")
+    od=anchor.get("odom_pose")
+    if any(not isinstance(x,(tuple,list)) or len(x)!=3
+           or not all(_num(v) for v in x) for x in (mp,od,live)):
+        return None
+    dx,dy=live[0]-od[0],live[1]-od[1]
+    rotation=mp[2]-od[2]
+    mx=mp[0]+math.cos(rotation)*dx-math.sin(rotation)*dy
+    my=mp[1]+math.sin(rotation)*dx+math.cos(rotation)*dy
+    if not within_demo_corridor((mx,my)) or math.dist((mx,my),DEMO_GOAL)<.40:
+        return None
+    yaw=math.atan2(math.sin(mp[2]+live[2]-od[2]),
+                   math.cos(mp[2]+live[2]-od[2]))
+    goal_bearing=math.atan2(DEMO_GOAL[1]-my,DEMO_GOAL[0]-mx)
+    return math.atan2(math.sin(goal_bearing-yaw),math.cos(goal_bearing-yaw))
+
+def forward_entry(snap,data,anchor):
     if not isinstance(snap,dict) or not isinstance(data,dict):
         return None
     now=snap.get("mono")
@@ -37,6 +60,12 @@ def forward_entry(snap,data):
     if (not isinstance(pose,(tuple,list)) or len(pose)!=3
             or not all(_num(x) for x in pose)):
         return None
+    # Native #44871515361: 35s Goal-bearing rotation from yaw .1147
+    # to 1.5198 before positive forward; do not place a physical cylinder
+    # in front of the old heading while Nav2 follows NE map corridor.
+    heading_error=_heading_error(anchor,pose)
+    if heading_error is None or abs(heading_error)>.30:
+        return None
     odom=data.get("odom")
     if not isinstance(odom,(list,tuple)):
         return None
@@ -56,7 +85,7 @@ def forward_entry(snap,data):
         "odom_samples":len(recent)
     }
 
-def diagnose_forward_entry(snap,data):
+def diagnose_forward_entry(snap,data,anchor):
     """Bounded numeric-only reason on NO physical set_pose, not a safety PASS.
 
     Reports the first unmet entry condition (fixed order), no pose/UUID
@@ -92,6 +121,14 @@ def diagnose_forward_entry(snap,data):
         return result
     if front<=.75:
         result["first_blocker"]="FRONT_NOT_CLEAR"
+        return result
+    heading_error=_heading_error(anchor,data.get("pose"))
+    if heading_error is None:
+        result["first_blocker"]="FRAME_ANCHOR_INVALID"
+        return result
+    result["heading_error_rad"]=round(float(heading_error),6)
+    if abs(heading_error)>.30:
+        result["first_blocker"]="GOAL_HEADING_NOT_ALIGNED"
         return result
     if v<=.03:
         result["first_blocker"]="SUPERVISED_FORWARD_BELOW_ENTRY_GATE"
