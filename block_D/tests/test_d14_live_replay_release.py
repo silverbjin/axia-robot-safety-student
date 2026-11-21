@@ -157,7 +157,7 @@ print("D14_LIVE_XSS_ESCAPING_PASS")
             run=self.run_demo(out)
             self.assertEqual(run.returncode,0,run.stdout)
             html=(out/"axia_d14_safety_control_room.html").read_text(encoding="utf-8")
-            m=re.search(r"<script>\\s*([\\s\\S]*?)</script>",html)
+            m=re.search(r"<script>\s*([\s\S]*?)</script>",html)
             self.assertIsNotNone(m,"standalone inline JS not found")
             script=out/"d14_control_room.mjs"
             script.write_text(m.group(1),encoding="utf-8")
