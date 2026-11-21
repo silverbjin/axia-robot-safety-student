@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AXIA D14 | Safety Control Room</title>
+<style>
+:root{color-scheme:dark;--bg:#061422;--panel:#112940;--panel2:#0b2135;--line:#36536c;--text:#f0f7ff;--muted:#b6cadb;--blue:#70befe;--warn:#ffd07d;--fault:#ff9484;--ok:#7ce1bc;--violet:#ceb7ff;--focus:#8bf1dd}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 20% 0%,#1c3b58 0%,#071727 62%,#05111c 100%);color:var(--text);font:500 clamp(15px,.92vw,19px)/1.49 system-ui,"Malgun Gothic",sans-serif}
+main{width:min(1850px,98vw);margin:auto;padding:18px 18px 30px}
+h1{font-size:clamp(27px,2.2vw,44px);letter-spacing:-.03em;line-height:1.12;margin:.2rem 0}
+h2{font-size:clamp(19px,1.32vw,26px);margin:0 0 9px}
+h3{font-size:clamp(16px,1vw,21px);margin:10px 0 8px}
+p{margin:.35rem 0 .7rem}
+small,.muted{color:var(--muted)}
+header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:8px 0 18px}
+.masthead{font-size:.78rem;color:var(--blue);font-weight:800;letter-spacing:.15em}
+.scope{border:1px solid var(--fault);color:#ffe3db;background:#64352f;padding:9px 14px;border-radius:999px;font-weight:850;font-size:.8rem}
+.intro{padding:11px 16px;margin:0 0 16px;border-radius:12px;border:1px dashed #54718a;background:#10293f;color:#dfefff}
+.tabgrid{display:grid;grid-template-columns:minmax(320px,1.05fr) minmax(320px,1fr);gap:16px}
+.panel{background:linear-gradient(150deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px;padding:clamp(14px,1.15vw,22px);box-shadow:0 15px 35px #010b1766;min-width:0}
+.span2{grid-column:1/-1}
+.suptitle{font-size:.77rem;color:var(--blue);letter-spacing:.14em;font-weight:800;margin:0 0 6px}
+.stepgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.stepbox{background:#081d31;border:1px solid #314c62;border-radius:11px;padding:12px 10px;min-height:76px}
+.stepbox strong{display:block;font-size:clamp(14px,1vw,21px);word-break:break-word}
+.stepbox small{display:block;font-size:.73rem}
+.room{border:1px solid #426381;border-radius:14px;background:#091b2d;overflow:hidden;margin:10px 0}
+.room svg{display:block;width:100%;height:auto;max-height:230px}
+.roomlabel{font-size:12px;fill:#d5e7fa}
+.group{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0}
+button,select{font:inherit;border:1px solid #6785a1;color:var(--text);background:#1b3b56;border-radius:9px;padding:9px 12px;min-height:44px;cursor:pointer}
+button:hover,select:hover{background:#235478;border-color:var(--focus)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+button.primary{background:#076f77;border-color:#55c9ca;font-weight:800}
+button.warn{background:#775029;border-color:#dfb778}
+button:disabled{opacity:.52;cursor:not-allowed}
+select{max-width:100%;width:100%;background:#102c42}
+label{display:block;font-size:.88rem;font-weight:700;color:#dbeafa;margin:7px 0 5px}
+input[type=range]{width:100%;height:28px;accent-color:#61d8c4;cursor:pointer}
+.mono{font:600 .88rem/1.45 ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+.metric{font-size:clamp(21px,1.45vw,29px);line-height:1.3;font-weight:800}
+.status{display:inline-flex;padding:5px 10px;border-radius:9px;background:#183c54;border:1px solid #38637f;font-weight:800;font-size:.84rem}
+.status.danger{background:#632b2c;border-color:#dd7565;color:#ffe7e4}
+.status.safe{background:#155348;border-color:#47bda2;color:#d4fff0}
+.status.neutral{background:#42395e;border-color:#ab91ed;color:#eee4ff}
+.response{border:1px dashed #6d89a0;border-radius:10px;background:#0c2235;padding:10px 12px;min-height:53px;white-space:pre-line}
+.evidence{border-left:3px solid #4eb9c8;padding-left:12px;margin-top:8px;color:#d9e8f5}
+.emphasis{color:var(--warn);font-weight:900}
+.trail{display:flex;overflow-x:auto;gap:7px;padding:7px 0 13px}
+.trail button{flex:0 0 auto;font-size:.78rem;padding:7px 10px;min-height:50px}
+.trail button.active{background:#70502f;border:2px solid var(--warn);font-weight:900}
+.summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0}
+code{color:#a6e2fe}
+footer{margin-top:16px;border-top:1px solid #3c5b73;padding:13px 2px;color:#bbcfdf;font-size:.81rem}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:950px){.tabgrid{grid-template-columns:1fr} .span2{grid-column:auto}header{align-items:flex-start;flex-direction:column}main{width:100%;padding:12px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
+@media print{body{color:#111;background:#fff}.panel{box-shadow:none;background:#fff;color:#111;break-inside:avoid}.scope{color:#8a1919;background:#fff}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div>
+    <div class="masthead">AXIA ROBOT SAFETY · D14</div>
+    <h1>Safety Control Room <span style="color:#7ce1bc">/ 안전 상황실</span></h1>
+    <p class="muted">같은 식당 복도, 세 번의 판단: P/N/U 정책 · SLOW/AVOID/STOP 의도 · G10 복합 고장</p>
+  </div>
+  <div class="scope" id="screenScope">SYNTHETIC L0 · NO ROS / GAZEBO / GOAL</div>
+</header>
+<p class="intro">강사 진행: <strong>사건을 먼저 재생 → 학생에게 예측을 물음 → 기대값과 기존 학생 코드 actual을 따로 공개</strong>합니다. 모든 캐릭터·장면은 교육용 개념도이며 실제 로봇 위치나 ROS 센서 데이터가 아닙니다.</p>
+<div class="tabgrid">
+
+<section class="panel" aria-label="교육용 식당 장면과 정책 사건">
+  <div class="suptitle">01 · PERSON / ROBOT / CART</div>
+  <h2>식당 복도 · 상황 설명</h2>
+  <div class="room">
+  <svg viewBox="0 0 680 260" role="img" aria-label="식당 복도의 개념 모식도: 파란 로봇, 주황색 사람, 보라색 카트">
+    <defs><pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse"><path d="M34 0H0V34" fill="none" stroke="#1c3c57" stroke-width="1"/></pattern></defs>
+    <rect width="680" height="260" fill="url(#grid)"/>
+    <rect x="35" y="30" width="610" height="200" rx="14" fill="none" stroke="#607f98" stroke-width="3"/>
+    <path d="M70 183H528V58" stroke="#56befe" stroke-width="5" stroke-dasharray="14 13" fill="none"/>
+    <rect x="335" y="160" width="78" height="57" rx="7" fill="#7555ab" stroke="#d0b2ff" stroke-width="3"/>
+    <text class="roomlabel" x="345" y="195">CART</text>
+    <circle cx="117" cy="182" r="37" fill="#266c9b" fill-opacity=".6" stroke="#73c7ff" stroke-width="3"/>
+    <circle cx="117" cy="182" r="15" fill="#76c7ff"/>
+    <path d="M117 157v-13m-10 4 10-8 10 8" stroke="#a9dcff" stroke-width="3" fill="none"/>
+    <text class="roomlabel" x="80" y="235">ROBOT (모식)</text>
+    <circle cx="525" cy="98" r="38" fill="#994637" fill-opacity=".6" stroke="#ff9683" stroke-width="3"/>
+    <circle cx="525" cy="91" r="12" fill="#ff9683"/>
+    <path d="M525 103v23m-19-10h38" stroke="#ff9683" stroke-width="5"/>
+    <text class="roomlabel" x="493" y="50">PERSON</text>
+    <text class="roomlabel" x="285" y="40">ILLUSTRATIVE / NOT SENSOR COORDINATES</text>
+  </svg>
+  </div>
+  <p id="policyDescription" role="status">정책 사례를 선택하세요.</p>
+  <p class="muted">모식도는 사건 종류 설명용입니다. 로봇·사람의 실시간 동작, 거리, 속도를 시뮬레이션하지 않습니다.</p>
+</section>
+
+<section class="panel" aria-label="D14 기존 정책의 사건별 실측 아닌 출력 비교">
+  <div class="suptitle">02 · POLICY REPLAY · EXACT STUDENT OUTPUT</div>
+  <h2>16개 정책 사례 · 먼저 예측하기</h2>
+  <label for="policySelect">사건 선택 (기존 fixture 16개)</label>
+  <select id="policySelect" aria-label="D14 합성 정책 사례 선택"></select>
+  <div class="stepgrid">
+    <div class="stepbox"><small>입력 판정</small><strong id="policyVerdict">—</strong></div>
+    <div class="stepbox"><small>현재 step</small><strong id="policyStep">—</strong></div>
+    <div class="stepbox"><small>수신 단조 시각 (합성)</small><strong id="policyTime">—</strong></div>
+  </div>
+  <label for="policyTimeline">사건 단계 이동 (합성 순서)</label>
+  <input id="policyTimeline" type="range" min="0" max="1" step="1" value="0" aria-label="합성 정책 사건 단계 슬라이더">
+  <div class="group">
+    <button id="policyPlay" class="primary" type="button">▶ 재생</button>
+    <button id="policyPause" type="button">Ⅱ 일시정지</button>
+    <button id="policyPrevious" type="button">← 이전</button>
+    <button id="policyNext" type="button">다음 →</button>
+    <button id="policyReset" type="button">↺ 처음</button>
+  </div>
+  <div class="response mono" id="policyStepInfo" role="status">입력을 선택하면 원본 합성 이벤트의 seq와 판정이 표시됩니다.</div>
+  <label for="policyVote">학생 예측: 이 사례의 최종 정책 요청은?</label>
+  <select id="policyVote">
+    <option value="">선택하세요 (공개 전)</option>
+    <option value="NORMAL_POLICY">NORMAL_POLICY · 새 제한 요청 없음</option>
+    <option value="LIMITED_REQUEST">LIMITED_REQUEST · 제한 요청 / 유지</option>
+    <option value="NO_AUTHORITY">NO_AUTHORITY · Goal/건전성 부족</option>
+  </select>
+  <div class="group">
+    <button id="policyReveal" class="primary" type="button">예측 제출 · 답 공개</button>
+    <button id="policyHide" type="button">답 가리기</button>
+  </div>
+  <div id="policyAnswer" class="response" style="display:none" aria-live="polite">
+    <div class="summary"><span>Fixture 기대:</span><strong id="fixtureExpected" class="mono">—</strong></div>
+    <div class="summary"><span>Student TODO actual:</span><strong id="learnerActual" class="mono">—</strong></div>
+    <div class="summary"><span>이 사례의 정책 테스트:</span><strong id="policyEvidence">—</strong></div>
+    <p class="muted">fixture 기대값과 학생 함수의 actual은 서로 다른 데이터입니다. GREEN은 <b>16/16</b>이 실제로 확인될 때만 인정합니다.</p>
+  </div>
+</section>
+
+<section class="panel" aria-label="감속 회피 정지 정책 의도 교육용 워크시트 퀴즈">
+  <div class="suptitle">03 · DESIGN WORKSHEET ONLY</div>
+  <h2>감속 / 회피 / 정지 — 네가 정책 설계자라면?</h2>
+  <p class="emphasis">SLOW/AVOID/STOP 의도 선택기 choose_action_intent()는 NOT_IMPLEMENTED입니다.</p>
+  <label for="intentSelect">상황 카드 선택</label>
+  <select id="intentSelect"></select>
+  <p class="response" id="intentScenario">손님·카트·센서 고장 카드를 선택합니다.</p>
+  <label for="intentVote">이 상황에서 먼저 검토할 정책 의도는?</label>
+  <select id="intentVote">
+    <option value="">예측부터 선택하세요</option>
+    <option value="SLOW">SLOW — 감속</option>
+    <option value="AVOID">AVOID — 우회 요청</option>
+    <option value="STOP">STOP — 보호 정지 의도</option>
+  </select>
+  <div class="group">
+    <button id="intentReveal" class="primary" type="button">설계 해설 보기</button>
+    <button id="intentHide" type="button">해설 가리기</button>
+  </div>
+  <div id="intentAnswer" class="response" hidden aria-live="polite"></div>
+  <p class="muted">이 선택은 브라우저의 토론 활동이며 Python 정책 함수의 결과로 저장하거나 실제 /cmd_vel에 연결하지 않습니다.</p>
+</section>
+
+<section class="panel" aria-label="G10 복합 장애 합성 사건 조사">
+  <div class="suptitle">04 · G10 COMPOUND FAULT · 15 SYNTHETIC EVENTS</div>
+  <h2>최초 고장 → 보호 상태 → Reset/Rearm</h2>
+  <div class="summary">
+    <span class="status danger" id="firstFault">FIRST FAULT: SCAN_FAULT · 0.20 s</span>
+    <span class="status neutral" id="g10Counter">1 / 15</span>
+  </div>
+  <div class="trail" id="g10Rail" aria-label="15개 합성 G10 사건 선택"></div>
+  <label for="g10Timeline">G10 합성 사건 슬라이더</label>
+  <input id="g10Timeline" type="range" min="0" max="14" value="0" aria-label="G10 합성 이벤트 선택">
+  <div class="group">
+    <button id="g10Play" class="primary" type="button">▶ 사건 재생</button>
+    <button id="g10Pause" type="button">Ⅱ 일시정지</button>
+    <button id="g10Previous" type="button">← 이전 사건</button>
+    <button id="g10Next" type="button">다음 사건 →</button>
+    <button id="g10Reset" type="button">↺ 처음부터</button>
+  </div>
+  <div class="stepgrid">
+    <div class="stepbox"><small>사건 시각 (합성)</small><strong id="g10Time">—</strong></div>
+    <div class="stepbox"><small>사건명</small><strong class="mono" id="g10Event">—</strong></div>
+    <div class="stepbox"><small>증거 종류</small><strong id="g10Kind">—</strong></div>
+  </div>
+  <div class="response mono" id="g10Details" role="status">이벤트 필드와 실제 의미를 표시합니다.</div>
+  <p class="evidence">SCAN_FAULT 0.20s → CM_LOST 0.25s → GUARD_LATCH 0.36s. 두 간격 0.05s/0.11s는 <strong>합성 사건 시각차</strong>이며 RMW 주기·TTL·실제 정지 지연 측정이 아닙니다. FINAL_CMD는 이벤트 이름이고, vx=0·wz=0은 그 속성입니다.</p>
+</section>
+
+<section class="panel span2">
+  <div class="suptitle">05 · EVIDENCE / TEACHING BOUNDARIES</div>
+  <div class="stepgrid">
+    <div class="stepbox"><small>원본 Student 정책 결과</small><strong id="studentGreen">—</strong></div>
+    <div class="stepbox"><small>원본 fixture 일치 개수</small><strong id="studentCaseCount">—</strong></div>
+    <div class="stepbox"><small>추가 SLOW/AVOID/STOP Python 선택기</small><strong>NOT_IMPLEMENTED</strong></div>
+  </div>
+  <p><b>강사 질문:</b> “왜 P 뒤 N이 와도 바로 제한을 풀 수 없나요?” · “왜 Nav2 경로 재계획만으로 보호 STOP을 풀 수 없나요?” · “왜 FINAL_CMD의 vx=0은 실제 odom 정지를 증명하지 않나요?”</p>
+  <p class="muted">실제 동작을 증명하려면 별도 ROS 그래프·노드 간 송수신 주기·안전 TTL·odom·Goal UUID·Owner 승인 증거가 필요합니다. SW Stop은 인증 E-Stop이 아닙니다.</p>
+</section>
+</div>
+<footer>
+  OFFLINE SYNTHETIC L0 ONLY · No ROS 2/Gazebo/Nav2 Goal/Collision Monitor/Guard actuation · No external links, network, media or automatic data upload.
+  <br>이 화면은 기존 <code>run_lab.replay()</code>의 출력을 표시하며 정책 실행 성공 또는 실제 안전 인수를 주장하지 않습니다.
+</footer>
+</main>
+<script type="application/json" id="axia-data">__AXIA_DATA__</script>
+<script>
+"use strict";
+(function(){
+  const data=JSON.parse(document.getElementById("axia-data").textContent);
+  const byId=(id)=>document.getElementById(id);
+  const cases=data.policy_cases;
+  const events=data.g10_events;
+  const intents=data.intent_cards;
+  let policyIndex=0,policyStep=0,policyTimer=null,g10Index=0,g10Timer=null,intentIndex=0;
+  const fmt=(value)=>Number(value).toFixed(2)+" s";
+  function el(tag,text,parent,cls){
+    const node=document.createElement(tag);node.textContent=text;
+    if(cls)node.className=cls;
+    if(parent)parent.appendChild(node);
+    return node;
+  }
+  function stopPolicy(){if(policyTimer!==null){clearInterval(policyTimer);policyTimer=null;}}
+  function stopG10(){if(g10Timer!==null){clearInterval(g10Timer);g10Timer=null;}}
+  function hidePolicy(){byId("policyAnswer").style.display="none";byId("policyVote").value="";}
+  function initPolicy(){
+    cases.forEach((item,i)=>{const o=el("option",(i+1)+". "+item.id,byId("policySelect"));o.value=String(i);});
+    byId("policySelect").addEventListener("change",function(){stopPolicy();policyIndex=Number(this.value);policyStep=0;hidePolicy();drawPolicy();});
+    byId("policyTimeline").addEventListener("input",function(){stopPolicy();policyStep=Number(this.value);drawPolicy();});
+    byId("policyPlay").addEventListener("click",function(){
+      if(policyTimer!==null)return;
+      const trace=cases[policyIndex].result.trace;
+      if(policyStep>=trace.length-1)policyStep=0;
+      drawPolicy();
+      policyTimer=setInterval(function(){if(policyStep>=trace.length-1){stopPolicy();return;}policyStep++;drawPolicy();},850);
+    });
+    byId("policyPause").addEventListener("click",stopPolicy);
+    byId("policyPrevious").addEventListener("click",function(){stopPolicy();policyStep=Math.max(0,policyStep-1);drawPolicy();});
+    byId("policyNext").addEventListener("click",function(){stopPolicy();policyStep=Math.min(cases[policyIndex].result.trace.length-1,policyStep+1);drawPolicy();});
+    byId("policyReset").addEventListener("click",function(){stopPolicy();policyStep=0;hidePolicy();drawPolicy();});
+    byId("policyHide").addEventListener("click",hidePolicy);
+    byId("policyReveal").addEventListener("click",function(){
+      const vote=byId("policyVote").value;if(!vote){byId("policyStepInfo").textContent="먼저 최종 정책 요청을 예측해 선택하세요.";return;}
+      const item=cases[policyIndex],res=item.result;
+      const expected=item.expected_last_action==="NO_OWNED_HEALTHY_GOAL"?"NO_AUTHORITY":(item.expected_limited?"LIMITED_REQUEST":"NORMAL_POLICY");
+      byId("fixtureExpected").textContent=expected+" / action="+item.expected_last_action;
+      byId("learnerActual").textContent=res.trace[res.trace.length-1].policy_indicator+" / action="+res.actual_last_action;
+      byId("policyEvidence").textContent=(res.pass?"PASS":"RED / MISMATCH")+" · 예상 선택 "+(vote===expected?"일치":"불일치");
+      byId("policyAnswer").style.display="block";
+    });
+    drawPolicy();
+  }
+  function drawPolicy(){
+    const item=cases[policyIndex],trace=item.result.trace,step=trace[policyStep];
+    byId("policyDescription").textContent=item.description;
+    byId("policyTimeline").max=String(trace.length-1);
+    byId("policyTimeline").value=String(policyStep);
+    byId("policyVerdict").textContent=step.verdict;
+    byId("policyStep").textContent=(policyStep+1)+" / "+trace.length;
+    byId("policyTime").textContent=fmt(step.mono);
+    byId("policyStepInfo").textContent="kind="+step.kind+" · seq="+step.last_seq+
+      " · action="+step.action+" · receipt_expired="+step.receipt_expired+
+      " · current_policy_indicator="+step.policy_indicator;
+  }
+  function hideIntent(){byId("intentAnswer").hidden=true;byId("intentVote").value="";}
+  function initIntent(){
+    intents.forEach((item,i)=>{const o=el("option",(i+1)+". "+item.name,byId("intentSelect"));o.value=String(i);});
+    byId("intentSelect").addEventListener("change",function(){intentIndex=Number(this.value);hideIntent();drawIntent();});
+    byId("intentHide").addEventListener("click",hideIntent);
+    byId("intentReveal").addEventListener("click",function(){
+      const vote=byId("intentVote").value;
+      if(!vote){byId("intentScenario").textContent="SLOW/AVOID/STOP 중 하나를 먼저 선택하세요.";return;}
+      const item=intents[intentIndex],a=byId("intentAnswer");
+      a.textContent="예시 의도: "+item.choice+" / 학생 선택: "+vote+
+        "\n이유: "+item.why+"\n책임: "+item.owner+
+        "\n★ 합성 설계 카드이며 코드 실행·정답 인증·로봇 동작 증거가 아닙니다.";
+      a.hidden=false;
+    });
+    drawIntent();
+  }
+  function drawIntent(){byId("intentScenario").textContent=intents[intentIndex].scene;}
+  function g10Kind(e){
+    const k=e.event;
+    if(k==="SCAN_FAULT"||k==="CM_LOST")return"합성 고장";
+    if(k==="GUARD_LATCH")return"보호 래치(합성)";
+    if(k==="FINAL_CMD")return"최종 명령 속성";
+    if(k==="ODOM_STOP_DWELL")return"합성 정지 유지";
+    if(k==="NAV2_GOAL_CANCELED")return"합성 Goal 취소";
+    if(k.indexOf("RESET")>=0||k.indexOf("REARM")>=0||k==="HEALTH_RESTORED")return"승인·복구 사건";
+    return"합성 상태 사건";
+  }
+  function initG10(){
+    events.forEach((e,i)=>{
+      const b=el("button",fmt(e.t_sec)+" · "+e.event,byId("g10Rail"));
+      b.type="button";b.addEventListener("click",function(){stopG10();g10Index=i;drawG10();});
+    });
+    byId("g10Timeline").addEventListener("input",function(){stopG10();g10Index=Number(this.value);drawG10();});
+    byId("g10Play").addEventListener("click",function(){
+      if(g10Timer!==null)return;
+      if(g10Index>=events.length-1)g10Index=0;
+      drawG10();
+      g10Timer=setInterval(function(){if(g10Index>=events.length-1){stopG10();return;}g10Index++;drawG10();},750);
+    });
+    byId("g10Pause").addEventListener("click",stopG10);
+    byId("g10Previous").addEventListener("click",function(){stopG10();g10Index=Math.max(0,g10Index-1);drawG10();});
+    byId("g10Next").addEventListener("click",function(){stopG10();g10Index=Math.min(events.length-1,g10Index+1);drawG10();});
+    byId("g10Reset").addEventListener("click",function(){stopG10();g10Index=0;drawG10();});
+    drawG10();
+  }
+  function drawG10(){
+    const e=events[g10Index];
+    byId("g10Timeline").value=String(g10Index);
+    byId("g10Counter").textContent=(g10Index+1)+" / "+events.length;
+    byId("g10Time").textContent=fmt(e.t_sec);
+    byId("g10Event").textContent=e.event;
+    byId("g10Kind").textContent=g10Kind(e);
+    const detail=Object.entries(e).filter(([k])=>k!=="event"&&k!=="t_sec")
+      .map(([k,v])=>k+"="+String(v)).join(" · ");
+    byId("g10Details").textContent="이벤트 필드: "+(detail||"(추가 속성 없음)")+
+      "\n이벤트 순서 인덱스: "+g10Index+" (시간 비례 재생 속도가 아님)";
+    Array.from(byId("g10Rail").children).forEach((node,i)=>{node.classList.toggle("active",i===g10Index);node.setAttribute("aria-current",i===g10Index?"step":"false");});
+  }
+  byId("studentGreen").textContent=data.student_policy_green?"GREEN (원본 검사)":"RED · STUDENT TODO";
+  byId("studentCaseCount").textContent=String(data.student_policy_pass_count)+" / "+cases.length;
+  initPolicy();initIntent();initG10();
+})();
+</script>
+</body>
+</html>
