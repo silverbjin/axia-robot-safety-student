@@ -480,3 +480,16 @@ ls -lh /tmp/axia-d13/d13_results.json
 5. SW Stop과 인증 E-Stop이 다른 이유는 무엇인가요?
 
 **실습 완료의 정확한 의미:** 학생의 10개 오프라인 공개 테스트·8개 합성 사례 PASS. 로봇의 안전 TTL, 사람 센서, Nav2 또는 실제 ROS/Gazebo 인수를 완료했다고 보고하지 않습니다.
+
+
+## 16. 선택형 몰입 데모 — TIME × SPACE Live Replay
+
+교육용 슬라이더와 별도로 파란 로봇·빨간 사람의 **두 장면을 동기 자동 재생**하고, 학생이 먼저 P/N/U를 예상한 뒤 fixture 기대값과 학생 코드 actual을 구분하는 화면을 제공합니다. 6개 U 사례의 첫 입력 위반도 볼 수 있습니다.
+
+```bash
+cd ~/axia-d13-student
+python3 block_D/day13/live_replay.py --out /tmp/axia-d13-live
+explorer.exe "$(wslpath -w /tmp/axia-d13-live/axia_d13_live_replay.html)"
+```
+
+실행 경로가 다르면 본인 클론 폴더로 `cd`를 변경하세요. **[Live Replay 초심자 상세 가이드](STUDENT_LIVE_REPLAY_GUIDE_KO.md)**에 16시점 재생, 11.1초 비교, 퀴즈, U 원인, 오류 대응 및 JSON 대체 절차를 정리했습니다. 이 화면은 `run_lab.py`의 원래 10개 테스트 및 8개 JSON 제출을 대체하지 않습니다. ROS/Gazebo/Goal/E-Stop은 NOT_RUN입니다.
