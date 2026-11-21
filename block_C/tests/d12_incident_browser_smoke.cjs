@@ -94,6 +94,7 @@ async function main(){
     assert.equal(await evaluate("document.getElementById('caseId').textContent"),'DEMO:TST_N_00:003');
     await evaluate("document.getElementById('guessSelect').value='INSUFFICIENT_DATA';document.getElementById('guessSelect').dispatchEvent(new Event('change'));document.getElementById('revealBtn').click()");
     assert.equal(await evaluate("document.getElementById('caseScore').textContent"),'UNSCORED');
+    assert.equal(await evaluate("document.getElementById('eventStream').scrollWidth<=document.getElementById('eventStream').clientWidth+2"),true,'feed must not clip diagnostic names horizontally');
     await evaluate("document.getElementById('feedbackAction').value='CHECK_QUALITY';document.getElementById('feedbackReason').value='교육용 점수 결측, 품질 사유 확인 필요';document.getElementById('saveFeedbackBtn').click()");
     assert.equal(await evaluate("document.getElementById('feedbackList').children.length"),2);
     // Save PNG after realistic two-case investigation.
