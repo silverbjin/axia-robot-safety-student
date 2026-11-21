@@ -71,7 +71,9 @@ def assess_pregoal_samples(samples, *, window_sec=WINDOW_SEC):
                 scan_generation_vs_bridge_root_cause="UNDETERMINED",
                 window_sec=window_sec,topic_results={},
                 first_scan_timing_boundary=None,
-                local_window_rtf_estimate=None)
+                local_window_rtf_estimate=None,
+                scan_wall_gap_diagnostic_only=True,
+                operational_scan_watchdog_unchanged=True)
     if not isinstance(samples,dict):
         return result
     clocks=samples.get("clock",[])
@@ -182,12 +184,24 @@ def assess_pregoal_samples(samples, *, window_sec=WINDOW_SEC):
         result["first_scan_timing_boundary"]=min(
             failures,key=lambda r:(r["current_rx_host_monotonic"],
                                    0 if r["topic"]=="scan" else 1))
-    if all_wall_breaches or failures:
-        first=result["first_delivery_violation"]
-        if first is not None and first["channel"] in ("clock","odom"):
+    # User-approved G07 acceptance: Scan host-receive gap >300ms is a
+    # forensic diagnostic, NOT a standalone rejection. However any sensor
+    # simulated-header gap >150ms (lost/stale Scan), header regression,
+    # missing samples, or /clock,/odom >300ms still blocks the Goal.
+    # Existing _fresh() and CM/Guard operating watchdogs stay unchanged.
+    blocking_clock_odom=[r for r in all_wall_breaches
+                         if r["channel"] in ("clock","odom")]
+    header_gaps=[r for r in failures
+                 if r["header_sim_gap_ms"]>HEADER_SIM_LIMIT_MS]
+    result["scan_wall_gap_diagnostics"]=[
+        r for r in all_wall_breaches
+        if r["channel"] in ("scan","safety_scan")]
+    if blocking_clock_odom or header_gaps:
+        first=result.get("first_delivery_violation")
+        if blocking_clock_odom:
             result["first_failure"]="SCAN_PREFLIGHT_CLOCK_ODOM_INTERVAL_BREACH"
         else:
-            result["first_failure"]="SCAN_PREFLIGHT_300MS_OR_HEADER_PERIOD_BREACH"
+            result["first_failure"]="SCAN_PREFLIGHT_HEADER_MISSING_OR_LATE"
         return result
     if not coverage:
         result["first_failure"]="SCAN_PREFLIGHT_CLOCK_RETENTION_INSUFFICIENT"
