@@ -16,6 +16,9 @@ HEADER_SIM_LIMIT_MS=150.0
 MIN_PAIRS=15
 WINDOW_SEC=12.0
 WARMUP_SEC=2.0
+# Bound discovery before measuring full 12 seconds. Never shorten the
+# 300ms/150ms periodicity gate or create an unobserved Goal.
+DISCOVERY_WARMUP_MAX_SEC=8.0
 # Same actual 12s window: /clock may emit >4096 samples at native
 # Gazebo Harmonic rate even when its max interval remains ~10ms.
 # Memory cap only; does NOT change 300ms Clock/Scan/Odom or Goal authority.
@@ -34,6 +37,24 @@ def _first_gap_local_clock_rtf(clocks, previous_host, current_host):
     host=inside[-1][0]-inside[0][0]
     sim=inside[-1][1]-inside[0][1]
     return round(sim/host,6) if host>0 and sim>=0 else None
+
+
+def preflight_streams_ready(records,*,now):
+    """Read-only fresh two-callback proof on all original 4 preGoal topics."""
+    if not _ok_num(now):
+        return False
+    for name in ("scan","safety_scan","clock","odom"):
+        values=records.get(name) if isinstance(records,dict) else None
+        if not values or len(values)<2:
+            return False
+        left,right=values[-2],values[-1]
+        if (not all(isinstance(row,(tuple,list)) and len(row)==2
+                    and _ok_num(row[0]) and _ok_num(row[1])
+                    for row in (left,right))
+                or not left[0]<right[0]<=now
+                or now-right[0]>.30):
+            return False
+    return True
 
 
 def assess_pregoal_samples(samples, *, window_sec=WINDOW_SEC):
@@ -200,14 +221,28 @@ def run(output,window_sec=WINDOW_SEC):
           node.create_subscription(Odometry,"/odom",odom_cb,qos_profile_sensor_data)]
     t0=time.monotonic()
     try:
-        while time.monotonic()-t0<WARMUP_SEC:
+        ready=False
+        while time.monotonic()-t0<DISCOVERY_WARMUP_MAX_SEC:
             rclpy.spin_once(node,timeout_sec=.04)
-        for rows in records.values():rows.clear()
-        t1=time.monotonic()
-        while time.monotonic()-t1<window_sec:
-            rclpy.spin_once(node,timeout_sec=.04)
-        report=assess_pregoal_samples({k:list(v) for k,v in records.items()},
-                                      window_sec=window_sec)
+            if (time.monotonic()-t0>=WARMUP_SEC
+                    and preflight_streams_ready(records,now=time.monotonic())):
+                ready=True
+                break
+        if ready:
+            # Clear warmup samples ONLY after all four real subscribers
+            # have delivered fresh data. The following 12s is immutable.
+            for rows in records.values():rows.clear()
+            t1=time.monotonic()
+            while time.monotonic()-t1<window_sec:
+                rclpy.spin_once(node,timeout_sec=.04)
+            report=assess_pregoal_samples({k:list(v) for k,v in records.items()},
+                                          window_sec=window_sec)
+        else:
+            report=dict(schema="axia.g07.scan_wall_pregoal.v1",
+                        status="HOLD",goal_sent=False,certified_estop=False,
+                        first_failure="SCAN_PREFLIGHT_STREAM_DISCOVERY_TIMEOUT",
+                        observed_topic_counts={k:len(v) for k,v in records.items()},
+                        window_sec=window_sec,root_cause_proven=False)
     finally:
         for sub in subs:node.destroy_subscription(sub)
         node.destroy_node()
