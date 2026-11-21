@@ -22,8 +22,13 @@ class PersistentScanPreGoalExecutor(unittest.TestCase):
         cls.tree=ast.parse(cls.text)
 
     def test_no_global_rclpy_spin_once_per_callback(self):
-        self.assertNotIn("rclpy.spin_once(node",self.text)
-        self.assertNotIn("rclpy.spin_once(",self.text)
+        calls=[item for item in ast.walk(self.tree)
+               if isinstance(item,ast.Call)
+               and isinstance(item.func,ast.Attribute)
+               and isinstance(item.func.value,ast.Name)
+               and item.func.value.id=="rclpy"
+               and item.func.attr=="spin_once"]
+        self.assertEqual(calls,[])  # Comments documenting the old bug are allowed.
 
     def test_one_singlethreaded_executor_is_reused_by_default(self):
         self.assertIn("from rclpy.executors import SingleThreadedExecutor",self.text)
