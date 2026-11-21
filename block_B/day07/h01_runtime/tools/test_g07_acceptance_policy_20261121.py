@@ -99,7 +99,7 @@ class G07AcceptancePolicy(unittest.TestCase):
         source=SCRIPT.read_text()
         self.assertIn("AXIA_G07_DEPTH_SENSOR_ENABLED",source)
         self.assertIn("--disable-depth",source)
-        self.assertIn("AXIA_G07_OWNER_GUI_OPTIONAL",source)
+        self.assertIn("AXIA_G07_GUI_DIAGNOSTIC_ONLY",source)
         self.assertIn("AXIA_G07_GUI_DIAGNOSTIC_ONLY",source)
         self.assertIn('LAUNCH="$ROOT/ros2_ws/src/axia_safety_bringup/launch/axia_tb3_p2.launch.py"',source)
         self.assertNotIn("CERTIFIED_ESTOP=true",source)
