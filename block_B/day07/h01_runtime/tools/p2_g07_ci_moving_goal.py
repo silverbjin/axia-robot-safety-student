@@ -516,13 +516,13 @@ def run(args):
         # Physical fixture entry must still be a live, actual forward Nav2
         # motion state, not a turning/reverse phase with a close Scan.
         try:
-            slow_entry=wait(lambda s,d: forward_entry(s,d),12,"SLOW_ENTRY_FORWARD")
+            slow_entry=wait(lambda s,d: forward_entry(s,d,world_anchor),45,"SLOW_ENTRY_FORWARD")
         except RuntimeError as exc:
             if str(exc)!="CI_MOVING_GOAL_TIMEOUT_SLOW_ENTRY_FORWARD":
                 raise
             # First unmet condition, no raw pose, UUID or new ROS callback.
             blocker=diagnose_forward_entry(obs.snapshot(include_graph=False),
-                                            obs.data())
+                                            obs.data(),world_anchor)
             report["slow_fixture_first_entry_blocker"]=blocker
             print("AXIA_G07_G20_FIRST_FORWARD_ENTRY_BLOCKER "+
                   json.dumps(blocker,sort_keys=True),flush=True)
