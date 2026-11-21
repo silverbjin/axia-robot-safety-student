@@ -219,6 +219,7 @@ def run(args):
     if io_probe:
         from p2_g07_observer_io_probe import FirstExecutorSilenceSnapshot
         silence_probe=FirstExecutorSilenceSnapshot(threshold_ms=160)
+    spin_status={"started_at":None}
     heartbeat_ticks=deque(maxlen=14000)
     heartbeat_stop=threading.Event()
     probe_thread=None
@@ -234,9 +235,13 @@ def run(args):
                         silence_probe is not None and worker.ident is not None):
                     rows=obs._g07_io_probe.rows
                     if rows:
+                        spin_started_at=(spin_status["started_at"]
+                                         if bounded_wait_candidate else None)
                         silence_probe.capture(
                             now=now,last_callback_at=rows[-1][1],
-                            goal_active=True,spin_thread_ident=worker.ident)
+                            goal_active=True,spin_thread_ident=worker.ident,
+                            spin_started_at=spin_started_at,
+                            spin_timeout_ms=20 if bounded_wait_candidate else None)
                 heartbeat_stop.wait(.020)
         probe_thread=threading.Thread(
             target=observer_probe_heartbeat,
@@ -280,6 +285,7 @@ def run(args):
     spin_stop=threading.Event()
     def spin_multi_with_bounded_wait():
         while not spin_stop.is_set() and rclpy.ok():
+            spin_status["started_at"]=time.monotonic()
             try:
                 executor.spin_once(timeout_sec=.02)
             except Exception:
@@ -288,6 +294,8 @@ def run(args):
                 if not spin_stop.is_set():
                     raise
                 break
+            finally:
+                spin_status["started_at"]=None
     worker=threading.Thread(
         target=(spin_multi_with_bounded_wait if bounded_wait_candidate
                 else executor.spin),
