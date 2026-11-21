@@ -483,8 +483,13 @@ def assess(v, *, owner_authorized=False):
                 "max_guard_interval_sec","max_supervisor_fsm_interval_sec"):
         if not _num(v.get(key)) or not 0<v[key]<.15:
             return _blocked("SAFETY_DELIVERY_TTL_BOUNDARY_"+key)
-    for key in ("max_scan_interval_sec","max_odom_interval_sec",
-                "max_clock_interval_sec"):
+    # Scan HOST receive >300ms is a G07 forensic diagnostic, not an
+    # acceptance timeout. Missing Scan evidence, nonmonotonic source Header,
+    # post-STOP distinct real LaserScans and ACTIVE safety watchdog stay hard.
+    scan_gap=v.get("max_scan_interval_sec")
+    if not _num(scan_gap) or scan_gap<=0:
+        return _blocked("SCAN_DELIVERY_EVIDENCE_MISSING")
+    for key in ("max_odom_interval_sec","max_clock_interval_sec"):
         if not _num(v.get(key)) or not 0<v[key]<.30:
             return _blocked("SENSOR_DELIVERY_TTL_BOUNDARY_"+key)
     a,b,c=[v.get(k) for k in ("clear","slow","stop")]
