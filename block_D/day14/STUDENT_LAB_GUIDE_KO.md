@@ -45,7 +45,7 @@ run_lab.py: trace + expected/actual 비교
 
 ```bash
 cd ~
-git clone --depth 1 --branch main \
+git clone --branch main --depth 1 \
   https://github.com/silverbjin/axia-robot-safety-student.git axia-d14-student
 cd ~/axia-d14-student
 git rev-parse HEAD
@@ -120,6 +120,8 @@ UNITTEST_RC=1
 - 테스트 기대값을 바꾸거나 원본 비공개 정답을 가져오지 않는다.
 
 ## 6. Python 코드 읽기: 구조부터 파악
+
+**실습의 정확한 함수명:** `apply_verdict()`와 `expired_verdict()`를 수정한다. 두 함수의 호출 시 매개변수와 반환형은 아래에서 해설한다.
 
 `block_D/day14/risk_policy_student.py`를 열어본다.
 
