@@ -215,6 +215,14 @@ def run(args):
             raise ValueError("G07_OBSERVER_IO_PROBE_REQUIRES_PUBLIC_SIM_ONLY")
         print("AXIA_G07_OBSERVER_IO_PROBE=CI_ONLY_READ_ONLY "
               "NO_CALLBACK_IO_ADDED ORIGINAL_FLUSH_RETAINED",flush=True)
+    from p2_g07_observer_io_probe import select_ci_executor_guard_wake_ab
+    wake_candidate=select_ci_executor_guard_wake_ab(
+        os.environ,owner_mode=owner_mode)
+    if wake_candidate:
+        print("AXIA_G07_CI_EXECUTOR_GUARD_WAKE_AB=CI_ONLY "
+              "MULTI2_ORIGINAL_SPIN QOS_TTL_OWNER_UNCHANGED",flush=True)
+    wake_ready=threading.Event()
+    wake_state={"attempts":0,"error":None}
     silence_probe=None
     if io_probe:
         from p2_g07_observer_io_probe import FirstExecutorSilenceSnapshot
@@ -228,6 +236,13 @@ def run(args):
             while not heartbeat_stop.is_set():
                 now=time.monotonic()
                 heartbeat_ticks.append(now)
+                if wake_candidate and wake_ready.is_set():
+                    try:
+                        executor.wake()
+                        wake_state["attempts"]+=1
+                    except Exception as wake_exc:
+                        wake_state["error"]=type(wake_exc).__name__
+                        wake_ready.clear()
                 # Same existing CI-only heartbeat; no new ROS entities.
                 # Inspect the last callback timestamp without callback I/O.
                 # Record ONE stack of the original executor at 160ms silence.
@@ -301,6 +316,8 @@ def run(args):
                 else executor.spin),
         name="g07_observer_executor_spin",daemon=True)
     worker.start()
+    if wake_candidate:
+        wake_ready.set()
     published=None
     stop_ack_at=None
     stop_pre_move_front=None
@@ -314,6 +331,8 @@ def run(args):
             last_sample=0.
             last_health_sample=0.
             while time.monotonic()<until:
+                if wake_state["error"] is not None:
+                    raise RuntimeError("CI_EXECUTOR_GUARD_WAKE_AB_ERROR_HOLD")
                 snap=obs.snapshot(include_graph=graph_checks)
                 data=obs.data()
                 if label=="HEALTH":
@@ -871,6 +890,18 @@ def run(args):
               flush=True)
         return 2
     finally:
+        wake_ready.clear()
+        if wake_candidate:
+            report["ci_executor_guard_wake_ab"]={
+                "schema":"axia.g07.ci_executor_guard_wake_ab.v1",
+                "attempts":wake_state["attempts"],
+                "error":wake_state["error"],
+                "status":"CI_ONLY_DIAGNOSTIC_NOT_OWNER_SAFETY_PASS",
+                "release":"HOLD","root_cause_proven":False,
+                "certified_estop":False}
+            print("AXIA_G07_CI_EXECUTOR_GUARD_WAKE_AB_TICKS "+
+                  json.dumps(report["ci_executor_guard_wake_ab"],sort_keys=True),
+                  flush=True)
         save()
         spin_stop.set()
         executor.shutdown(timeout_sec=2)
