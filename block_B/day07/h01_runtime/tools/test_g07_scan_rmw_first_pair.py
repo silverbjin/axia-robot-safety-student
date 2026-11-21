@@ -101,6 +101,23 @@ class ScanExactFirstRmwPair(unittest.TestCase):
         self.assertFalse(r["exact_pub_pair_proven"])
         self.assertEqual(r["release"],"HOLD")
 
+    def test_jazzy_rclpy_callback_must_require_message_info_second_argument(self):
+        # Official rclpy jazzy Subscription.callback setter first tries
+        # inspect.signature(value).bind(object()); if this succeeds, it
+        # classifies MessageOnly and never supplies MessageInfo.
+        import inspect
+        def optional(msg, info=None):
+            return None
+        def required(msg, info):
+            return None
+        inspect.signature(optional).bind(object())
+        with self.assertRaises(TypeError):
+            inspect.signature(required).bind(object())
+        inspect.signature(required).bind(object(), object())
+        src=(HERE/"p2_g07_scan_wall_pregoal.py").read_text()
+        self.assertIn("def cb(msg, info):",src)
+        self.assertNotIn("def cb(msg, info=None):",src)
+
     def test_runtime_exports_capability_on_success_and_failure_without_extra_callback_io(self):
         src=(HERE/"p2_g07_scan_wall_pregoal.py").read_text()
         self.assertIn('report["scan_rmw_metadata_capability"]=',src)
