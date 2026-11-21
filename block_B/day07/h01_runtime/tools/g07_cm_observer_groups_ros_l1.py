@@ -31,11 +31,13 @@ def synthetic_publisher(mode):
     pub_block=n.create_publisher(String,topic+"/block_default",10)
     deadline=time.monotonic()+10
     while (time.monotonic()<deadline and
-           not all(p.get_subscription_count()>=1 for p in
-                   (pub_cm,pub_sup,pub_block))):
+           not (pub_cm.get_subscription_count()>=2 and
+                pub_sup.get_subscription_count()>=2 and
+                pub_block.get_subscription_count()>=1)):
         time.sleep(.05)
-    ready=all(p.get_subscription_count()>=1 for p in
-              (pub_cm,pub_sup,pub_block))
+    ready=(pub_cm.get_subscription_count()>=2 and
+           pub_sup.get_subscription_count()>=2 and
+           pub_block.get_subscription_count()>=1)
     send=[]
     if ready:
         msg=Twist()
@@ -53,6 +55,35 @@ def synthetic_publisher(mode):
     print(json.dumps(dict(status="READY" if ready else "PUBLISHER_DISCOVERY_HOLD",
                           sent=send,source_process_independent=True)),flush=True)
     return 0 if ready else 3
+
+
+def independent_witness(mode):
+    """Same exact test topics, DIFFERENT ROS node/OS process and executor."""
+    import rclpy
+    from rclpy.node import Node
+    from geometry_msgs.msg import Twist
+    rclpy.init()
+    node=Node("axia_g07_cm_l1_independent_witness_"+mode)
+    data={"cm":[],"supervised":[]}
+    topic=ROOT+"/"+mode
+    for kind in ("cm","supervised"):
+        node.create_subscription(Twist,topic+"/"+kind,
+             lambda msg,k=kind:data[k].append((time.monotonic(),int(msg.angular.z))),10)
+    deadline=time.monotonic()+7
+    while time.monotonic()<deadline:
+        rclpy.spin_once(node,timeout_sec=.08)
+    node.destroy_node()
+    rclpy.try_shutdown()
+    def mx(rows):
+        return round(max(((b[0]-a[0])*1000 for a,b in zip(rows,rows[1:])),
+                         default=0),6)
+    print(json.dumps(dict(status="WITNESS_READ_ONLY_FINISHED",
+                          counts={key:len(v) for key,v in data.items()},
+                          max_receive_gap_ms={key:mx(v) for key,v in data.items()},
+                          distinct_sequences={key:len(set(x[1] for x in v))
+                                              for key,v in data.items()},
+                          independent_os_process=True)),flush=True)
+    return 0
 
 
 def measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
@@ -89,18 +120,29 @@ def measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
     publisher={}
     start=time.monotonic()
     try:
+        witness=subprocess.Popen([sys.executable,__file__,"--witness",mode],
+                stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        time.sleep(.2)
         proc=subprocess.run([sys.executable,__file__,"--publisher",mode],
                 capture_output=True,text=True,timeout=30)
         if proc.returncode==0:
             try:publisher=json.loads(proc.stdout.strip().splitlines()[-1])
             except (ValueError,IndexError):publisher={}
         time.sleep(.25)
+        try:
+            witout,_=witness.communicate(timeout=12)
+            witness_result=json.loads(witout.strip().splitlines()[-1])
+        except (subprocess.TimeoutExpired,ValueError,IndexError):
+            witness.kill()
+            witness.communicate()
+            witness_result={"status":"WITNESS_UNVERIFIED_HOLD"}
     except subprocess.TimeoutExpired:
         publisher={"status":"PUBLISHER_PROCESS_TIMEOUT"}
     finally:
         executor.shutdown(timeout_sec=3)
         worker.join(timeout=3)
         node.destroy_node()
+    witness_result=locals().get("witness_result",{"status":"WITNESS_NOT_RUN_HOLD"})
     send=publisher.get("sent",[])
     sent={int(seq):float(t) for t,seq in send
           if isinstance(seq,int) and isinstance(t,(int,float))}
@@ -121,6 +163,7 @@ def measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
         return sorted(pairs,key=lambda row:row["callback_gap_ms"])[-3:]
     return {
         "mode":mode,"independent_publisher_status":publisher.get("status"),
+        "independent_witness":witness_result,
         "source_process_independent":publisher.get("source_process_independent"),
         "default_group_blocker_executed":blocked.is_set(),
         "publisher_count":len(send),
@@ -138,6 +181,8 @@ def measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
 def main():
     if len(sys.argv)==3 and sys.argv[1]=="--publisher" and sys.argv[2] in ("baseline","isolated"):
         return synthetic_publisher(sys.argv[2])
+    if len(sys.argv)==3 and sys.argv[1]=="--witness" and sys.argv[2] in ("baseline","isolated"):
+        return independent_witness(sys.argv[2])
     if len(sys.argv)!=1:
         return 3
     import rclpy
@@ -161,7 +206,13 @@ def main():
                         candidate.get("publisher_max_gap_ms")))
                    and base["publisher_max_gap_ms"]<120
                    and candidate["publisher_max_gap_ms"]<120)
-    ok=(source_stable and all(isinstance(x,(int,float)) for x in nums)
+    w=candidate.get("independent_witness",{})
+    witness_stable=(w.get("status")=="WITNESS_READ_ONLY_FINISHED"
+                    and all(w.get("counts",{}).get(k,0)>=60
+                            and w.get("max_receive_gap_ms",{}).get(k,999)<=120
+                            for k in ("cm","supervised")))
+    ok=(source_stable and witness_stable
+        and all(isinstance(x,(int,float)) for x in nums)
         and base["default_group_blocker_executed"]
         and candidate["default_group_blocker_executed"]
         and min(base["cm_count"],candidate["cm_count"],
@@ -174,6 +225,7 @@ def main():
              status=("SYNTHETIC_JAZZY_TWO_PROCESS_CALLBACK_GROUP_L1_PASS" if ok
                      else "SYNTHETIC_JAZZY_TWO_PROCESS_CALLBACK_GROUP_L1_HOLD"),
              independent_publisher_source_stable=bool(source_stable),
+             independent_witness_receive_stable=bool(witness_stable),
              root_cause_proven=False,actual_gazebo=False,actual_goal=False,
              wsl2_nvidia_root_cause_proven=False,certified_estop=False)
     print("AXIA_G07_CM_OBSERVER_GROUP_ROS_L1 "+json.dumps(out,sort_keys=True),flush=True)
