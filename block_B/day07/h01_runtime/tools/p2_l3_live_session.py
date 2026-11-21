@@ -128,18 +128,39 @@ class Observer:
         self.latest={};self.latest_scan=None;self.latest_side_scan=None
         self.pose=None
         self._sub=[]
-        def sub(cls,topic,fn,qos):self._sub.append(node.create_subscription(cls,topic,fn,qos))
+        def sub(cls,topic,fn,qos,callback_group=None):
+            if callback_group is None:
+                item=node.create_subscription(cls,topic,fn,qos)
+            else:
+                item=node.create_subscription(cls,topic,fn,qos,callback_group=callback_group)
+            self._sub.append(item)
         sub(Odometry,'/odom',self._odom,qos_profile_sensor_data)
         sub(Twist,'/cmd_vel',lambda m:self._twist('final',m),10)
         # G07 CI/Owner parity only: the EXISTING read-only Observer
         # receives Jazzy RMW publication/receipt metadata. It does NOT
         # add a ROS subscription, change QoS, mutate CM, or affect Guard.
         self._g07_rmw_info=(os.environ.get("AXIA_G07_OWNER_STARTUP_PARITY")=="1")
+        cm_group=supervised_group=None
+        if os.environ.get("AXIA_G07_CM_OBSERVER_GROUPS","0")!="0":
+            from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+            from p2_g07_observer_cb_group_policy import scoped_cm_groups
+            cm_group,supervised_group=scoped_cm_groups(os.environ,MutuallyExclusiveCallbackGroup)
+            if not self._g07_rmw_info:
+                raise ValueError("G07_CM_OBSERVER_GROUPS_REQUIRES_RMW_METADATA_PARITY")
+            # Only existing two read-only ROS Twist subscriptions change
+            # callback dispatch; /clock, /scan, /odom, Guard, Goal untouched.
+            print("G07_CM_OBSERVER_ISOLATED_CALLBACK_GROUPS=2 EXCLUSIVE "
+                  "NO_TTL_OR_GOAL_CHANGE",flush=True)
+        # ROS2 Executor holds groups via weak ownership: preserve a strong
+        # reference for the entire Observer lifetime, not constructor locals.
+        self._g07_cm_observer_callback_groups=(cm_group,supervised_group)
         if self._g07_rmw_info:
             sub(Twist,'/cmd_vel_pre_guard',
-                lambda m,info:self._twist('pre_guard',m,info=info),10)
+                lambda m,info:self._twist('pre_guard',m,info=info),10,
+                callback_group=cm_group)
             sub(Twist,'/cmd_vel_supervised',
-                lambda m,info:self._twist('supervised',m,info=info),10)
+                lambda m,info:self._twist('supervised',m,info=info),10,
+                callback_group=supervised_group)
         else:
             sub(Twist,'/cmd_vel_pre_guard',lambda m:self._twist('pre_guard',m),10)
             sub(Twist,'/cmd_vel_supervised',lambda m:self._twist('supervised',m),10)
