@@ -1,5 +1,9 @@
 """D12 beginner guides public contracts. Docs only: existing TODO stays intentionally RED."""
 import json
+import os
+import re
+import subprocess
+import sys
 from pathlib import Path
 import unittest
 
@@ -77,6 +81,32 @@ class D12GuideContract(unittest.TestCase):
                          [0, 100_000_000, 200_000_000, 300_000_000])
         self.assertTrue(all(e["risk_score"] is None and e["threshold"] is None
                             for e in data if e["level"] == "INSUFFICIENT_DATA"))
+
+
+    def test_beginner_document_python_examples_execute_and_match_expected(self):
+        """Run just the public read-only snippets, never start ROS/robot/control."""
+        s = LAB.read_text(encoding="utf-8")
+        scenarios = (
+            ("### A2-1.", "DEMO:TST_N_00:002 WARNING score= 0.9 quality= None"),
+            ("### A4-1.", "D12_BEGINNER_TIMELINE_PASS events=12 first_warning=DEMO:TST_N_00:002"),
+            ("### B2-1.", "TEST_HOLD ROS_L1_NOT_MEASURED verdict.json missing"),
+        )
+        for label, expected in scenarios:
+            self.assertIn(label, s)
+            after = s.split(label, 1)[1]
+            found = re.search(r"~~~bash\s+python3 - <<'PY'\n(.*?)\nPY\n~~~", after, re.S)
+            self.assertIsNotNone(found, label)
+            code = found.group(1)
+            self.assertNotIn("create_publisher(", code)
+            self.assertNotIn("send_goal_async(", code)
+            with self.subTest(label=label):
+                env = dict(os.environ, HOME="/tmp/axia-d12-guide-test-no-evidence")
+                p = subprocess.run(
+                    [sys.executable, "-c", code], cwd=ROOT.parent, env=env,
+                    capture_output=True, text=True, timeout=15, check=False
+                )
+                self.assertEqual(p.returncode, 0, p.stderr)
+                self.assertIn(expected, p.stdout)
 
 
 if __name__ == "__main__":
