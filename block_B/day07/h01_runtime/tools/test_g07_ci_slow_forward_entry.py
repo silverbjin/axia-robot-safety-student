@@ -44,11 +44,22 @@ class TestSlowForwardEntry(unittest.TestCase):
                  pre_guard_speed=.037625983357429504,
                  final_speed=.037625983357429504)
         r=diagnose_forward_entry(s,d)
-        self.assertEqual(r["first_blocker"],"SUPERVISED_FORWARD_BELOW_ENTRY_GATE")
+        # Existing production CLEAR phase admits supervised vx > .03.
+        # A new pre-fixture .05 limit rejected actual native CLEAR .037626.
+        self.assertEqual(r["first_blocker"],"ENTRY_CONDITIONS_SATISFIED_BUT_WAIT_UNVERIFIED")
+        self.assertIsNotNone(forward_entry(s,d))
         self.assertAlmostEqual(r["supervised_vx"],.037626,places=5)
         self.assertEqual(r["release"],"HOLD")
         self.assertFalse(r["entry_proven"])
         self.assertNotIn("goal_uuid",r)
+
+    def test_actual_native_end_velocity_0018827_remains_blocked(self):
+        s,d=example()
+        s.update(supervised_speed=.018827,pre_guard_speed=.018827,
+                 final_speed=.018827)
+        self.assertIsNone(forward_entry(s,d))
+        self.assertEqual(diagnose_forward_entry(s,d)["first_blocker"],
+                         "SUPERVISED_FORWARD_BELOW_ENTRY_GATE")
 
     def test_real_turn_and_stale_scan_have_distinct_first_blocker(self):
         s,d=example()
