@@ -18,7 +18,7 @@ import threading
 import time
 
 from p2_g07_events_executor_policy import select_events_executor
-from p2_g07_ci_slow_entry import forward_entry
+from p2_g07_ci_slow_entry import forward_entry, diagnose_forward_entry
 from p2_g07_health_first_boundary import HealthFirstBoundary
 from p2_l3_live_session import Observer, _call_start, _publish_goal, _map_robot_pose
 from p2_l3_coordinate_frames import make_frame_anchor, obstacle_world_pose
@@ -515,7 +515,19 @@ def run(args):
         save()
         # Physical fixture entry must still be a live, actual forward Nav2
         # motion state, not a turning/reverse phase with a close Scan.
-        slow_entry=wait(lambda s,d: forward_entry(s,d),12,"SLOW_ENTRY_FORWARD")
+        try:
+            slow_entry=wait(lambda s,d: forward_entry(s,d),12,"SLOW_ENTRY_FORWARD")
+        except RuntimeError as exc:
+            if str(exc)!="CI_MOVING_GOAL_TIMEOUT_SLOW_ENTRY_FORWARD":
+                raise
+            # First unmet condition, no raw pose, UUID or new ROS callback.
+            blocker=diagnose_forward_entry(obs.snapshot(include_graph=False),
+                                            obs.data())
+            report["slow_fixture_first_entry_blocker"]=blocker
+            print("AXIA_G07_G20_FIRST_FORWARD_ENTRY_BLOCKER "+
+                  json.dumps(blocker,sort_keys=True),flush=True)
+            save()
+            raise
         report["slow_fixture_forward_entry"]=slow_entry
         print("AXIA_G07_CI_SLOW_FIXTURE_FORWARD_ENTRY_VERIFIED "+
               json.dumps(slow_entry,sort_keys=True),flush=True)
