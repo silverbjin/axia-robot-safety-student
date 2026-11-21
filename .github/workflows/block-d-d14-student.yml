@@ -1,4 +1,4 @@
-name: AXIA D14 Student Safety Policy (initial RED)
+name: AXIA D14 Student TODO Scaffold L0 (intentional RED)
 on:
   push:
     branches: [feat/block-d-d14-risk-policy-20261121]
@@ -9,10 +9,57 @@ on:
 permissions:
   contents: read
 jobs:
-  student-todo:
+  student-synthetic-l0:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: RED — student policy TODO unit tests
-        run: python3 -m unittest discover -s block_D/day14/tests -p 'test_d14_policy.py' -v
+      - name: Ensure Python files compile and no ROS runtime/supervisor source changed
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile block_D/day14/risk_policy_student.py block_D/day14/run_lab.py
+          test -f block_D/day14/STUDENT_LAB_GUIDE_KO.md
+          test -f block_D/day14/STUDENT_WORKSHEET_KO.md
+          if grep -E '^[[:space:]]*(import rclpy|from rclpy|import rospy|from geometry_msgs)' block_D/day14/*.py; then
+            echo 'D14_FORBIDDEN_ROS_IMPORT' >&2; exit 1
+          fi
+      - name: Student TODO must fail exactly expected 11 assertions (no silent skip)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +e
+          python3 -m unittest discover -s block_D/day14/tests -p 'test_*.py' -v > "$RUNNER_TEMP/d14_test.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/d14_test.log"
+          test "$rc" -eq 1
+          grep -q 'Ran 20 tests' "$RUNNER_TEMP/d14_test.log"
+          grep -q 'FAILED (failures=11)' "$RUNNER_TEMP/d14_test.log"
+          grep -q 'FAIL: test_P_limits' "$RUNNER_TEMP/d14_test.log"
+          grep -q 'FAIL: test_N_initial_healthy_normal' "$RUNNER_TEMP/d14_test.log"
+          grep -q 'FAIL: test_stale_fresh_boundary' "$RUNNER_TEMP/d14_test.log"
+          echo D14_STUDENT_EXPECTED_RED_11=PASS
+      - name: Offline JSON and HTML timeline must be generated despite student TODO
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +e
+          python3 block_D/day14/run_lab.py --out "$RUNNER_TEMP/d14" > "$RUNNER_TEMP/d14_cli.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/d14_cli.log"
+          test "$rc" -eq 2
+          grep -q 'D14_STUDENT_RESULT=RED_EXPECTED_TODO' "$RUNNER_TEMP/d14_cli.log"
+          python3 - "$RUNNER_TEMP/d14/d14_policy_results.json" <<'PY'
+          import json, sys
+          x=json.load(open(sys.argv[1]))
+          assert not x["all_pass"] and len(x["cases"])==16
+          assert sum(v["pass"] for v in x["cases"])==2
+          assert all(v["verification"]=="OFFLINE_SYNTHETIC_L0_NOT_REAL_SUPERVISOR_OR_GAZEBO" for v in x["cases"])
+          print("D14_STUDENT_16_SCENARIOS_TWO_BASELINE_PASS=1")
+          PY
+          test -f "$RUNNER_TEMP/d14/d14_policy_timeline.html"
+          grep -q 'LIMITED_REQUEST' "$RUNNER_TEMP/d14/d14_policy_timeline.html"
+          grep -q 'NO_AUTO_RESUME' "$RUNNER_TEMP/d14/d14_policy_timeline.html"
+          echo 'D14_STUDENT_SCAFFOLD_L0_GREEN=1 NO_ROS_NO_GAZEBO_NO_GOAL_NO_FAULT=1'
