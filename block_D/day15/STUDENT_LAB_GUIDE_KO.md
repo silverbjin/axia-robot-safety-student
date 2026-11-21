@@ -38,7 +38,7 @@
 
 ```bash
 cd ~
-git clone --branch feat/block-d-d15-evidence-replay-20261121 \
+git clone --branch main \
   https://github.com/silverbjin/axia-robot-safety-student.git \
   axia-d15-student
 cd ~/axia-d15-student
@@ -48,7 +48,7 @@ python3 block_D/day15/run_lab.py --out /tmp/axia-d15
 ls -lh /tmp/axia-d15/
 ```
 
-**현재는 개발 검증 브랜치입니다.** 정식 배포 후에는 강사가 안내한 `main` 정확 SHA를 사용합니다. ROS 2, Nav2, Gazebo가 없어도 이 분석 실습은 실행됩니다.
+**D15는 Student `main`에 배포된 읽기 전용 증거 분석 실습입니다.** `git rev-parse HEAD`가 강사가 공지한 최종 배포 SHA와 일치하는지 확인합니다. ROS 2, Nav2, Gazebo 없이도 실행됩니다.
 
 예상 출력:
 
