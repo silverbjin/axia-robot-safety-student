@@ -100,7 +100,7 @@ class TestSlowForwardEntry(unittest.TestCase):
         src=(Path(__file__).parent/"p2_g07_ci_moving_goal.py").read_text()
         self.assertNotIn("AXIA_G07_G20_FIRST_FORWARD_ENTRY_BLOCKER",src)
         self.assertNotIn("CI_MOVING_GOAL_TIMEOUT_SLOW_ENTRY_FORWARD",src)
-        self.assertIn("CI_MOVING_GOAL_TIMEOUT_SLOW",src)
+        self.assertIn('rows["slow"]=wait(phase("slow"),35,"SLOW")',src)
 
     def test_rejected_goal_bearing_gate_not_enabled_in_original_moving_runtime(self):
         # Native #44878195833 L2 FAIL despite L0; Goal straight bearing
@@ -109,7 +109,7 @@ class TestSlowForwardEntry(unittest.TestCase):
         self.assertNotIn("SLOW_ENTRY_FORWARD",src)
         self.assertNotIn("from p2_g07_ci_slow_entry import",src)
         self.assertIn('world_anchor,obs.data().get("pose"),.62,.07,demo_corridor=True',src)
-        self.assertIn("CI_MOVING_GOAL_TIMEOUT_SLOW",src)
+        self.assertIn('rows["slow"]=wait(phase("slow"),35,"SLOW")',src)
 
     def test_stale_actual_scan_or_guard_latch_or_no_positive_odom_must_hold(self):
         s,d=example();s["scan_at"]=99.5
