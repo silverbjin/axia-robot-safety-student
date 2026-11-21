@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AXIA D13 | TIME × SPACE Live Replay</title>
+<style>
+:root{color-scheme:dark;--ink:#eff6ff;--muted:#aabed4;--line:#244462;--blue:#55b5ff;--red:#ff8678;--teal:#52e0c5;--purple:#c4a4ff;--panel:#10263d}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 30% 0%,#184467 0%,#071727 60%,#05131f 100%);color:var(--ink);font:500 clamp(14px,1vw,18px)/1.5 system-ui,-apple-system,"Malgun Gothic",sans-serif}
+.shell{max-width:1760px;margin:0 auto;padding:clamp(14px,2vw,36px)}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 0 15px}
+.eyebrow{color:var(--teal);font-size:.82rem;letter-spacing:.15em;font-weight:800}.top h1{font-size:clamp(26px,2.1vw,43px);margin:3px 0 4px;letter-spacing:-.04em}.subtitle{color:var(--muted);margin:0}
+.tag{padding:9px 13px;white-space:nowrap;border:1px solid #397b89;border-radius:100px;color:var(--teal);font-weight:800;font-size:.78rem}
+.intro{border-left:4px solid var(--teal);background:#13304b;border-radius:8px;padding:12px 18px;margin:10px 0 16px;color:#d2e7f7}
+.panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.panel,.toolbar,.quiz,.faults{background:linear-gradient(145deg,#102a43,#0e2035);border:1px solid #36526a;border-radius:18px;padding:clamp(15px,1.3vw,23px);box-shadow:0 12px 35px #020c1766}
+.phead{display:flex;justify-content:space-between;align-items:center;gap:12px}.phead h2{margin:0 0 6px;font-size:clamp(20px,1.6vw,30px)}.hint{color:var(--muted);font-size:.82rem}.phase{border:1px solid #536b80;border-radius:80px;padding:4px 9px;font-size:.83rem;white-space:nowrap}
+svg{display:block;width:100%;height:auto;min-height:165px;background:linear-gradient(0deg,#0b2033,#142e48);border:1px solid #244766;border-radius:12px;margin:9px 0}
+.metrics{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.value{font-size:clamp(21px,1.6vw,30px);font-weight:800;font-variant-numeric:tabular-nums}.desc{font-size:.78rem;color:var(--muted)}
+.status{display:inline-block;padding:5px 10px;border-radius:7px;font-size:.82rem;font-weight:800;letter-spacing:.04em}
+.hit{background:#67383c;color:#ffc5b7}.clear{background:#154b49;color:#a5fff0}
+.toolbar{margin-top:16px}.barTitle{display:flex;align-items:center;gap:10px;justify-content:space-between}.barTitle strong{font-size:1.24rem}
+#clock{font-size:clamp(26px,2vw,40px);font-weight:900;font-variant-numeric:tabular-nums;color:var(--teal)}
+input[type=range]{accent-color:var(--teal);width:100%;height:28px;cursor:pointer}
+.timeends{display:flex;justify-content:space-between;color:var(--muted);font-size:.8rem}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:7px}
+button,select{font:inherit;background:#173650;color:var(--ink);border:1px solid #4d708e;border-radius:10px;padding:10px 18px;cursor:pointer;min-height:46px}
+button:hover,select:hover{border-color:var(--teal)}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #54e0c5;outline-offset:2px}
+button.primary{background:#166a72;border-color:#2dafb2;font-weight:800}.grow{flex:1}
+.teach{display:grid;grid-template-columns:1.05fr .95fr;gap:16px;margin-top:16px}
+.quiz h2,.faults h2{margin:0 0 7px;font-size:1.26rem}.quiz p,.faults p{margin:4px 0 11px;color:var(--muted)}
+.votes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.votes label{display:flex;flex-direction:column;gap:7px;font-weight:700}
+select{width:100%;background:#102f48}.response{margin-top:10px;min-height:50px;padding:10px 13px;border:1px dashed #56788e;border-radius:10px;color:#d9e9f6}
+#faultExplanation{min-height:87px;font-size:.94rem}.eyelight{font-weight:800;color:var(--purple)}
+.footer{margin-top:15px;padding:13px 16px;border:1px solid #31506a;border-radius:12px;color:#b9cde1;font-size:.83rem}
+kbd{font:inherit;color:var(--teal)}
+@media(max-width:920px){.panels,.teach{grid-template-columns:1fr}.tag{white-space:normal}.top{flex-wrap:wrap}}
+@media(min-width:1500px){.toolbar{margin-top:18px}.teach{margin-top:18px}.panel{min-height:300px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<main class="shell">
+<header class="top">
+  <div><div class="eyebrow">AXIA D13 · TIME × SPACE</div><h1>같은 복도, 정말 같은 순간일까?</h1>
+    <p class="subtitle">16개 합성 시간점 · 2개 장면의 동기 재생 · 6개 입력 무결성 사례</p></div>
+  <div class="tag">OFFLINE · 합성 데이터</div>
+</header>
+<p class="intro"><strong>학생에게 먼저 물어보세요.</strong> 파란 로봇과 빨간 사람의 경로가 교차하면 반드시 충돌할까요? 11.1초에서 멈춰 두 장면의 <strong>동시간 중심거리</strong>를 비교하세요.</p>
+<section class="panels" aria-label="동기화된 두 합성 장면">
+  <article class="panel">
+    <div class="phead"><h2>장면 A</h2><span id="badgeA" class="phase">판정 공개 전</span></div>
+    <div class="hint">파랑=로봇 (r=0.15m), 빨강=사람 (r=0.20m)</div>
+    <svg id="sceneA" viewBox="0 0 640 214" role="img" aria-label="장면 A의 같은 시각 두 원형 점유영역"></svg>
+    <div class="metrics"><div><div class="desc">동시간 중심거리</div><span id="distanceA" class="value">—</span></div>
+      <span id="overlapA" class="status">—</span><span class="desc">비교 반경 합: 0.35 m</span></div>
+  </article>
+  <article class="panel">
+    <div class="phead"><h2>장면 B</h2><span id="badgeB" class="phase">판정 공개 전</span></div>
+    <div class="hint">두 장면의 시간 눈금과 거리 축척은 동일합니다</div>
+    <svg id="sceneB" viewBox="0 0 640 214" role="img" aria-label="장면 B의 같은 시각 두 원형 점유영역"></svg>
+    <div class="metrics"><div><div class="desc">동시간 중심거리</div><span id="distanceB" class="value">—</span></div>
+      <span id="overlapB" class="status">—</span><span class="desc">비교 반경 합: 0.35 m</span></div>
+  </article>
+</section>
+<section class="toolbar" aria-label="시간 제어">
+  <div class="barTitle"><strong>양쪽 동기 재생 · 같은 t에서 비교</strong><output id="clock">10.10 s</output></div>
+  <label for="timeline" class="desc">시간점 이동 (0부터 15까지 총 16개)</label>
+  <input id="timeline" type="range" min="0" max="15" value="0" step="1" aria-label="동시 시간점 선택">
+  <div class="timeends"><span>10.1초 · 시작</span><span id="frameCount">1 / 16 시점</span><span>13.1초 · 종료</span></div>
+  <div class="actions">
+    <button id="play" class="primary" type="button">▶ 자동 재생</button>
+    <button id="previous" type="button">← 이전 시점</button>
+    <button id="next" type="button">다음 시점 →</button>
+    <button id="reset" type="button">↺ 처음부터</button>
+    <button id="focus" type="button" class="grow">★ 11.1초 비교</button>
+  </div>
+</section>
+<div class="teach">
+  <section class="quiz" aria-label="학생 예측·해설">
+    <h2>① 먼저 예측하세요 · 답은 그다음 공개</h2>
+    <p>장면 A/B를 16개 시점 끝까지 관찰한 뒤 최종 결과를 예상합니다.</p>
+    <div class="votes">
+      <label for="predictA">장면 A의 예상 결과
+        <select id="predictA"><option value="">선택하세요</option><option value="P">P — 같은 시각 겹침</option><option value="N">N — 유효한 전 구간 비중첩</option><option value="U">U — 판단 불가</option></select>
+      </label>
+      <label for="predictB">장면 B의 예상 결과
+        <select id="predictB"><option value="">선택하세요</option><option value="P">P — 같은 시각 겹침</option><option value="N">N — 유효한 전 구간 비중첩</option><option value="U">U — 판단 불가</option></select>
+      </label>
+    </div>
+    <div class="actions"><button class="primary" id="reveal" type="button">예측 제출 · 정답 공개</button><button id="hideAnswer" type="button">답 가리기</button></div>
+    <div id="quizResponse" class="response" role="status" aria-live="polite">답을 고른 뒤 공개하세요. 기하학적 YES는 최종 P/N/U와 다릅니다.</div>
+  </section>
+  <section class="faults" aria-label="무효 입력 분석">
+    <h2>② U 사건 조사 · 최초 무효값 찾기</h2>
+    <p>아래는 <strong>fixture 입력 자체에서 확인한 교육용 오류 근거</strong>이며 학생 판정기의 정확한 검출 증거가 아닙니다.</p>
+    <label for="faultSelect" class="desc">조사할 합성 입력 이상 사례 선택</label>
+    <select id="faultSelect" aria-label="U 입력 오류 선택"></select>
+    <div id="faultExplanation" class="response" role="status" aria-live="polite"></div>
+  </section>
+</div>
+<footer class="footer">
+<strong>안전 범위:</strong> OFFLINE_SYNTHETIC_L0 · NO_ROS_GAZEBO_GOAL · 모터/Goal 명령 없음 · N은 실제 주행 허가가 아닙니다.
+<strong>증거 구분:</strong> 시점별 원 겹침 / 학생 함수의 실제 P·N·U / 공개 unittest 통과는 서로 다릅니다.
+소프트웨어 정지 ≠ 인증 하드웨어 E-Stop.
+</footer>
+</main>
+<script type="application/json" id="axiaPayload">__AXIA_DATA__</script>
+<script>
+(function(){
+ "use strict";
+ const data=JSON.parse(document.getElementById("axiaPayload").textContent);
+ const times=data.geometry.time_steps;
+ const all=data.cases;
+ const sceneA=all.find(function(c){return c.id==="P_same_time_overlap";});
+ const sceneB=all.find(function(c){return c.id==="N_same_route_different_time";});
+ const uCases=all.filter(function(c){return c.id.indexOf("U_")===0;});
+ const slider=document.getElementById("timeline");
+ const play=document.getElementById("play");
+ let idx=0,timer=null,revealed=false;
+ const W=640,H=214,midY=100;
+ const allx=[];
+ [sceneA,sceneB].forEach(function(c){
+   c.robot_trajectory.forEach(function(p){allx.push(p.x-p.radius,p.x+p.radius);});
+   times.forEach(function(t){const x=c.person.x+c.person.vx*(t-c.person.observed_sec);allx.push(x-c.person.radius,x+c.person.radius);});
+ });
+ const worldMin=Math.min.apply(null,allx)-0.16;
+ const worldMax=Math.max.apply(null,allx)+0.16;
+ const scale=(W-64)/(worldMax-worldMin);
+ function px(x){return 32+(x-worldMin)*scale;}
+ function svgElem(type,attrs,txt){
+   const e=document.createElementNS("http://www.w3.org/2000/svg",type);
+   Object.keys(attrs).forEach(function(k){e.setAttribute(k,String(attrs[k]));});
+   if(txt!==undefined)e.textContent=txt;
+   return e;
+ }
+ function paintScene(svgId,caseData,name){
+   const svg=document.getElementById(svgId);
+   while(svg.firstChild)svg.removeChild(svg.firstChild);
+   svg.appendChild(svgElem("line",{x1:16,y1:midY,x2:624,y2:midY,stroke:"#6b8faa","stroke-width":2,"stroke-dasharray":"6 8"}));
+   const p=caseData.robot_trajectory[idx],h=caseData.person,t=times[idx];
+   const hx=h.x+h.vx*(t-h.observed_sec),hy=h.y+h.vy*(t-h.observed_sec);
+   const cyR=midY-p.y*scale,cyH=midY-hy*scale;
+   const distance=Math.hypot(p.x-hx,p.y-hy);
+   svg.appendChild(svgElem("circle",{cx:px(p.x),cy:cyR,r:p.radius*scale,fill:"#55b5ff","fill-opacity":0.27,stroke:"#55b5ff","stroke-width":3}));
+   svg.appendChild(svgElem("circle",{cx:px(hx),cy:cyH,r:h.radius*scale,fill:"#ff8678","fill-opacity":0.25,stroke:"#ff8678","stroke-width":3}));
+   svg.appendChild(svgElem("circle",{cx:px(p.x),cy:cyR,r:4,fill:"#55b5ff"}));
+   svg.appendChild(svgElem("circle",{cx:px(hx),cy:cyH,r:4,fill:"#ff8678"}));
+   svg.appendChild(svgElem("text",{x:23,y:195,fill:"#acc5da","font-size":17},"같은 시각 t = "+t.toFixed(2)+" s"));
+   document.getElementById("distance"+name).textContent=distance.toFixed(3)+" m";
+   const hit=distance<=p.radius+h.radius;
+   const item=document.getElementById("overlap"+name);
+   item.textContent=hit?"기하 겹침 YES":"기하 겹침 NO";
+   item.className="status "+(hit?"hit":"clear");
+ }
+ function draw(){
+   document.getElementById("clock").textContent=times[idx].toFixed(2)+" s";
+   document.getElementById("frameCount").textContent=(idx+1)+" / "+times.length+" 시점";
+   slider.value=String(idx);
+   paintScene("sceneA",sceneA,"A");paintScene("sceneB",sceneB,"B");
+ }
+ function pause(){if(timer!==null){clearInterval(timer);timer=null;}play.textContent="▶ 자동 재생";}
+ function step(i){idx=Math.max(0,Math.min(times.length-1,i));draw();}
+ play.addEventListener("click",function(){
+   if(timer!==null){pause();return;}
+   if(idx>=times.length-1)step(0);
+   play.textContent="Ⅱ 일시정지";
+   timer=setInterval(function(){if(idx>=times.length-1){pause();return;}step(idx+1);},650);
+ });
+ slider.addEventListener("input",function(){pause();step(Number(slider.value));});
+ document.getElementById("previous").addEventListener("click",function(){pause();step(idx-1);});
+ document.getElementById("next").addEventListener("click",function(){pause();step(idx+1);});
+ document.getElementById("reset").addEventListener("click",function(){pause();step(0);});
+ document.getElementById("focus").addEventListener("click",function(){pause();step(5);});
+ function hide(){revealed=false;document.getElementById("badgeA").textContent="판정 공개 전";document.getElementById("badgeB").textContent="판정 공개 전";document.getElementById("quizResponse").textContent="답을 다시 골라 공개하세요. 순간 기하 겹침과 전체 판정은 다릅니다.";}
+ document.getElementById("hideAnswer").addEventListener("click",hide);
+ document.getElementById("reveal").addEventListener("click",function(){
+   const a=document.getElementById("predictA").value,b=document.getElementById("predictB").value;
+   if(!a||!b){document.getElementById("quizResponse").textContent="장면 A와 B의 예상값을 모두 선택해 주세요.";return;}
+   revealed=true;
+   document.getElementById("badgeA").textContent="Fixture 기대 "+sceneA.expected;
+   document.getElementById("badgeB").textContent="Fixture 기대 "+sceneB.expected;
+   const correctA=a===sceneA.expected,correctB=b===sceneB.expected;
+   document.getElementById("quizResponse").textContent=
+    "A "+(correctA?"정답":"재검토")+" (예상 "+a+" / 기대 "+sceneA.expected+") · B "+(correctB?"정답":"재검토")+
+    " (예상 "+b+" / 기대 "+sceneB.expected+") | 학생 코드 실제 A="+sceneA.actual+", B="+sceneB.actual+
+    ". 원의 겹침은 뷰어의 기하 계산, 실제값은 학생 함수의 반환값입니다.";
+ });
+ const selector=document.getElementById("faultSelect");
+ uCases.forEach(function(c){const opt=document.createElement("option");opt.value=c.id;opt.textContent=c.id.replace(/_/g," ");selector.appendChild(opt);});
+ function explain(){
+   const c=uCases.find(function(item){return item.id===selector.value;});
+   if(!c)return;
+   const issue=c.fixture_issue;
+   document.getElementById("faultExplanation").textContent=
+      "최초 입력 위반: "+issue.detail+
+      " | 교육용 fixture 기대="+c.expected+
+      " | 학생 함수 actual="+c.actual+
+      " | "+issue.status+
+      " — 이 입력 설명은 학생 알고리즘이 오류 원인을 검출했다는 증거가 아닙니다.";
+ }
+ selector.addEventListener("change",explain);
+ draw();explain();
+})();
+</script>
+</body>
+</html>
