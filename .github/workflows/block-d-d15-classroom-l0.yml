@@ -1,0 +1,28 @@
+name: AXIA Block D D15 Classroom Evidence L0
+on:
+  push:
+    branches:
+      - feat/block-d-d15-evidence-replay-20261121
+  pull_request:
+    branches: [main]
+    paths:
+      - 'block_D/day15/**'
+      - '.github/workflows/block-d-d15-classroom-l0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  d15-field-replay-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Evidence contract (initial RED missing analyzer)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s block_D/day15/tests -p 'test_*.py' -v
+          python3 block_D/day15/run_lab.py --out "$RUNNER_TEMP/d15"
+          test -s "$RUNNER_TEMP/d15/d15_evidence_review.json"
+          test -s "$RUNNER_TEMP/d15/d15_offline_replay.html"
+          echo D15_PUBLIC_DERIVED_EVIDENCE_L0_PASS_NO_ROS_GAZEBO_GOAL
