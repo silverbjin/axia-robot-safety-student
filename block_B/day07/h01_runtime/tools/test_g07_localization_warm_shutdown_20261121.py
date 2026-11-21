@@ -78,7 +78,7 @@ class LocalizationSameParticipantShutdown(unittest.TestCase):
         self.assertIn("loc_shutdown_client = prepare_localization_shutdown_client(",code)
         self.assertLess(code.index("loc_shutdown_client = prepare_localization_shutdown_client("),
                         code.index("response = call("))
-        self.assertIn("prewarmed_client=loc_shutdown_client if key==\"localization\" else None",code)
+        self.assertIn('else loc_shutdown_client if key=="localization" else None',code)
         self.assertIn("node.destroy_client(loc_shutdown_client)",code)
         self.assertIn('if ack["status"]!="ACK":',code)
         self.assertIn('BLOCKED_LIFECYCLE_',code)
