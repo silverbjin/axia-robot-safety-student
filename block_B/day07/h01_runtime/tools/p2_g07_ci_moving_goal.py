@@ -533,20 +533,40 @@ def run(args):
         save()
         # Keep the original pre-Goal side/LiDAR proof, then move that same
         # physical cylinder into the visible SLOW sector. No synthetic Scan.
-        # G20 read-only evidence BEFORE the existing physical set-pose.
-        # Historical #44871515361 SLOW timeout had negative forward vx and
-        # large yaw change. A real Goal/CM/STOP is never passed from this audit.
+        # G20 minimal physical fixture admission after real CLEAR:
+        # do not place a cylinder while Nav2 is turning/backing away.
+        # Never create another Goal, publish Twist/Scan, or relax TTL.
         from p2_g07_ci_stop_stage import classify_slow_fixture_alignment
-        slow_start_snap=obs.snapshot(include_graph=False)
-        slow_start_data=obs.data()
-        slow_odom=slow_start_data["odom"][-1] if slow_start_data["odom"] else {}
-        slow_diag=classify_slow_fixture_alignment(
-            start_pose=start_pose,live_odom=slow_start_data.get("pose"),
-            odom_speed=slow_odom.get("vx"),
-            odom_yaw_rate=slow_odom.get("wz"),
-            supervised_speed=slow_start_snap.get("supervised_speed"),
-            goal_status=slow_start_snap.get("action_status"),
-            guard_latched=slow_start_snap.get("guard",{}).get("latched"))
+        last_slow_alignment={}
+        def slow_forward_alignment_ready(s,d):
+            if (s.get("action_status")!=2
+                or _fresh(s,("scan","odom","guard","clock",
+                             "supervised","pre_guard","final")) is None
+                or not isinstance(d.get("scan"),(float,int))
+                or d["scan"]<=.75):
+                return None
+            row=d["odom"][-1] if d["odom"] else {}
+            diag=classify_slow_fixture_alignment(
+                start_pose=start_pose,live_odom=d.get("pose"),
+                odom_speed=row.get("vx"),odom_yaw_rate=row.get("wz"),
+                supervised_speed=s.get("supervised_speed"),
+                goal_status=s.get("action_status"),
+                guard_latched=s.get("guard",{}).get("latched"))
+            last_slow_alignment.clear()
+            last_slow_alignment.update(diag)
+            return diag if diag["aligned_for_positive_slow_demo"] else None
+        try:
+            slow_diag=wait(slow_forward_alignment_ready,3,"SLOW_FORWARD_ALIGNMENT")
+        except RuntimeError:
+            report["slow_fixture_alignment_before_move"]=(
+                dict(last_slow_alignment) if last_slow_alignment else
+                {"status":"NO_FRESH_FORWARD_ALIGNMENT_HOLD","release":"HOLD",
+                 "certified_estop":False})
+            save()
+            print("AXIA_G07_SLOW_FIXTURE_ALIGNMENT_HOLD_BEFORE_SET_POSE "+
+                  json.dumps(report["slow_fixture_alignment_before_move"],
+                             sort_keys=True),flush=True)
+            raise
         report["slow_fixture_alignment_before_move"]=slow_diag
         save()
         print("AXIA_G07_SLOW_FIRST_FORWARD_ALIGNMENT_BEFORE_NATIVE_SET_POSE "+
