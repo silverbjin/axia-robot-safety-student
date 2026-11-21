@@ -109,8 +109,8 @@ class D13LiveReplayContract(unittest.TestCase):
             raw = shot.read_bytes()
             self.assertEqual(raw[:8], bytes.fromhex("89504e470d0a1a0a"))
             self.assertEqual(struct.unpack(">II", raw[16:24]), (1920,1080))
-            self.assertRegex(browser.stdout, r'id="distanceA"[^>]*>2\\.000 m')
-            self.assertRegex(browser.stdout, r'id="distanceB"[^>]*>1\\.000 m')
+            self.assertRegex(browser.stdout, r'id="distanceA"[^>]*>2[.]000 m')
+            self.assertRegex(browser.stdout, r'id="distanceB"[^>]*>1[.]000 m')
 
     def test_first_invalid_is_fixture_evidence_not_learner_success(self):
         sys.path.insert(0, str(D13))
