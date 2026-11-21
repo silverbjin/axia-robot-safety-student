@@ -29,7 +29,7 @@ def measure(rclpy, Node, MultiThreadedExecutor, String, Twist, MutuallyExclusive
     mutex=threading.Lock()
     def on_msg(name,msg):
         t=time.monotonic()
-        with mutex:data[name].append(t)
+        with mutex:data[name].append((t,int(msg.angular.z)))
     subs=[]
     for name,group in zip(("cm","supervised"),groups):
         args={}
@@ -52,9 +52,12 @@ def measure(rclpy, Node, MultiThreadedExecutor, String, Twist, MutuallyExclusive
     worker=threading.Thread(target=ex.spin,daemon=True)
     worker.start()
     msg=Twist()
+    sent=[]
     started=time.monotonic()
     try:
-        for _ in range(70):
+        for i in range(70):
+            msg.angular.z=float(i)
+            sent.append((time.monotonic(),i))
             for pub in writers:pub.publish(msg)
             time.sleep(.040)
         time.sleep(.18)
@@ -65,12 +68,30 @@ def measure(rclpy, Node, MultiThreadedExecutor, String, Twist, MutuallyExclusive
         pubnode.destroy_node()
     def maximum(values):
         return max(((b-a)*1000 for a,b in zip(values,values[1:])),default=None)
+    sent_t=[t for t,_ in sent]
+    cm_t=[t for t,_ in data["cm"]]
+    sup_t=[t for t,_ in data["supervised"]]
+    sent_by_seq={seq:t for t,seq in sent}
+    def worst_callback_interval_vs_publisher(rows):
+        # Join by explicit integer sequence, same process monotonic timebase.
+        matched=[(t,seq) for t,seq in rows if seq in sent_by_seq]
+        gaps=sorted(((t1-t0)*1000,(sent_by_seq[s1]-sent_by_seq[s0])*1000,
+                    int(s0),int(s1))
+                   for (t0,s0),(t1,s1) in zip(matched,matched[1:]))
+        return [dict(callback_gap_ms=round(a,6),
+                     publisher_gap_ms=round(b,6),
+                     previous_seq=i,current_seq=j)
+                for a,b,i,j in gaps[-3:]]
     return {
         "mode":mode,"blocked_callback_test_event_observed":blocked.is_set(),
-        "cm_count":len(data["cm"]),"supervised_count":len(data["supervised"]),
-        "cm_observer_max_gap_ms":round(maximum(data["cm"]),6) if len(data["cm"])>1 else None,
+        "cm_count":len(cm_t),"supervised_count":len(sup_t),
+        "publisher_count":len(sent),
+        "publisher_max_gap_ms":round(maximum(sent_t),6),
+        "cm_worst_callback_pairs":worst_callback_interval_vs_publisher(data["cm"]),
+        "supervised_worst_callback_pairs":worst_callback_interval_vs_publisher(data["supervised"]),
+        "cm_observer_max_gap_ms":round(maximum(cm_t),6) if len(cm_t)>1 else None,
         "supervised_observer_max_gap_ms":(
-            round(maximum(data["supervised"]),6)
+            round(maximum(sup_t),6)
             if len(data["supervised"])>1 else None),
         "elapsed_sec":round(time.monotonic()-started,6)}
 
