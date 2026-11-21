@@ -75,7 +75,8 @@ class G07AcceptancePolicy(unittest.TestCase):
           b'<always_on>true</always_on><update_rate>5</update_rate></sensor>\n'
           b'<sensor name="intel_realsense_r200_depth" type="depth">'
           b'<always_on>1</always_on><update_rate>5</update_rate>'
-          b'<camera name="realsense_depth_camera"/></sensor>\n'
+          b'<camera name="realsense_depth_camera"><depth_camera></depth_camera>'
+          b'</camera></sensor>\n'
           b'<joint name="camera_joint" type="fixed"/>\n</robot>\n')
         with tempfile.TemporaryDirectory() as d:
             root=Path(d)
