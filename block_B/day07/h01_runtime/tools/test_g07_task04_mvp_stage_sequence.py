@@ -65,5 +65,24 @@ class MVPStageSequence(unittest.TestCase):
                         src.index('slow_ack=move_ci_verified('))
         self.assertIn('rows["slow"]=wait(phase("slow")',src)
 
+
+    def test_physical_slow_fixture_waits_for_fresh_forward_alignment_before_set_pose(self):
+        # Actual native #44871515361 and #44877524595 SLOW attempts:
+        # negative/near-zero forward speed during Nav2 rotation cannot prove
+        # 0.4–0.75m positive command and CM SLOW reduction.
+        src=RUNNER.read_text()
+        cleared=src.index('wait(clear_motion_ready,8,"CLEAR_DISTANCE")')
+        admission=src.index('wait(slow_forward_alignment_ready,3,"SLOW_FORWARD_ALIGNMENT")')
+        slow_ack=src.index('slow_ack=move_ci_verified(')
+        slow_obs=src.index('rows["slow"]=wait(phase("slow")')
+        self.assertLess(cleared,admission)
+        self.assertLess(admission,slow_ack)
+        self.assertLess(slow_ack,slow_obs)
+        self.assertIn('_fresh(s,("scan","odom","guard","clock",',src)
+        self.assertIn('classify_slow_fixture_alignment(',src)
+        self.assertIn('"slow_fixture_alignment_before_move"',src)
+        self.assertNotIn('SLOW_REQUIREMENT_RELAXED',src)
+        self.assertNotIn('NAV2_NEW_GOAL_FOR_ALIGNMENT',src)
+
 if __name__ == "__main__":
     unittest.main()
