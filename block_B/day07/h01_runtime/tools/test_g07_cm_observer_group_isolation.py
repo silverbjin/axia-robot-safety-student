@@ -49,6 +49,9 @@ class TestCMIsolatedObserverGroups(unittest.TestCase):
         s=OBSERVER.read_text()
         self.assertIn("from rclpy.callback_groups import MutuallyExclusiveCallbackGroup",s)
         self.assertIn("scoped_cm_groups(os.environ,MutuallyExclusiveCallbackGroup)",s)
+        # Official Jazzy callback groups need a strong Node/Observer lifetime
+        # reference; constructor locals can be GC'd after __init__ returns.
+        self.assertIn("self._g07_cm_observer_callback_groups=(cm_group,supervised_group)",s)
         self.assertIn("callback_group=cm_group",s)
         self.assertIn("callback_group=supervised_group",s)
         self.assertIn("'/cmd_vel_pre_guard'",s)
