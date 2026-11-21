@@ -397,7 +397,7 @@ def run(args):
         rows={}
         rows["clear"]=wait(phase("clear"),8,"CLEAR")
         report["clear"]=rows["clear"]
-        report["goal_status_at_clear"]=obs.snapshot().get("action_status")
+        report["goal_status_at_clear"]=obs.snapshot(include_graph=False).get("action_status")
         report["clear_before_action_ack"]=(report["goal_status_at_clear"]!=2)
         print("AXIA_G07_PUBLIC_CI_MOVING_CLEAR_REAL_GAZEBO_LIDAR_CM_PASS "+
               json.dumps(rows["clear"],sort_keys=True),flush=True)
@@ -407,7 +407,7 @@ def run(args):
         wait(lambda s,d: s.get("goal_uuid") if
              s.get("action_status")==2 and s.get("goal_uuid") is not None else None,
              15,"ACTION_EXECUTING")
-        goal_uuid=obs.snapshot()["goal_uuid"]
+        goal_uuid=obs.snapshot(include_graph=False)["goal_uuid"]
         report["goal_uuid"]=goal_uuid
         report["same_goal_executing_after_clear"]=True
         print("AXIA_G07_PUBLIC_CI_ACTUAL_NAV2_GOAL_EXECUTING "+goal_uuid,flush=True)
@@ -461,7 +461,7 @@ def run(args):
               json.dumps(rows["slow"],sort_keys=True),flush=True)
         save()
         # Reuse the existing single STOP fixture planner and real Gazebo ACK.
-        snap=obs.snapshot()
+        snap=obs.snapshot(include_graph=False)
         stop_pre_move_front=obs.data().get("scan")
         if not isinstance(stop_pre_move_front,(float,int)):
             raise RuntimeError("STOP_PREPOSITION_REAL_SCAN_MISSING")
@@ -506,7 +506,7 @@ def run(args):
         final=obs.data()
         displacement=math.hypot(final["pose"][0]-start_pose[0],
                                 final["pose"][1]-start_pose[1])
-        latest=obs.snapshot()
+        latest=obs.snapshot(include_graph=False)
         t1=time.monotonic()
         if owner_mode or os.environ.get("AXIA_G07_TASK03_FORMAL_CI")=="1":
             if not owner_mode and os.environ.get("AXIA_G07_TASK02_SIMPLE_TF_CANDIDATE")!="1":
