@@ -35,6 +35,7 @@ jobs:
         run: |
           python -m compileall -q block_B
           python -m unittest discover -s block_B/day07/h01_runtime/tools -p 'test_g07_context_graph_shutdown.py' -v
+          python -m unittest discover -s block_B/day07/h01_runtime/tools -p 'test_g07_pregoal_single_executor.py' -v
           mkdir -p results
           python -m pytest -q block_B/tests/test_fixture_io.py block_B/tests/test_d04_shared_yolo_demo.py block_B/tests/test_d04_wsl2_pytest_isolation.py block_B/tests/test_d04_guide_command_e2e.py block_B/tests/test_d04_student_gazebo_gui.py block_B/tests/test_d05_guide_contract.py block_B/tests/test_d05_demo_course_contract.py block_B/tests/test_d05_live_scene_contract.py block_B/tests/test_d06_classroom_guide_contract.py block_B/tests/test_d07_classroom_contract.py block_B/tests/test_d07_delivery_docs.py block_B/tests/test_block_b_main_guide_refs.py --junitxml=results/block-b-scaffold.xml
       - name: Upload scaffold JUnit
