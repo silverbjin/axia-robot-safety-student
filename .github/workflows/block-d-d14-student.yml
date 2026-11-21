@@ -1,0 +1,18 @@
+name: AXIA D14 Student Safety Policy (initial RED)
+on:
+  push:
+    branches: [feat/block-d-d14-risk-policy-20261121]
+  pull_request:
+    branches: [main]
+    paths: ['block_D/day14/**', '.github/workflows/block-d-d14-student.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  student-todo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: RED — student policy TODO unit tests
+        run: python3 -m unittest discover -s block_D/day14/tests -p 'test_d14_policy.py' -v
