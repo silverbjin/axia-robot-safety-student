@@ -148,7 +148,8 @@ class FirstExecutorSilenceSnapshot:
         self._result=None
 
     def capture(self, *, now,last_callback_at,goal_active,
-                spin_thread_ident,threads=None,frames=None):
+                spin_thread_ident,threads=None,frames=None,
+                spin_started_at=None,spin_timeout_ms=None):
         if self._result is not None or goal_active is not True:
             return False
         if (type(now) not in (int,float)
@@ -184,7 +185,21 @@ class FirstExecutorSilenceSnapshot:
                 names.append(safe)
                 fr=fr.f_back
             by_role[role]=names
+        # Both instants use one host monotonic clock, never DDS epochs.
+        spin_elapsed=None
+        if (type(spin_started_at) in (int,float) and math.isfinite(spin_started_at)
+                and 0<=spin_started_at<=now):
+            value=(now-spin_started_at)*1000.
+            if 0<=value<=1000:
+                spin_elapsed=round(value,6)
+        timeout=(spin_timeout_ms if type(spin_timeout_ms) is int
+                 and 1<=spin_timeout_ms<=100 else None)
         self._result={
+            "spin_once_inflight_elapsed_ms":spin_elapsed,
+            "spin_once_requested_timeout_ms":timeout,
+            "spin_once_timeout_overrun_observed":(
+                spin_elapsed is not None and timeout is not None
+                and spin_elapsed>timeout),
             "schema":"axia.g07.first_executor_silence_stack.v1",
             "status":("FIRST_EXECUTOR_SILENCE_STACK_CAPTURED_HOLD"
                       if by_role.get("executor_spin") else
