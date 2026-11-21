@@ -251,23 +251,25 @@ def run(output,window_sec=WINDOW_SEC):
           node.create_subscription(LaserScan,"/safety/scan",scan_cb("safety_scan"),qos_profile_sensor_data),
           node.create_subscription(Clock,"/clock",clock_cb,qos_profile_sensor_data),
           node.create_subscription(Odometry,"/odom",odom_cb,qos_profile_sensor_data)]
-    executor=None
+    # Official Jazzy rclpy.spin_once(node) adds/removes this node from the
+    # global executor on every single callback, waking/rebuilding the waitset.
+    # This one-node preflight already owns a dedicated process. Keep ONE
+    # equivalent SingleThreadedExecutor alive across warmup + strict 12s.
+    from rclpy.executors import SingleThreadedExecutor
     if use_events:
-        # Existing ROS Jazzy experimental backport: no added node or
-        # read-only QoS/Scan sampling policy change; fail closed if absent.
+        # Existing ROS Jazzy experimental backport; CI-only admission unchanged.
         from rclpy.experimental import EventsExecutor
         executor=EventsExecutor()
-        executor.add_node(node)
         print("AXIA_G07_PREG0AL_EVENTS_EXECUTOR_AB=CI_ONLY "
               "STRICT_12SEC_300MS_UNCHANGED",flush=True)
+    else:
+        executor=SingleThreadedExecutor()
+    executor.add_node(node)
     t0=time.monotonic()
     try:
         ready=False
         while time.monotonic()-t0<DISCOVERY_WARMUP_MAX_SEC:
-            if executor is not None:
-                executor.spin_once(timeout_sec=.04)
-            else:
-                rclpy.spin_once(node,timeout_sec=.04)
+            executor.spin_once(timeout_sec=.04)
             if (time.monotonic()-t0>=WARMUP_SEC
                     and preflight_streams_ready(records,now=time.monotonic())):
                 ready=True
@@ -279,10 +281,7 @@ def run(output,window_sec=WINDOW_SEC):
             scan_rmw_rows.clear()
             t1=time.monotonic()
             while time.monotonic()-t1<window_sec:
-                if executor is not None:
-                    executor.spin_once(timeout_sec=.04)
-                else:
-                    rclpy.spin_once(node,timeout_sec=.04)
+                executor.spin_once(timeout_sec=.04)
             report=assess_pregoal_samples({k:list(v) for k,v in records.items()},
                                           window_sec=window_sec)
             report["scan_rmw_metadata_capability"]=summarize_scan_rmw_metadata(list(scan_rmw_rows))
@@ -305,8 +304,7 @@ def run(output,window_sec=WINDOW_SEC):
             if any(k in name.lower() for k in ("scan","camera","image","point","depth"))
         ]
     finally:
-        if executor is not None:
-            executor.shutdown(timeout_sec=2)
+        executor.shutdown(timeout_sec=2)
         for sub in subs:node.destroy_subscription(sub)
         node.destroy_node()
         rclpy.try_shutdown()
