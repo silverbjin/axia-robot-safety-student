@@ -1,6 +1,8 @@
 """D13 Live Replay: off-line public contract. Keeps 10 student TODO tests unchanged."""
 import importlib.util
 import json
+import re
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -50,6 +52,25 @@ class D13LiveReplayContract(unittest.TestCase):
             # The SVG namespace is an identifier, not an outbound HTTP call.
             self.assertNotIn("http://", html.replace(
                 "http://www.w3.org/2000/svg", ""))
+
+    def test_embedded_javascript_syntax_with_node_when_available(self):
+        """Parser-level browser script regression; no external dependencies downloaded."""
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node not available: browser JS parser NOT_RUN")
+        sys.path.insert(0, str(D13))
+        from live_replay import build_manifest, render_live_html
+        from run_lab import load_cases
+        html = render_live_html(build_manifest(load_cases()))
+        blocks = re.findall(r"<script(?:\\s[^>]*)?>(.*?)</script>", html, re.S)
+        self.assertEqual(len(blocks), 2)
+        with tempfile.TemporaryDirectory(prefix="d13-js-") as td:
+            script = Path(td) / "d13_viewer.js"
+            script.write_text(blocks[1], encoding="utf-8")
+            res = subprocess.run([node, "--check", str(script)],
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                 text=True, timeout=15, check=False)
+            self.assertEqual(res.returncode, 0, res.stdout)
 
     def test_first_invalid_is_fixture_evidence_not_learner_success(self):
         sys.path.insert(0, str(D13))
