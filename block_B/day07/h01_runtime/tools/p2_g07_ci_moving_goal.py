@@ -215,13 +215,28 @@ def run(args):
             raise ValueError("G07_OBSERVER_IO_PROBE_REQUIRES_PUBLIC_SIM_ONLY")
         print("AXIA_G07_OBSERVER_IO_PROBE=CI_ONLY_READ_ONLY "
               "NO_CALLBACK_IO_ADDED ORIGINAL_FLUSH_RETAINED",flush=True)
+    silence_probe=None
+    if io_probe:
+        from p2_g07_observer_io_probe import FirstExecutorSilenceSnapshot
+        silence_probe=FirstExecutorSilenceSnapshot(threshold_ms=160)
     heartbeat_ticks=deque(maxlen=14000)
     heartbeat_stop=threading.Event()
     probe_thread=None
     if io_probe:
         def observer_probe_heartbeat():
             while not heartbeat_stop.is_set():
-                heartbeat_ticks.append(time.monotonic())
+                now=time.monotonic()
+                heartbeat_ticks.append(now)
+                # Same existing CI-only heartbeat; no new ROS entities.
+                # Inspect the last callback timestamp without callback I/O.
+                # Record ONE stack of the original executor at 160ms silence.
+                if (report.get("goal_sent") is True and
+                        silence_probe is not None and worker.ident is not None):
+                    rows=obs._g07_io_probe.rows
+                    if rows:
+                        silence_probe.capture(
+                            now=now,last_callback_at=rows[-1][1],
+                            goal_active=True,spin_thread_ident=worker.ident)
                 heartbeat_stop.wait(.020)
         probe_thread=threading.Thread(
             target=observer_probe_heartbeat,
@@ -252,7 +267,8 @@ def run(args):
     else:
         executor=MultiThreadedExecutor(num_threads=2 if owner_observer_parity else 3)
     executor.add_node(node)
-    worker=threading.Thread(target=executor.spin,daemon=True)
+    worker=threading.Thread(target=executor.spin,
+                            name="g07_observer_executor_spin",daemon=True)
     worker.start()
     published=None
     stop_ack_at=None
@@ -816,6 +832,7 @@ def run(args):
         if io_probe:
             try:
                 diag=obs.io_probe_summary(heartbeats=list(heartbeat_ticks))
+                diag["first_executor_silence_snapshot"]=silence_probe.result()
                 (args.output/"g07_observer_io_probe_summary.json").write_text(
                     json.dumps(diag,sort_keys=True,indent=2)+"\n")
                 print("AXIA_G07_OBSERVER_IO_FIRST_BOUNDARY "+
