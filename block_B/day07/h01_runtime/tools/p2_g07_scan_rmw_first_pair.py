@@ -83,3 +83,48 @@ def first_scan_rmw_pair(boundary,rows):
     else:
         base["status"]="SCAN_EXACT_RMW_PAIR_NO_OVERRUN_SCOPED_HOLD"
     return base
+
+
+def summarize_scan_rmw_metadata(rows):
+    """Bounded read-only RMW MessageInfo capability, even with no Scan breach.
+
+    Counts independently available metadata fields. A healthy preGoal window
+    alone never proves same-publication DDS source/received/Observer timing.
+    No source, receiver or host timestamp absolutes leave this summary.
+    """
+    summary={
+        "schema":"axia.g07.scan_rmw_metadata_capability.v1",
+        "status":"RMW_INFO_UNVERIFIED_HOLD",
+        "release":"HOLD",
+        "root_cause_proven":False,
+        "exact_pub_pair_proven":False,
+        "owner_l3_accepted":False,
+        "certified_estop":False,
+        "safety_ttl_changed":False,
+        "samples":0,"source_valid":0,"received_valid":0,"sequence_valid":0
+    }
+    if not isinstance(rows,(list,tuple)) or len(rows)>1000:
+        return summary
+    for row in rows:
+        if not isinstance(row,dict) or row.get("topic") not in ("scan","safety_scan"):
+            return summary
+        summary["samples"]+=1
+        for field, counter in (
+                ("rmw_source_ns","source_valid"),
+                ("rmw_received_ns","received_valid"),
+                ("rmw_publication_seq","sequence_valid")):
+            v=row.get(field)
+            if type(v) is int and v>0:
+                summary[counter]+=1
+    if summary["samples"]<=0:
+        summary["status"]="RMW_NO_MESSAGES_CAPABILITY_UNVERIFIED_HOLD"
+    elif (summary["source_valid"]==summary["samples"] and
+          summary["received_valid"]==summary["samples"] and
+          summary["sequence_valid"]==summary["samples"]):
+        summary["status"]="RMW_METADATA_PRESENT_NO_FIRST_BOUNDARY_HOLD"
+    elif (summary["source_valid"]>0 and summary["received_valid"]>0 and
+          summary["sequence_valid"]==0):
+        summary["status"]="RMW_SEQ_MISSING_EXACT_PUBLICATION_UNVERIFIED_HOLD"
+    else:
+        summary["status"]="RMW_PARTIAL_METADATA_UNVERIFIED_HOLD"
+    return summary
