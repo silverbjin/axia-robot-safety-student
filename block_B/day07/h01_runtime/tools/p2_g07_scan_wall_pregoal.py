@@ -10,6 +10,7 @@ import json
 import math
 import os
 from p2_g07_events_executor_policy import select_events_executor
+from p2_g07_scan_rmw_first_pair import normalize_scan_message_info, first_scan_rmw_pair
 from pathlib import Path
 import time
 
@@ -205,10 +206,17 @@ def run(output,window_sec=WINDOW_SEC):
     output=Path(output)
     output.parent.mkdir(parents=True,exist_ok=True)
     records={name:deque(maxlen=CLOCK_WINDOW_MAX_SAMPLES if name=="clock" else 400) for name in ("scan","safety_scan","clock","odom")}
+    scan_rmw_rows=deque(maxlen=1000)
     def scan_cb(name):
-        def cb(msg):
-            records[name].append((time.monotonic(),
-                msg.header.stamp.sec+msg.header.stamp.nanosec*1e-9))
+        def cb(msg, info=None):
+            at=time.monotonic()
+            sim=msg.header.stamp.sec+msg.header.stamp.nanosec*1e-9
+            records[name].append((at,sim))
+            src,received,seq=normalize_scan_message_info(info)
+            scan_rmw_rows.append({"topic":name,"at":at,"header_sim":sim,
+                                  "rmw_source_ns":src,
+                                  "rmw_received_ns":received,
+                                  "rmw_publication_seq":seq})
         return cb
     def clock_cb(msg):
         records["clock"].append((time.monotonic(),
@@ -247,6 +255,7 @@ def run(output,window_sec=WINDOW_SEC):
             # Clear warmup samples ONLY after all four real subscribers
             # have delivered fresh data. The following 12s is immutable.
             for rows in records.values():rows.clear()
+            scan_rmw_rows.clear()
             t1=time.monotonic()
             while time.monotonic()-t1<window_sec:
                 if executor is not None:
@@ -255,6 +264,9 @@ def run(output,window_sec=WINDOW_SEC):
                     rclpy.spin_once(node,timeout_sec=.04)
             report=assess_pregoal_samples({k:list(v) for k,v in records.items()},
                                           window_sec=window_sec)
+            if isinstance(report.get("first_scan_timing_boundary"),dict):
+                report["first_scan_rmw_pair"]=first_scan_rmw_pair(report.get(
+                    "first_scan_timing_boundary"),list(scan_rmw_rows))
         else:
             report=dict(schema="axia.g07.scan_wall_pregoal.v1",
                         status="HOLD",goal_sent=False,certified_estop=False,
@@ -272,6 +284,7 @@ def run(output,window_sec=WINDOW_SEC):
         print("AXIA_G07_PREGOAL_SCAN_FIRST_NUMERIC "+
               json.dumps({"first_failure":report["first_failure"],
                           "first_scan_timing_boundary":report.get("first_scan_timing_boundary"),
+                          "first_scan_rmw_pair":report.get("first_scan_rmw_pair"),
                           "first_delivery_violation":report.get("first_delivery_violation"),
                           "topic_results":report.get("topic_results"),
                           "local_window_rtf_estimate":report.get("local_window_rtf_estimate"),
