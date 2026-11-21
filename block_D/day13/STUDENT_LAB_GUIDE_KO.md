@@ -33,14 +33,14 @@
 
 ```bash
 cd ~
-git clone --branch feat/block-d-d13-reachability-lab-20261121 \
+git clone --branch main \
   https://github.com/silverbjin/axia-robot-safety-student.git axia-d13-student
 cd ~/axia-d13-student
 python3 --version
 git rev-parse HEAD
 ```
 
-이전 클론이 이미 있다면 `git fetch origin` 뒤 별도 디렉터리/브랜치에서 실습하세요. 현재 실습은 **작업 브랜치 후보**이며 정식 학생 배포 승인이 나기 전에는 강사가 검증된 HEAD를 안내해야 합니다.
+이전 클론이 있다면 `git fetch origin`으로 최신 상태를 확인하되, 기존 학생 실습 코드가 덮어써지지 않도록 새 디렉터리에 클론하세요. **D13은 `main`에 배포된 학생용 TODO 패키지**입니다. `git rev-parse HEAD` 출력은 강사가 배포 공지한 정확한 main SHA와 비교합니다. 미완성 TODO의 P/N 테스트 실패는 교육 의도이며 저장소 배포 실패가 아닙니다.
 
 ## 4. 먼저 데이터 읽기
 
