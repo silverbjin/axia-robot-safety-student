@@ -86,7 +86,7 @@ def independent_witness(mode):
     return 0
 
 
-def measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
+def measure(Node,MultiThreadedExecutor,SingleThreadedExecutor,MutuallyExclusiveCallbackGroup,
             Twist,String,mode):
     node=Node("axia_g07_cm_observer_l1_"+mode)
     cm_group,sup_group=scoped_cm_groups({
@@ -111,9 +111,11 @@ def measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
 
     def block_default(_):
         blocked.set()
-        time.sleep(.240)
+        if mode in ("baseline","isolated"):
+            time.sleep(.240)
     node.create_subscription(String,topic+"/block_default",block_default,10)
-    executor=MultiThreadedExecutor(num_threads=2)
+    executor=(SingleThreadedExecutor() if mode=="single_unblocked" else
+              MultiThreadedExecutor(num_threads=2))
     executor.add_node(node)
     worker=threading.Thread(target=executor.spin,daemon=True)
     worker.start()
@@ -179,24 +181,27 @@ def measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
 
 
 def main():
-    if len(sys.argv)==3 and sys.argv[1]=="--publisher" and sys.argv[2] in ("baseline","isolated"):
+    if len(sys.argv)==3 and sys.argv[1]=="--publisher" and sys.argv[2] in ("baseline","isolated","multi_unblocked","single_unblocked"):
         return synthetic_publisher(sys.argv[2])
-    if len(sys.argv)==3 and sys.argv[1]=="--witness" and sys.argv[2] in ("baseline","isolated"):
+    if len(sys.argv)==3 and sys.argv[1]=="--witness" and sys.argv[2] in ("baseline","isolated","multi_unblocked","single_unblocked"):
         return independent_witness(sys.argv[2])
     if len(sys.argv)!=1:
         return 3
     import rclpy
     from rclpy.node import Node
-    from rclpy.executors import MultiThreadedExecutor
+    from rclpy.executors import MultiThreadedExecutor, SingleThreadedExecutor
     from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
     from geometry_msgs.msg import Twist
     from std_msgs.msg import String
     rclpy.init()
     try:
-        base=measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
-                     Twist,String,"baseline")
-        candidate=measure(Node,MultiThreadedExecutor,MutuallyExclusiveCallbackGroup,
-                          Twist,String,"isolated")
+        single_ab=(len(sys.argv)==2 and sys.argv[1]=="--multi-v-single")
+        base=measure(Node,MultiThreadedExecutor,SingleThreadedExecutor,
+                     MutuallyExclusiveCallbackGroup,Twist,String,
+                     "multi_unblocked" if single_ab else "baseline")
+        candidate=measure(Node,MultiThreadedExecutor,SingleThreadedExecutor,
+                          MutuallyExclusiveCallbackGroup,Twist,String,
+                          "single_unblocked" if single_ab else "isolated")
     finally:
         rclpy.try_shutdown()
     nums=[base.get("cm_observer_max_gap_ms"),candidate.get("cm_observer_max_gap_ms"),
@@ -220,15 +225,27 @@ def main():
         and base["cm_observer_max_gap_ms"]>=180
         and candidate["cm_observer_max_gap_ms"]<=120
         and candidate["supervised_observer_max_gap_ms"]<=120)
+    if single_ab:
+        # A/B after removing the artificial 240ms callback: compare
+        # actual ROS2 executor implementations, not the application logic.
+        ok=(source_stable and witness_stable
+            and candidate["cm_count"]>=65
+            and candidate["supervised_count"]>=65
+            and candidate["cm_observer_max_gap_ms"] is not None
+            and candidate["supervised_observer_max_gap_ms"] is not None
+            and candidate["cm_observer_max_gap_ms"]<=120
+            and candidate["supervised_observer_max_gap_ms"]<=120)
     out=dict(schema="axia.g07.cm_observer_callback_group_ros_l1.v2",
              baseline=base,candidate=candidate,
-             status=("SYNTHETIC_JAZZY_TWO_PROCESS_CALLBACK_GROUP_L1_PASS" if ok
-                     else "SYNTHETIC_JAZZY_TWO_PROCESS_CALLBACK_GROUP_L1_HOLD"),
+             status=(("JAZZY_SINGLE_EXECUTOR_L1_CANDIDATE_PASS_NO_GOAL"
+                      if single_ab else "SYNTHETIC_JAZZY_TWO_PROCESS_CALLBACK_GROUP_L1_PASS") if ok
+                     else ("JAZZY_SINGLE_EXECUTOR_L1_HOLD" if single_ab
+                           else "SYNTHETIC_JAZZY_TWO_PROCESS_CALLBACK_GROUP_L1_HOLD")),
              independent_publisher_source_stable=bool(source_stable),
              independent_witness_receive_stable=bool(witness_stable),
              root_cause_proven=False,actual_gazebo=False,actual_goal=False,
              wsl2_nvidia_root_cause_proven=False,certified_estop=False)
-    print("AXIA_G07_CM_OBSERVER_GROUP_ROS_L1 "+json.dumps(out,sort_keys=True),flush=True)
+    print(("AXIA_G07_CM_EXECUTOR_SINGLE_AB_ROS_L1 " if single_ab else "AXIA_G07_CM_OBSERVER_GROUP_ROS_L1 ")+json.dumps(out,sort_keys=True),flush=True)
     return 0 if ok else 3
 
 if __name__=="__main__":
