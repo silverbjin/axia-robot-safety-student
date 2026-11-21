@@ -39,3 +39,39 @@ def plan_stop_fixture(anchor, live_odom, *, goal_status,
         raise ValueError("CI_STOP_ROBOT_LEFT_APPROVED_PREGOAL_LANE")
     return obstacle_world_pose(
         anchor,live_odom,CI_STOP_SURFACE_M,CI_G07_RADIUS_M,demo_corridor=True)
+
+
+def classify_slow_fixture_alignment(*,start_pose,live_odom,odom_speed,
+                                    odom_yaw_rate,supervised_speed,
+                                    goal_status,guard_latched):
+    """Read-only first physical SLOW fixture heading/velocity audit.
+
+    Never authorizes a Goal, fixture, speed, timeout extension or acceptance.
+    Only real post-CLEAR snapshots in one host-monotonic session are valid.
+    """
+    out={"schema":"axia.g07.slow_fixture_forward_alignment.v1",
+         "status":"FORWARD_ALIGNMENT_NOT_PROVEN_HOLD",
+         "aligned_for_positive_slow_demo":False,
+         "yaw_change_rad":None,
+         "odom_forward_vx":None,
+         "supervised_forward_vx":None,
+         "odom_yaw_rate":None,
+         "root_cause_proven":False,"timing_safety_pass":False,
+         "release":"HOLD","certified_estop":False}
+    if (not isinstance(start_pose,(tuple,list)) or len(start_pose)!=3
+            or not isinstance(live_odom,(tuple,list)) or len(live_odom)!=3):
+        return out
+    values=(*start_pose,*live_odom,odom_speed,odom_yaw_rate,supervised_speed)
+    if any(type(v) not in (float,int) or not math.isfinite(v) for v in values):
+        return out
+    yaw=abs(_yaw_change(live_odom[2],start_pose[2]))
+    out.update(yaw_change_rad=round(yaw,6),
+               odom_forward_vx=round(odom_speed,6),
+               supervised_forward_vx=round(supervised_speed,6),
+               odom_yaw_rate=round(odom_yaw_rate,6))
+    if (goal_status==2 and guard_latched is False
+            and .005 < supervised_speed <= .22 and odom_speed>0.005
+            and yaw<=.15 and abs(odom_yaw_rate)<=.20):
+        out.update(status="FORWARD_ALIGNMENT_CANDIDATE_ONLY",
+                   aligned_for_positive_slow_demo=True)
+    return out
