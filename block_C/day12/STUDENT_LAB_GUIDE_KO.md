@@ -14,6 +14,62 @@
 - **운영자 피드백:** 사람의 "확인/조사/오탐 의심/품질 확인" 의견을 사건 ID와 함께 남기는 기록. 이는 안전 정지 명령이 아닙니다.
 - `EXPECTED_RED`: 학생 TODO가 아직 비어 있어 의도적으로 실패하는 시험. ROS나 Gazebo의 장애를 의미하지 않습니다.
 
+
+### 초심자를 위한 1분 용어 — 데이터부터 운영자 화면까지
+
+| 용어 | 쉬운 뜻 | D12 실제 예시 |
+|---|---|---|
+| Raw/Sample | 한 시점의 센서 수치(본 과정은 합성) | D09의 가상 전류·토크·가속도 |
+| Trace | 같은 시나리오의 연속 데이터 묶음 | TST_N_00 |
+| Window | Trace 내부 연속 Sample을 묶은 구간 | 10샘플에서 통계 6개 |
+| Risk score | 이상 가능성을 보여 주는 점수 | 공개 12건은 임의 점수, 실제 AE 추론 아님 |
+| Threshold | 판정 기준 | 공개 FAKE 예시에서 0.5 |
+| Event ID | 사건을 나중에 다시 찾기 위한 고유 ID | DEMO:TST_N_00:002 |
+| JSON | 이름:값 형태의 한 데이터 객체 | {"level":"WARNING"} |
+| JSONL | 한 줄당 JSON 객체 1개씩 저장 | sample_events.jsonl, 12줄 |
+| Publisher | ROS 2 메시지를 보내는 노드 | ros_diagnostic_bridge.py |
+| Subscriber | 같은 토픽의 메시지를 받는 노드 | ros_l1_probe.py |
+| Topic | ROS 노드 사이의 데이터 채널 이름 | /axia/education/diagnostics |
+| DiagnosticArray | 여러 DiagnosticStatus를 담는 진단 메시지 | 기존 C05는 1건씩 |
+| QoS | 메시지 전달 정책 | 구독 호환성, depth |
+| ROS 로그 | get_logger()가 남기는 로그 | /rosout에서 관찰 가능 |
+| Dashboard | 사건의 시간선·건수·상세를 한눈에 보는 화면 | 현재 CLI 기반 미니 대시보드 |
+| 운영자 피드백 | 사람이 확인한 사건과 판단의 기록 | operator_feedback.jsonl |
+
+**왜 필요한가:** 센서 수치(원본), 모델 판단(경고), 전송 메시지(ROS), 사람의 판단(운영자 기록)은 서로 다른 정보입니다. 경고가 한 번 보였다는 사실과 실제 로봇이 한 번 안전 정지했다는 사실은 같지 않습니다.
+
+~~~text
+[강사 비공개 D09~D11 경로] 합성 Raw → Trace/Window → 기존 IF/AE 점수 → 104건
+                                        (학생 12건과 데이터 출처가 다름)
+
+[학생 공개 전송 경로] FAKE sample_events.jsonl 12건
+                       ├─ 표준 Python → 상태별 건수·CLI 시간선
+                       └─ [Jazzy 설치 PC만] ROS Bridge → DiagnosticArray 8건
+                                                  → 독립 Subscriber → verdict.json
+
+[운영자 피드백 경로] 사건 ID 선택 → 판단 근거 기록 → operator_feedback.jsonl
+                                      └─ 제어권 없음, cmd_vel/Goal/Stop 발행 안 함
+~~~
+
+**학습 확인:** 클릭형 웹 대시보드의 필터 버튼·자동 저장 기능은 아직 미구현 설계 시안입니다. 이 수업에서 실제 수행하는 시각화는 Python으로 출력하는 CLI 기반 미니 대시보드와 JSONL 기록입니다.
+
+### 실습 시작 전 — 현재 터미널을 읽는 법
+
+이후 별도 표기가 없는 명령은 모두 학생 저장소 루트에서 실행합니다. `$HOME`은 Linux 사용자 홈 디렉터리, `pwd`는 현재 위치, `git rev-parse HEAD`는 코드의 실제 버전입니다.
+
+~~~bash
+pwd
+ls block_C/day12/
+git rev-parse HEAD
+python3 --version
+~~~
+
+**실행 전 예상 출력:** 경로가 `axia-robot-safety-student`로 끝나고, 폴더에 STUDENT_LAB_GUIDE_KO.md / ros_transport / student_event_todo.py 등이 보입니다. 40자리 Git SHA는 학생 PC마다 달라질 수 있습니다. 기존 실행기의 `--doctor`는 Python 3.12를 요구합니다.
+
+**첫 실패 지점:** `ls: cannot access 'block_C/day12/'`라면 지금 작업 폴더가 잘못된 것입니다. `cd "$HOME/axia_d12_course/axia-robot-safety-student"`로 이동하고 `pwd`를 다시 확인합니다. 기존 작업 파일을 지우는 `git reset --hard`를 사용하지 마세요.
+
+**실무 사례:** 다른 프로젝트 폴더에서 명령을 실행해 잘못된 CSV를 읽는 사고가 자주 발생합니다. 코드를 디버깅하기 전에 현재 폴더, 입력 경로, Git SHA부터 확인하는 습관을 들이세요.
+
 ## 시간표와 제출물
 
 | 구간 | 시간 | 필수 수행 | 남길 증거 |
@@ -74,6 +130,67 @@ echo D12_PUBLIC_SAMPLE_PRESENT
 
 > 선택: pytest가 없는 PC는 Python 3.12 가상환경을 만들 수 있습니다. `python3 -m venv --system-site-packages "$HOME/axia_d12_course/.venv"`, `source "$HOME/axia_d12_course/.venv/bin/activate"`, `python -m pip install pytest==8.3.5`. WSL2에 `python3-venv`가 없거나 인터넷 연결이 없으면 **표준 라이브러리 A/C 실습을 먼저** 수행합니다. ROS Python 패키지는 공식 Jazzy 설치가 별도로 필요합니다.
 
+
+### A2-1. JSONL 한 줄을 사람의 말로 번역해 보기 (A2~A3 사이, 필수)
+
+**상황:** D12에서 운영자에게 첫 번째 경고가 나타났습니다. 아래는 공개 sample_events.jsonl의 세 번째 행을 **읽기 좋게 줄바꿈한 동일 사건**입니다(실제 파일에는 한 줄로 저장).
+
+~~~json
+{
+  "schema_version": 1,
+  "event_id": "DEMO:TST_N_00:002",
+  "trace_id": "TST_N_00",
+  "source": "SYNTHETIC_COURSE_FIXTURE",
+  "source_timestamp_ns": 200000000,
+  "model_id": "EDUCATION_TRANSPORT_DEMO",
+  "risk_score": 0.9,
+  "threshold": 0.5,
+  "level": "WARNING",
+  "quality_reason": null,
+  "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "control_authority": false,
+  "certified_estop": false
+}
+~~~
+
+**한 필드씩 뜻 풀이:**
+
+- `schema_version=1`은 교육용 이벤트 데이터 형식의 버전입니다.
+- `event_id`는 사고 기록을 나중에 재조회할 **고유 사건 이름**입니다. 다른 사건의 점수나 피드백을 섞지 않도록 연결합니다.
+- `trace_id`는 원래 데이터가 속한 시나리오/시험을 뜻합니다. D12의 공개 12행은 하나의 가상 Trace입니다.
+- `source`는 값이 **합성 교육자료**에서 왔음을 알려줍니다. 실제 터틀봇 센서 값이 아닙니다.
+- `source_timestamp_ns=200000000`은 Trace 내부의 **0.2초**입니다. 현재 시계나 DDS 수신 시간이 아닙니다.
+- `model_id=EDUCATION_TRANSPORT_DEMO`는 학습용 임의 점수의 출처입니다. D11 AutoEncoder가 새로 추론한 값이 아닙니다.
+- `risk_score=0.9`와 `threshold=0.5`를 비교해 WARNING으로 표시합니다. 이 상태 메시지가 실제 로봇 제어를 발생시키지는 않습니다.
+- `quality_reason=null`은 이 사건은 별도 품질 결손 이유가 없다는 뜻입니다. **JSON의 null은 Python의 None**으로 변환됩니다.
+- `input_sha256`의 a 문자 64개는 형식 검사 placeholder입니다. 실제 공개 CSV 원본을 해시한 데이터 무결성 증거가 아닙니다.
+- `control_authority=false`, `certified_estop=false`는 **교육 이벤트에 로봇 제어권/인증된 E-Stop이 없다는 데이터 계약**을 뜻합니다.
+
+**비교할 사건:** 네 번째 행 `DEMO:TST_N_00:003`은 risk_score와 threshold가 모두 null이며 quality_reason이 `DEMO_SAMPLE_MISSING`입니다. 이 사건을 0점/NORMAL로 바꾸면 "측정 데이터 부족"이라는 정보를 잃게 됩니다.
+
+**직접 확인(원본 출력):**
+
+~~~bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+p = Path("block_C/day12/ros_transport/sample_events.jsonl")
+rows = [json.loads(s) for s in p.read_text(encoding="utf-8").splitlines() if s.strip()]
+for i in (2, 3):
+    e = rows[i]
+    print(e["event_id"], e["level"], "score=", e["risk_score"], "quality=", e["quality_reason"])
+PY
+~~~
+
+**실행 전 예상 출력:**
+
+~~~text
+DEMO:TST_N_00:002 WARNING score= 0.9 quality= None
+DEMO:TST_N_00:003 INSUFFICIENT_DATA score= None quality= DEMO_SAMPLE_MISSING
+~~~
+
+**스스로 점검:** WARNING과 INSUFFICIENT_DATA 중 어느 것이 더 심각합니까? → 이 정보만으로 실제 장비 위험 순위를 단정할 수 없습니다. 전자는 모형의 이상 후보, 후자는 판정 가능한 입력 부족이므로 **조사 방향이 다릅니다.**
+
 ### A3. 파일을 실제로 읽고 상태별 건수를 세기 (10분)
 
 ~~~bash
@@ -126,6 +243,70 @@ PY
 **예상 처음 4행:** `NORMAL 0.10` → `CAUTION 0.45` → `WARNING 0.90` → `INSUFFICIENT_DATA UNSCORED`. 이 순서는 학습용 합성 이벤트입니다. `source_timestamp_ns`는 Trace 내부 시각이므로 `time.time_ns()`나 ROS 수신 시각과 빼서 지연·안전 TTL을 계산하면 안 됩니다.
 
 **질문:** 품질 결손의 점수를 0.0이라고 만들어 NORMAL로 저장하면 어떤 일이 생길까요? → 데이터 미수신이 정상 판단으로 둔갑합니다.
+
+
+### A4-1. CLI 기반 미니 대시보드 만들기 (A4와 같은 시간에 진행)
+
+**왜 필요한가:** JSON 객체 하나만 보면 전체 사건 중 얼마나 많은 WARNING이 있는지 알기 어렵습니다. 그래서 운영자는 상태별 건수, 발생 순서, 점수와 사건 ID를 한 화면에 나란히 놓습니다. 아래 코드는 데이터를 **읽기만** 하며 새 웹 서버나 로봇 제어를 실행하지 않습니다.
+
+~~~bash
+python3 - <<'PY'
+import json
+from collections import Counter
+from pathlib import Path
+
+p = Path("block_C/day12/ros_transport/sample_events.jsonl")
+events = [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
+counts = Counter(event["level"] for event in events)
+
+print("=== D12 CLI DASHBOARD : EDUCATION ONLY ===")
+for level in ("NORMAL", "CAUTION", "WARNING", "INSUFFICIENT_DATA"):
+    print(f'{level:18s} {counts[level]:2d} | {"#" * counts[level]}')
+
+print("TIME(s) | LEVEL              | SCORE    | EVENT_ID")
+for e in events[:4]:
+    seconds = e["source_timestamp_ns"] / 1_000_000_000
+    score = "UNSCORED" if e["risk_score"] is None else f'{e["risk_score"]:.2f}'
+    print(f'{seconds:7.1f} | {e["level"]:18s} | {score:8s} | {e["event_id"]}')
+
+first = next(e["event_id"] for e in events if e["level"] == "WARNING")
+print(f"D12_BEGINNER_TIMELINE_PASS events={len(events)} first_warning={first}")
+PY
+~~~
+
+**실행 전 예상 출력(공개 가상 이벤트 12건 기준):**
+
+~~~text
+=== D12 CLI DASHBOARD : EDUCATION ONLY ===
+NORMAL              3 | ###
+CAUTION             3 | ###
+WARNING             3 | ###
+INSUFFICIENT_DATA   3 | ###
+TIME(s) | LEVEL              | SCORE    | EVENT_ID
+    0.0 | NORMAL             | 0.10     | DEMO:TST_N_00:000
+    0.1 | CAUTION            | 0.45     | DEMO:TST_N_00:001
+    0.2 | WARNING            | 0.90     | DEMO:TST_N_00:002
+    0.3 | INSUFFICIENT_DATA  | UNSCORED | DEMO:TST_N_00:003
+D12_BEGINNER_TIMELINE_PASS events=12 first_warning=DEMO:TST_N_00:002
+~~~
+
+**코드 한 줄씩 해설:**
+
+1. `p = Path(...)`는 **입력 파일 위치**를 가리킵니다. 이 명령은 파일을 변경하지 않습니다.
+2. `p.read_text(...).splitlines()`는 줄 단위로 나눕니다. JSONL은 JSON 객체가 **줄마다 하나씩** 들어 있습니다.
+3. `json.loads(line)`는 한 줄의 JSON 문자열을 Python의 사전(dict)으로 변환합니다.
+4. `Counter(event["level"] for event in events)`는 NORMAL 등 네 상태의 건수를 셉니다.
+5. `"#" * counts[level]`는 건수만큼 문자 막대를 그립니다. 3건이면 ###이 됩니다.
+6. `events[:4]`는 처음 4건을 뜻합니다. 전체 사건을 보려면 `events[:4]`를 `events`로 바꿔보세요.
+7. `source_timestamp_ns / 1_000_000_000`은 **합성 Trace의 나노초를 초로 표현**할 뿐, 현재 시각이나 안전 반응 시간이 아닙니다.
+8. `risk_score is None`은 **점수가 존재하지 않는 상태**를 뜻합니다. 그때 0.0이 아니라 UNSCORED로 출력합니다.
+9. `next(... if ... == "WARNING")`는 첫 번째 WARNING 사건 ID를 찾아 화면에 표시합니다. 로봇을 정지시키지 않습니다.
+
+**직접 확인:** 4건을 표시할 때와 8건을 표시할 때 첫 번째 WARNING ID는 달라지나요? 바뀌지 않습니다. 몇 줄을 화면에 보여줄지만 달라집니다.
+
+**스스로 점검:** WARNING이 3건이라고 실제 로봇의 E-Stop이 3번 동작한 것인가요? → **아닙니다.** 교육용 WARNING은 모델·전송 예시의 상태 정보이며 인증된 E-Stop과 무관합니다.
+
+**실무 사례:** 관제 담당자가 건수만 보고 위험이라고 단정하면 품질 불량(INSUFFICIENT_DATA)이 정상 데이터에 섞여 버릴 수 있습니다. 원본 score=null과 event_id를 함께 표시하는 이유입니다.
 
 ### A5. 코드로 실제 계약 확인 (12분)
 
@@ -213,6 +394,51 @@ BLOCK_C_STUDENT_JAZZY_ROS_L1_ONLY_PASS owner_wsl2_verified=false
 ~~~
 
 `verdict.json`에는 `period_min_ms`, `period_max_ms`, `levels`, `cmd_vel_publisher_count`, `pub_rc`도 기록됩니다. 코드의 100ms 목표 발행 주기와 **측정된 수신 주기**를 구분하세요. 이 기존 L1 검사기는 수신 간격 **20~600ms** 범위를 허용하므로 100ms의 엄격한 보증이나 생산 안전 TTL PASS라고 발표하면 안 됩니다.
+
+
+### B2-1. 실제 ROS verdict.json을 직접 읽고 의미 해석하기 (B2 시간 안에)
+
+**왜 필요한가:** 화면에 PASS라는 문구가 보이는 것만으로는 데이터가 실제로 도착했는지 알 수 없습니다. 실무에서는 실행 명령, 종료 코드, 독립 수신 건수, 수신 간격을 **같은 증거 파일**에서 비교합니다.
+
+~~~bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+p = Path.home() / "axia_d12_course/student_evidence/ros_probe/ros_l1/verdict.json"
+if not p.exists():
+    print("TEST_HOLD ROS_L1_NOT_MEASURED verdict.json missing")
+else:
+    d = json.loads(p.read_text(encoding="utf-8"))
+    for k in ("status", "sample_count", "expected_count", "levels",
+              "period_target_ms", "period_min_ms", "period_max_ms",
+              "pub_rc", "ros_actual", "gazebo_actual",
+              "production_guard_ttl_verified"):
+        print(k, "=", d.get(k))
+    if d.get("status") == "PASS_REAL_ROS_L1_EDUCATION_ONLY":
+        print("D12_ROS_EDUCATION_EVIDENCE_PRESENT")
+    else:
+        print("TEST_HOLD ROS_L1_FAILED_OR_INCOMPLETE")
+PY
+~~~
+
+**실행 전 예상 출력:** 실제 Jazzy 실행을 하지 않은 PC에서는 `TEST_HOLD ROS_L1_NOT_MEASURED verdict.json missing`이 표시됩니다. 이 상태는 정상적인 **미실행/HOLD**입니다. 실제 성공 로그가 생성된 PC에서만 sample_count=8, levels=[0,1,2,3], pub_rc=0, ros_actual=True 같은 필드를 확인할 수 있습니다.
+
+**코드 한 줄씩 해설:**
+
+1. `p.exists()`는 **내 PC에 실제 증거 파일이 생성되었는지** 확인합니다. 다른 사람의 성공 로그를 복사하지 않습니다.
+2. `json.loads(...)`는 기존 독립 Subscriber가 쓴 결과 JSON을 읽습니다. JSONL 입력과 달리 verdict는 **단일 JSON 객체**입니다.
+3. `sample_count`는 실제 구독자가 받은 건수, `expected_count`는 이 실행기의 목표 건수(8)입니다.
+4. `levels`는 수신한 네 개 ROS 진단 코드 (0/1/2/3)입니다. 값 2는 교육 WARNING의 표시 코드이며 로봇 Stop 신호가 아닙니다.
+5. `period_target_ms`는 **발행 목표 주기 100ms**, `period_min_ms/max_ms`는 독립 수신자의 **실측 수신 간격**입니다. 같은 수치일 것이라고 가정하면 안 됩니다.
+6. `pub_rc`는 발행 프로세스 종료 코드입니다. 정상 종료인 0과 Subscriber 수신 증거가 모두 필요합니다.
+7. `gazebo_actual=false`, `production_guard_ttl_verified=false`는 **검증하지 않은 분야를 명시**하는 올바른 결과입니다.
+
+**최초 실패 지점 조사:** ROS_DOMAIN_ID가 달라 Subscriber가 구독하지 못할 수 있습니다. 실습에서 92를 사용한 경우 각 ROS 셸에서 `echo "$ROS_DOMAIN_ID"`를 확인하세요. 이어서 `python3 --version`과 `python3 -c "import rclpy; print('RCLPY_OK')"`를 확인합니다. venv Python으로 전환하면서 Jazzy 시스템 패키지를 찾지 못하는 경우도 있으므로, 오류의 최초 출력과 사용 Python 경로를 기록하십시오.
+
+**실무 사례:** 프로젝트의 송신 목표 주기 100ms와 실제 DDS 수신 간격은 다릅니다. 기존 C05 테스트의 수신 주기 허용 범위는 20~600ms입니다. 이 숫자로 센서→Safety Supervisor→Stop까지의 **종단 안전 TTL**이 검증됐다고 결론내려서는 안 됩니다. 시간은 동일한 monotonic 수신 시계 안에서 비교해야 하며, 합성 source_timestamp_ns와 단순 감산하면 안 됩니다.
+
+**스스로 점검:** 로봇을 움직이지 않고도 ROS L1을 검증할 수 있나요? → 네. 교육용 DiagnosticArray의 독립 발행/구독만 검증하고 Nav2 Goal·cmd_vel을 발행하지 않습니다.
 
 ### B3. /rosout·rqt_console과 DiagnosticArray의 차이 (10분)
 
@@ -307,6 +533,56 @@ cat > "$HOME/axia_d12_course/student_evidence/d12_report.md" <<'EOF'
 - 미검증: (현재 PC의 Jazzy/GUI/Gazebo/안전 TTL 중 미실행 항목)
 EOF
 ~~~
+
+
+### C2-1. 피드백이 진짜 원본 사건을 가리키는지 검증하기 (C2 시간 안에)
+
+**왜 필요한가:** 운영자 피드백에 사건 ID를 잘못 쓰면 나중에 사고를 재구성할 수 없습니다. 별도 JSONL을 만들었더라도 **원본 파일의 event_id와 연결되는지** 확인해야 합니다.
+
+~~~bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+source = Path("block_C/day12/ros_transport/sample_events.jsonl")
+events = [json.loads(x) for x in source.read_text(encoding="utf-8").splitlines() if x.strip()]
+by_id = {e["event_id"]: e for e in events}
+
+p = Path.home() / "axia_d12_course/student_evidence/operator_feedback.jsonl"
+items = [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines() if x.strip()]
+assert len(items) == 2
+assert len({x["event_id"] for x in items}) == len(items)
+assert all(x["event_id"] in by_id for x in items)
+assert all(x["control_authority"] is False for x in items)
+assert all(isinstance(x.get("reason"), str) and x["reason"].strip() for x in items)
+
+for x in items:
+    print(x["operator_action"], "<-", by_id[x["event_id"]]["level"], x["event_id"])
+print("D12_FEEDBACK_VALIDATION_PASS count=2 no_control=true")
+PY
+~~~
+
+**실행 전 예상 출력(기본 실습 파일 기준):**
+
+~~~text
+INVESTIGATE <- WARNING DEMO:TST_N_00:002
+CHECK_QUALITY <- INSUFFICIENT_DATA DEMO:TST_N_00:003
+D12_FEEDBACK_VALIDATION_PASS count=2 no_control=true
+~~~
+
+**코드 한 줄씩 해설:**
+
+1. `by_id = { ... }`는 사건 ID를 이용해 원본을 찾아보는 Python 사전(dict)을 만듭니다.
+2. `len(items)==2`는 운영자가 경고 1건과 품질 오류 1건에 대해 **두 개의 판단 기록을 남겼는지** 확인합니다.
+3. `len({ ... })`은 같은 ID가 두 번 제출되지 않았는지 확인합니다.
+4. `x["event_id"] in by_id`는 근거 없이 존재하지 않는 사건을 보고하지 못하게 합니다.
+5. `control_authority is False`는 파일에 제어권이 없다는 **교육용 계약**입니다. 운영 PC의 모든 보안이나 실제 E-Stop 안전 인증을 입증하는 것은 아닙니다.
+6. `reason.strip()`은 공백만 있는 판단 근거를 거절합니다.
+7. 마지막 출력은 피드백 action과 원본 WARNING/INSUFFICIENT_DATA가 어떤 ID에서 연결되었는지 보여줍니다.
+
+**직접 확인:** 운영자 의견의 event_id를 존재하지 않는 `DEMO:UNKNOWN`으로 바꾸었다고 가정해 보세요. 검사는 `AssertionError`로 실패해야 합니다. **실습 원본을 건드리지 말고**, 이해한 뒤 필요한 경우 작성한 피드백 파일만 고쳐 다시 검사합니다.
+
+**실무 사례:** 모니터링 운영자는 경고를 검토하고 근거를 기록하지만, 이것으로 실제 로봇 고장 원인이 규명되었다고 주장하지 않습니다. 한계와 미확인 사항을 보고서에 남기는 편이 잘못된 안전 승인보다 중요합니다.
 
 ### C3. 스스로 점검·제출 (10분)
 
