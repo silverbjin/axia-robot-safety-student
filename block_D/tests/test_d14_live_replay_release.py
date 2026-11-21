@@ -146,5 +146,25 @@ print("D14_LIVE_XSS_ESCAPING_PASS")
                       "training/block_D/day14/solution/","FORMAL_G10_PASS"):
             self.assertNotIn(token,guide)
 
+    def test_browser_javascript_parses_without_external_dependencies(self):
+        import re
+        import shutil
+        node=shutil.which("node")
+        if not node:
+            self.skipTest("Node unavailable: browser JS syntax not verified locally")
+        with tempfile.TemporaryDirectory() as t:
+            out=Path(t)
+            run=self.run_demo(out)
+            self.assertEqual(run.returncode,0,run.stdout)
+            html=(out/"axia_d14_safety_control_room.html").read_text(encoding="utf-8")
+            m=re.search(r"<script>\\s*([\\s\\S]*?)</script>",html)
+            self.assertIsNotNone(m,"standalone inline JS not found")
+            script=out/"d14_control_room.mjs"
+            script.write_text(m.group(1),encoding="utf-8")
+            check=subprocess.run([node,"--check",str(script)],cwd=out,
+                                 capture_output=True,text=True,timeout=20)
+            self.assertEqual(check.returncode,0,check.stdout+check.stderr)
+            self.assertIn("initPolicy();initIntent();initG10();",m.group(1))
+
 if __name__=="__main__":
     unittest.main()
