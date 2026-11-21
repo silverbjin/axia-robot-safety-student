@@ -44,9 +44,12 @@ class D13LiveReplayContract(unittest.TestCase):
                           'id="predictA"', 'id="predictB"', "Math.hypot",
                           "OFFLINE · 합성 데이터", "NO_ROS_GAZEBO_GOAL"):
                 self.assertIn(token, html)
-            for bad in ('<script src=', 'https://', 'http://', "fetch(",
+            for bad in ('<script src=', 'https://', "fetch(",
                         "WebSocket(", "rclpy", "p3_oracles"):
                 self.assertNotIn(bad, html)
+            # The SVG namespace is an identifier, not an outbound HTTP call.
+            self.assertNotIn("http://", html.replace(
+                "http://www.w3.org/2000/svg", ""))
 
     def test_first_invalid_is_fixture_evidence_not_learner_success(self):
         sys.path.insert(0, str(D13))
