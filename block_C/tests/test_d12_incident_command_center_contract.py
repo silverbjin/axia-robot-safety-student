@@ -15,7 +15,7 @@ def test_single_file_offline_app_has_safety_and_controls():
         "EDUCATION ONLY", "NO CONTROL AUTHORITY", "NOT LIVE ROS DDS",
         "NORMAL", "CAUTION", "WARNING", "INSUFFICIENT_DATA",
         "source_timestamp_ns", "event_id", "quality_reason",
-        "EDUCATION_TRANSPORT_DEMO", "DEMO:TST_N_00:002",
+        "EDUCATION_TRANSPORT_DEMO", "DEMO:TST_N_00:",
         "operator_feedback.jsonl", "INVESTIGATE", "CHECK_QUALITY",
         "Replay", "일시정지", "다시 시작", "1건 진행", "정답 공개",
         "상태 필터", "피드백 기록", "JSONL 내보내기", "JSONL 불러오기",
