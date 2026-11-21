@@ -67,17 +67,25 @@ class D14LiveReplayRelease(unittest.TestCase):
             self.assertEqual(j["intent_implementation"],"NOT_IMPLEMENTED")
 
     def test_observed_trace_is_exact_existing_replay_no_fabrication(self):
-        sys.path.insert(0,str(DAY))
-        from run_lab import load_cases, replay
-        import live_replay
-        cases=load_cases()
-        manifest=live_replay.build_manifest(cases)
-        for original,item in zip(cases,manifest["policy_cases"]):
-            self.assertEqual(item["id"],original["id"])
-            self.assertEqual(item["steps"], original["steps"])
-            self.assertEqual(item["expected_last_action"],original["expected_last_action"])
-            self.assertEqual(item["result"], replay(original))
-        self.assertEqual(manifest["g10_events"],live_replay.load_g10_events())
+        # Separate interpreter is essential: D13 and D14 both call a file
+        # 'run_lab.py' and can coexist in one unittest discover process.
+        program = """
+from run_lab import load_cases, replay
+from live_replay import build_manifest, load_g10_events
+cases=load_cases()
+manifest=build_manifest(cases)
+for original,item in zip(cases,manifest["policy_cases"]):
+    assert item["id"]==original["id"]
+    assert item["steps"]==original["steps"]
+    assert item["expected_last_action"]==original["expected_last_action"]
+    assert item["result"]==replay(original)
+assert manifest["g10_events"]==load_g10_events()
+print("D14_LIVE_EXACT_REPLAY_INDEPENDENT_MODULE_PASS")
+"""
+        proc=subprocess.run([sys.executable,"-c",program],
+                            cwd=DAY, capture_output=True,text=True,timeout=20)
+        self.assertEqual(proc.returncode,0,proc.stdout+proc.stderr)
+        self.assertIn("D14_LIVE_EXACT_REPLAY_INDEPENDENT_MODULE_PASS",proc.stdout)
 
     def test_html_has_live_controls_and_hidden_result_until_vote(self):
         with tempfile.TemporaryDirectory() as t:
@@ -107,19 +115,22 @@ class D14LiveReplayRelease(unittest.TestCase):
             self.assertNotIn("http://",html)
 
     def test_html_json_injection_safety_and_template_single_placeholder(self):
-        import importlib.util
-        spec=importlib.util.spec_from_file_location("d14_live_temp",GEN)
-        self.assertIsNotNone(spec)
-        sys.path.insert(0,str(DAY))
-        spec.loader.exec_module(m:=importlib.util.module_from_spec(spec))
-        template=TPL.read_text(encoding="utf-8")
-        self.assertEqual(template.count("__AXIA_DATA__"),1)
-        manifest=m.build_manifest(m.load_cases())
-        manifest["teaching_text"]="</script><img src=x onerror=alert(1)>"
-        html=m.render_live_html(manifest)
-        self.assertNotIn("</script><img",html)
-        self.assertIn("\\u003c",html)
-        self.assertEqual(html.count('id="axia-data"'),1)
+        program = """
+from live_replay import TEMPLATE, build_manifest, render_live_html, load_cases
+template=TEMPLATE.read_text(encoding="utf-8")
+assert template.count("__AXIA_DATA__")==1
+manifest=build_manifest(load_cases())
+manifest["teaching_text"]="</script><img src=x onerror=alert(1)>"
+html=render_live_html(manifest)
+assert "</script><img" not in html
+assert chr(92)+"u003c" in html
+assert html.count('id="axia-data"')==1
+print("D14_LIVE_XSS_ESCAPING_PASS")
+"""
+        proc=subprocess.run([sys.executable,"-c",program],
+                            cwd=DAY,capture_output=True,text=True,timeout=20)
+        self.assertEqual(proc.returncode,0,proc.stdout+proc.stderr)
+        self.assertIn("D14_LIVE_XSS_ESCAPING_PASS",proc.stdout)
 
     def test_scope_documentation_and_no_instructor_solution(self):
         guide=(DAY/"STUDENT_LIVE_REPLAY_GUIDE_KO.md").read_text(encoding="utf-8")
