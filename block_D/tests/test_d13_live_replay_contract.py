@@ -53,6 +53,16 @@ class D13LiveReplayContract(unittest.TestCase):
             self.assertNotIn("http://", html.replace(
                 "http://www.w3.org/2000/svg", ""))
 
+    def test_student_live_guide_explains_learner_and_visual_boundaries(self):
+        guide = (D13 / "STUDENT_LIVE_REPLAY_GUIDE_KO.md").read_text(encoding="utf-8")
+        for token in ("git clone --branch main", "live_replay.py --out",
+                      "axia_d13_live_replay.html", "D13_LIVE_LEARNER_GREEN=0",
+                      "HTML_BROWSER_NOT_RUN", "11.1", "0.35", "0.6초",
+                      "NO_ROS_GAZEBO_GOAL", "live_replay_manifest.json"):
+            self.assertIn(token, guide, token)
+        self.assertNotIn("def classify_time_indexed(", guide)
+        self.assertNotIn("p3_oracles.py", guide)
+
     def test_embedded_javascript_syntax_with_node_when_available(self):
         """Parser-level browser script regression; no external dependencies downloaded."""
         node = shutil.which("node")
