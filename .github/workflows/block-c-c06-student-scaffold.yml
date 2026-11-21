@@ -40,6 +40,7 @@ jobs:
           fi
           echo STUDENT_TODO_EXPECTED_RED_4_CONFIRMED
           PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q block_C/tests/test_d09_guides_contract.py
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q block_C/tests/test_d12_guides_contract.py
           echo C06_STUDENT_SCAFFOLD_PUBLIC_L0_PASS
       - uses: actions/upload-artifact@v4
         if: always()
