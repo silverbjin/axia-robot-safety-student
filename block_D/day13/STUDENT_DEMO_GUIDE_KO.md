@@ -112,3 +112,17 @@ CLI의 `D13_CASE`, JSON의 `expected`·`actual`·`pass`를 화면 대신 설명�
 3분 발표: ① 복도 사례(30초) → ② 16시점·P/N 수치(60초) → ③ U 반례(30초) → ④ RED→GREEN 로그와 안전 한계(60초).
 
 제출: `STUDENT_WORKSHEET_KO.md`, 수정한 TODO, unittest, `d13_results.json`, P/N 시각화 캡처 또는 JSON 대체 자료, `git rev-parse HEAD`. **N ≠ 실제 주행 허가, SW Stop ≠ 인증 E-Stop**, 실제 G07 사람 검출/안전 TTL 검증은 이번 데모 범위 밖입니다.
+
+
+## 10. 새 몰입형 TIME × SPACE Live Replay (추천 실습)
+
+기존 `run_lab.py` 시연·학생 TODO는 **변경하지 않습니다.** 자동 재생·P/N 양쪽 동기 비교·예측 후 정답 공개·U 입력 최초 위반을 하나의 화면에서 실습하려면 [초심자용 Live Replay 상세 안내](STUDENT_LIVE_REPLAY_GUIDE_KO.md)를 참조하세요.
+
+```bash
+cd ~/axia-d13-student
+python3 block_D/day13/live_replay.py --out /tmp/axia-d13-live
+echo "live_generator_rc=$?"
+explorer.exe "$(wslpath -w /tmp/axia-d13-live/axia_d13_live_replay.html)"
+```
+
+생성기는 학생 TODO가 미완성이어도 HTML을 만들고 `rc=0`입니다. 이 값은 **문서 생성 성공**이지 학생 판정 GREEN이 아닙니다. 학생이 TODO를 완성했다면 기존 10개 unittest·8사례 `run_lab.py`로 독립 검증한 뒤, Live Replay를 재생성·새로고침하세요. 브라우저 미실행은 `HTML_BROWSER_NOT_RUN`으로 명시합니다.
