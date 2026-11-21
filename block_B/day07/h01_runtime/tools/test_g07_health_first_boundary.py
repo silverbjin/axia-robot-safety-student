@@ -76,7 +76,7 @@ class HealthBoundaryContract(unittest.TestCase):
         self.assertIn('label=="HEALTH"',src)
         self.assertIn('first_health_boundary.json',src)
         self.assertIn('CI_MOVING_GOAL_TIMEOUT_'+ '"+label',src)
-        self.assertIn("probe.record(",src)
+        self.assertIn("health_boundary.record(",src)
         self.assertIn("health_boundary.result()",src)
         self.assertIn("health_first_boundary",src)
         self.assertIn("_task03_exact_goal_terminal",src)
