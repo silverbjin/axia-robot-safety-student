@@ -16,6 +16,10 @@ HEADER_SIM_LIMIT_MS=150.0
 MIN_PAIRS=15
 WINDOW_SEC=12.0
 WARMUP_SEC=2.0
+# Same actual 12s window: /clock may emit >4096 samples at native
+# Gazebo Harmonic rate even when its max interval remains ~10ms.
+# Memory cap only; does NOT change 300ms Clock/Scan/Odom or Goal authority.
+CLOCK_WINDOW_MAX_SAMPLES=16384
 
 def _ok_num(v):
     return type(v) in (int,float) and math.isfinite(v)
@@ -133,8 +137,9 @@ def assess_pregoal_samples(samples, *, window_sec=WINDOW_SEC):
         if points[-1][0]-points[0][0]<min(window_sec*.8,9):
             result["first_failure"]="SCAN_PREFLIGHT_WINDOW_INSUFFICIENT"
             return result
-    # 12s witness must span *this same window*. A /clock deque limited
-    # to 400 samples dropped early data when Gazebo emitted ~100Hz.
+    # 12s witness must span *this same window*. A finite /clock deque
+    # can lose early samples at >341Hz with the old 4096 cap. Retain
+    # the whole real 12s window or fail closed when coverage is absent.
     # Never treat a tail-only average RTF as the FIRST gap's local RTF.
     scan_start=min(samples[k][0][0] for k in ("scan","safety_scan"))
     scan_end=max(samples[k][-1][0] for k in ("scan","safety_scan"))
@@ -175,7 +180,7 @@ def run(output,window_sec=WINDOW_SEC):
     from rosgraph_msgs.msg import Clock
     output=Path(output)
     output.parent.mkdir(parents=True,exist_ok=True)
-    records={name:deque(maxlen=4096 if name=="clock" else 400) for name in ("scan","safety_scan","clock","odom")}
+    records={name:deque(maxlen=CLOCK_WINDOW_MAX_SAMPLES if name=="clock" else 400) for name in ("scan","safety_scan","clock","odom")}
     def scan_cb(name):
         def cb(msg):
             records[name].append((time.monotonic(),
@@ -216,6 +221,7 @@ def run(output,window_sec=WINDOW_SEC):
                           "topic_results":report.get("topic_results"),
                           "local_window_rtf_estimate":report.get("local_window_rtf_estimate"),
                           "clock_max_wall_gap_ms":report.get("clock_max_wall_gap_ms"),
+                          "clock_sample_count":report.get("clock_sample_count"),
                           "clock_coverage":report.get("clock_coverage"),
                           "odom_max_wall_gap_ms":report.get("odom_max_wall_gap_ms")},
                          sort_keys=True),flush=True)
