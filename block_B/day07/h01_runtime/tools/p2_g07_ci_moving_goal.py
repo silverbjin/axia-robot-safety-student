@@ -244,6 +244,16 @@ def run(args):
         probe_thread.start()
     events_candidate=select_events_executor(
         os.environ,owner_mode=owner_mode)
+    # CI-only A/B candidate: the original two-worker Multi executor, with
+    # bounded wait-set wake horizon. Owner/default is unchanged.
+    from p2_g07_observer_io_probe import select_bounded_executor_wait_candidate
+    bounded_wait_candidate=select_bounded_executor_wait_candidate(
+        os.environ,owner_mode=owner_mode)
+    if bounded_wait_candidate:
+        assert not events_candidate and owner_observer_parity
+        print("AXIA_G07_CI_MULTI2_WAITSET_20MS_AB "
+              "OWNER_UNCHANGED STRICT_TTL_120_150_300_HOLD_IF_FAILED",
+              flush=True)
     if events_candidate:
         print("AXIA_G07_MOVING_EVENTS_EXECUTOR_AB=CI_ONLY "
               "OFFICIAL_JAZZY_QOS_GOAL_CM_GUARD_TTL_UNCHANGED",flush=True)
@@ -267,8 +277,21 @@ def run(args):
     else:
         executor=MultiThreadedExecutor(num_threads=2 if owner_observer_parity else 3)
     executor.add_node(node)
-    worker=threading.Thread(target=executor.spin,
-                            name="g07_observer_executor_spin",daemon=True)
+    spin_stop=threading.Event()
+    def spin_multi_with_bounded_wait():
+        while not spin_stop.is_set() and rclpy.ok():
+            try:
+                executor.spin_once(timeout_sec=.02)
+            except Exception:
+                # The only suppressed exception is an expected shutdown
+                # AFTER stop was signaled; earlier spin errors still crash.
+                if not spin_stop.is_set():
+                    raise
+                break
+    worker=threading.Thread(
+        target=(spin_multi_with_bounded_wait if bounded_wait_candidate
+                else executor.spin),
+        name="g07_observer_executor_spin",daemon=True)
     worker.start()
     published=None
     stop_ack_at=None
@@ -823,6 +846,7 @@ def run(args):
         return 2
     finally:
         save()
+        spin_stop.set()
         executor.shutdown(timeout_sec=2)
         worker.join(timeout=2)
         heartbeat_stop.set()
