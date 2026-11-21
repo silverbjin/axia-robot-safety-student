@@ -14,6 +14,62 @@
 - **운영자 피드백:** 사람의 "확인/조사/오탐 의심/품질 확인" 의견을 사건 ID와 함께 남기는 기록. 이는 안전 정지 명령이 아닙니다.
 - `EXPECTED_RED`: 학생 TODO가 아직 비어 있어 의도적으로 실패하는 시험. ROS나 Gazebo의 장애를 의미하지 않습니다.
 
+
+### 초심자를 위한 1분 용어 — 데이터부터 운영자 화면까지
+
+| 용어 | 쉬운 뜻 | D12 실제 예시 |
+|---|---|---|
+| Raw/Sample | 한 시점의 센서 수치(본 과정은 합성) | D09의 가상 전류·토크·가속도 |
+| Trace | 같은 시나리오의 연속 데이터 묶음 | TST_N_00 |
+| Window | Trace 내부 연속 Sample을 묶은 구간 | 10샘플에서 통계 6개 |
+| Risk score | 이상 가능성을 보여 주는 점수 | 공개 12건은 임의 점수, 실제 AE 추론 아님 |
+| Threshold | 판정 기준 | 공개 FAKE 예시에서 0.5 |
+| Event ID | 사건을 나중에 다시 찾기 위한 고유 ID | DEMO:TST_N_00:002 |
+| JSON | 이름:값 형태의 한 데이터 객체 | {"level":"WARNING"} |
+| JSONL | 한 줄당 JSON 객체 1개씩 저장 | sample_events.jsonl, 12줄 |
+| Publisher | ROS 2 메시지를 보내는 노드 | ros_diagnostic_bridge.py |
+| Subscriber | 같은 토픽의 메시지를 받는 노드 | ros_l1_probe.py |
+| Topic | ROS 노드 사이의 데이터 채널 이름 | /axia/education/diagnostics |
+| DiagnosticArray | 여러 DiagnosticStatus를 담는 진단 메시지 | 기존 C05는 1건씩 |
+| QoS | 메시지 전달 정책 | 구독 호환성, depth |
+| ROS 로그 | get_logger()가 남기는 로그 | /rosout에서 관찰 가능 |
+| Dashboard | 사건의 시간선·건수·상세를 한눈에 보는 화면 | 현재 CLI 기반 미니 대시보드 |
+| 운영자 피드백 | 사람이 확인한 사건과 판단의 기록 | operator_feedback.jsonl |
+
+**왜 필요한가:** 센서 수치(원본), 모델 판단(경고), 전송 메시지(ROS), 사람의 판단(운영자 기록)은 서로 다른 정보입니다. 경고가 한 번 보였다는 사실과 실제 로봇이 한 번 안전 정지했다는 사실은 같지 않습니다.
+
+~~~text
+[강사 비공개 D09~D11 경로] 합성 Raw → Trace/Window → 기존 IF/AE 점수 → 104건
+                                        (학생 12건과 데이터 출처가 다름)
+
+[학생 공개 전송 경로] FAKE sample_events.jsonl 12건
+                       ├─ 표준 Python → 상태별 건수·CLI 시간선
+                       └─ [Jazzy 설치 PC만] ROS Bridge → DiagnosticArray 8건
+                                                  → 독립 Subscriber → verdict.json
+
+[운영자 피드백 경로] 사건 ID 선택 → 판단 근거 기록 → operator_feedback.jsonl
+                                      └─ 제어권 없음, cmd_vel/Goal/Stop 발행 안 함
+~~~
+
+**학습 확인:** 클릭형 웹 대시보드의 필터 버튼·자동 저장 기능은 아직 미구현 설계 시안입니다. 이 수업에서 실제 수행하는 시각화는 Python으로 출력하는 CLI 기반 미니 대시보드와 JSONL 기록입니다.
+
+### 실습 시작 전 — 현재 터미널을 읽는 법
+
+이후 별도 표기가 없는 명령은 모두 학생 저장소 루트에서 실행합니다. `$HOME`은 Linux 사용자 홈 디렉터리, `pwd`는 현재 위치, `git rev-parse HEAD`는 코드의 실제 버전입니다.
+
+~~~bash
+pwd
+ls block_C/day12/
+git rev-parse HEAD
+python3 --version
+~~~
+
+**실행 전 예상 출력:** 경로가 `axia-robot-safety-student`로 끝나고, 폴더에 STUDENT_LAB_GUIDE_KO.md / ros_transport / student_event_todo.py 등이 보입니다. 40자리 Git SHA는 학생 PC마다 달라질 수 있습니다. 기존 실행기의 `--doctor`는 Python 3.12를 요구합니다.
+
+**첫 실패 지점:** `ls: cannot access 'block_C/day12/'`라면 지금 작업 폴더가 잘못된 것입니다. `cd "$HOME/axia_d12_course/axia-robot-safety-student"`로 이동하고 `pwd`를 다시 확인합니다. 기존 작업 파일을 지우는 `git reset --hard`를 사용하지 마세요.
+
+**실무 사례:** 다른 프로젝트 폴더에서 명령을 실행해 잘못된 CSV를 읽는 사고가 자주 발생합니다. 코드를 디버깅하기 전에 현재 폴더, 입력 경로, Git SHA부터 확인하는 습관을 들이세요.
+
 ## 시간표와 제출물
 
 | 구간 | 시간 | 필수 수행 | 남길 증거 |
