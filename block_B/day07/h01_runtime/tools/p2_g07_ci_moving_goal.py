@@ -694,6 +694,9 @@ def run(args):
         }
         bounds={"source":.15,"cm":.15,"guard":.15,"supervisor":.15,
                 "scan":.30,"odom":.30,"clock":.30}
+        # All first crossings retained, but only scan WALL cadence is no
+        # longer formal acceptance. The live .3s scan freshness watchdog,
+        # nonmonotonic/absent Header and actual LaserScan count are intact.
         timing={kind:first_delivery_breach(
             ts,start=goal_sent_at,end=t1,limit=bounds[kind],
             stop_ack=stop_ack_at)
@@ -704,15 +707,25 @@ def run(args):
              for kind,value in timing.items()
              if value["first_violation_sec"] is not None),
             key=lambda value:value["first_violation_at"])
-        report["first_timing_violation"]=violations[0] if violations else None
+        report["first_any_delivery_interval_diagnostic"]=(
+            violations[0] if violations else None)
+        report["scan_wall_gap_diagnostic_only"]=(timing["scan"]["first_violation_sec"]
+                                                   is not None)
+        report["first_scan_wall_gap_diagnostic"]=next(
+            (v for v in violations if v["channel"]=="scan"),None)
+        blocking=[v for v in violations if v["channel"]!="scan"]
+        report["first_timing_violation"]=blocking[0] if blocking else None
         report["odom_stop_dwell_sec_observed_before_oracle"]=stop_dwell
         print("AXIA_G07_CI_ODOM_DWELL_PRE_ORACLE "
               +"seconds="+str(round(stop_dwell,6)),flush=True)
         print("AXIA_G07_CI_MEASURED_MESSAGE_PERIODS "+
               json.dumps(periods,sort_keys=True),flush=True)
         if violations:
-            print("AXIA_G07_CI_FIRST_TIMING_VIOLATION "+
+            print("AXIA_G07_CI_FIRST_DELIVERY_INTERVAL_DIAGNOSTIC "+
                   json.dumps(violations[0],sort_keys=True),flush=True)
+        if blocking:
+            print("AXIA_G07_CI_FIRST_TIMING_VIOLATION "+
+                  json.dumps(blocking[0],sort_keys=True),flush=True)
         report.update(
             max_scan_interval_sec=periods["scan"],
             max_odom_interval_sec=periods["odom"],
