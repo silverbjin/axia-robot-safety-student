@@ -3,7 +3,7 @@ still commands steady forward motion. No synthetic LaserScan or cmd_vel.
 Grounded in native #44871515361 Cycle2 yaw .1147→1.5198 and reverse vx.
 """
 import unittest
-from p2_g07_ci_slow_entry import forward_entry
+from p2_g07_ci_slow_entry import forward_entry, diagnose_forward_entry
 
 def example():
     s={"mono":100.0,"action_status":2,"supervised_speed":0.07,
@@ -35,6 +35,36 @@ class TestSlowForwardEntry(unittest.TestCase):
         self.assertIsNone(forward_entry(s,d))
         s,d=example();s["action_status"]=5
         self.assertIsNone(forward_entry(s,d))
+    def test_actual_native_clear_velocity_00376_reports_precise_forward_blocker(self):
+        # First new native #44876802910 CLEAR at 0.03762598m/s < extra
+        # entry threshold .05: expose the exact blocker, not a generic SLOW.
+        s,d=example()
+        s.update(supervised_speed=.037625983357429504,
+                 pre_guard_speed=.037625983357429504,
+                 final_speed=.037625983357429504)
+        r=diagnose_forward_entry(s,d)
+        self.assertEqual(r["first_blocker"],"SUPERVISED_FORWARD_BELOW_ENTRY_GATE")
+        self.assertAlmostEqual(r["supervised_vx"],.037626,places=5)
+        self.assertEqual(r["release"],"HOLD")
+        self.assertFalse(r["entry_proven"])
+        self.assertNotIn("goal_uuid",r)
+
+    def test_real_turn_and_stale_scan_have_distinct_first_blocker(self):
+        s,d=example()
+        d["odom"][-1]["wz"]=.31
+        self.assertEqual(diagnose_forward_entry(s,d)["first_blocker"],
+                         "ODOM_YAW_RATE_NOT_STABLE")
+        s,d=example()
+        s["scan_at"]=99.5
+        self.assertEqual(diagnose_forward_entry(s,d)["first_blocker"],
+                         "STALE_OR_MISSING_SCAN")
+
+    def test_runtime_failure_must_emit_bounded_first_blocker_before_error(self):
+        src=(Path(__file__).parent/"p2_g07_ci_moving_goal.py").read_text()
+        self.assertIn("AXIA_G07_G20_FIRST_FORWARD_ENTRY_BLOCKER",src)
+        self.assertIn("diagnose_forward_entry",src)
+        self.assertIn("CI_MOVING_GOAL_TIMEOUT_SLOW_ENTRY_FORWARD",src)
+
     def test_native_cylinder_wiring_must_wait_for_live_forward_not_reposition_synthetic(self):
         from pathlib import Path
         src=(Path(__file__).parent/"p2_g07_ci_moving_goal.py").read_text()
