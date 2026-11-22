@@ -1,7 +1,19 @@
 # AXIA Block D D15 — G07 MVP 증거 분석·최종 발표 실습
 
-**수업:** 2026-11-27(금) 19:00–22:00 / 3시간. **PPTX 제작 제외.**  
+**수업:** 2026-11-27(금) 19:00–22:00 / 3시간. **PPTX는 별도 강의자료로 제공하며 학생 저장소에는 포함하지 않습니다.**  
 **범위:** 이미 인수된 `AXIA-G07-T04-DEMO-BASELINE-20261120-jrCIgoGl`의 공개 파생 수치 *읽기·분석·Replay·평가*. **새 Goal/ROS/Gazebo/실제 Fault/WSL2를 수행하지 않습니다.**
+
+## 0. 초심자는 여기서 시작하세요 — 16단계 상세 따라하기
+
+**새로 시작하는 훈련생은** [D15 초심자용 단계별 실습 핸드북](STUDENT_BEGINNER_HANDS_ON_GUIDE_KO.md)부터 읽으세요. 기존 이 문서(전체 목표·시간표)와 [화면 데모 가이드](STUDENT_DEMO_GUIDE_KO.md)를 그대로 유지하면서 다음 학습 과정을 더 자세히 설명합니다.
+
+- Ubuntu 터미널 확인 → 공개 저장소 안전한 clone → Git SHA/fixture 무결성 → 기존 18개 unittest → 7장면 Replay → 파이썬 코드 입력·처리·출력 해설
+- LiDAR 거리·Supervisor/Guard 속도 계산 → Goal UUID CANCELED와 odom 정지의 차이 → Scan/CM/Guard 다섯 TTL 여유 계산 → 교육용 반례 5개
+- 워크시트 A~H 작성 예시 → 실무형 한 페이지 보고서 → 안전한 결과 제출 및 HTML/JSON 실패 대체
+
+**읽는 순서:** 상세 핸드북 → 이 문서의 기존 범위·시간표 → 데모 가이드 → [워크시트](STUDENT_EVIDENCE_WORKSHEET_KO.md) → [100점 루브릭](FINAL_EVALUATION_RUBRIC_KO.md).
+
+학생용 공개 L0만 다룹니다. **기존 안전제어 코드를 수정하거나 새 ROS 2/Gazebo·Goal을 실행하지 않습니다.**
 
 ## 1. 중요한 두 가지 사실
 
