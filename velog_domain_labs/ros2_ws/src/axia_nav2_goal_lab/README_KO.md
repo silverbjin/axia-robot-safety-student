@@ -48,3 +48,10 @@ ros2 run axia_nav2_goal_lab axia_nav2_goal_lab_demo
 
 ## 검증 해석
 Python 단위 PASS는 L0만 증명합니다. ROS2 DDS L1, Gazebo L2, WSL2 L3 인수 증거가 없다면 성공했다고 주장하지 않습니다.
+
+## 코드 블록 해설 및 Action Lifecycle 연결
+- `request_sw_stop()`은 **SW_STOP_LATCHED**로 진입합니다. 이는 인증 E-Stop이 아닙니다.
+- `on_cancel_ack(uuid)`는 서버가 취소 요청을 수신했다는 사실만 확인합니다. `on_terminal(uuid, 5)`는 `action_msgs/msg/GoalStatus.STATUS_CANCELED`와 **원래 UUID 일치**를 확인한 다음에야 `RECOVERY_REQUIRED`로 전이합니다.
+- `reset(healthy=True)` 후 `rearm()`에 성공해도 **READY_NO_GOAL**이므로 자동 주행할 수 없습니다. `accept_new_goal("new")`으로 이전과 다른 UUID를 받아야만 ACTIVE입니다.
+- 잘못된 ACK·terminal·reset·재사용 UUID는 `ValueError`를 유발하며, 테스트에서 그 거부가 정상 동작인지 확인합니다.
+- ROS 2 선택 읽기 전용 확인: `ros2 action list -t`, `ros2 action info /navigate_to_pose`. 학생 실습은 실제 Goal을 전송하지 않습니다.

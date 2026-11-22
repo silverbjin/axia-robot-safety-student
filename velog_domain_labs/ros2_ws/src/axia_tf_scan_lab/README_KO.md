@@ -46,3 +46,10 @@ ros2 run axia_tf_scan_lab axia_tf_scan_lab_demo
 
 ## 검증 해석
 Python 단위 PASS는 L0만 증명합니다. ROS2 DDS L1, Gazebo L2, WSL2 L3 인수 증거가 없다면 성공했다고 주장하지 않습니다.
+
+## 코드 블록 해설 및 실제 TF/LiDAR 연결
+- `transform_point()`는 yaw 회전 행렬과 x/y 병진으로 **로컬 점을 부모좌표로** 옮깁니다. 실제 `map→odom→base_link→base_scan` 연결 전체는 tf2가 관리합니다.
+- `front_distance()`는 `angle_min + i*angle_increment`로 각 빔의 방향을 계산하고, ±15° 섹터 내 유효 거리값 중 최솟값을 반환합니다. NaN/Inf, 범위를 벗어난 데이터는 제외하며 **모두 무효라면 None**입니다.
+- `classify_zone()`는 `None→UNKNOWN`, `0.35m→STOP`, `0.65m→SLOW`, `1.20m→CLEAR`입니다.
+- 본 1차원 거리 분류는 실제 공식 Collision Monitor의 다각형·포인트 수·TF와 동등하지 않습니다. 수치는 G07 교육용 시연 설정이며 물리적 안전거리 보증이 아닙니다.
+- ROS 2 선택 읽기 전용 확인: `ros2 run tf2_ros tf2_echo map base_link`, `ros2 topic echo /scan --once`. `world`와 `map`을 동일 좌표로 간주하지 마십시오.

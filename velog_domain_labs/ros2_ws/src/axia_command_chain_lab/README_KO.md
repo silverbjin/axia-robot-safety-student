@@ -44,3 +44,10 @@ ros2 run axia_command_chain_lab axia_command_chain_lab_demo
 
 ## 검증 해석
 Python 단위 PASS는 L0만 증명합니다. ROS2 DDS L1, Gazebo L2, WSL2 L3 인수 증거가 없다면 성공했다고 주장하지 않습니다.
+
+## 코드 블록 해설 및 실제 ROS 그래프 연결
+- 입력 `publishers`는 **/cmd_vel 단일 Topic의 발행자 이름 목록**을 뜻합니다. 실 운용에서는 `ros2 topic info /cmd_vel --verbose`로 먼저 확인하십시오. 본 모델은 Topic QoS/노드 그래프의 실제 수집을 구현하지 않습니다.
+- 첫 번째 분기는 **발행자가 0명**이면 `FAIL_MISSING`, 두 번째 분기는 **2명 이상**이면 `FAIL_DUPLICATE`, 세 번째 분기는 예상 소유자가 아니면 `FAIL_WRONG_OWNER`를 반환합니다.
+- AXIA G07 최종 배선은 Nav2 → Supervisor → Collision Monitor → **Base Guard /cmd_vel**입니다. /cmd_vel Publisher 1명 검사는 **보안적 단독 제어권을 보장하지 않습니다.**
+- 입력 `["p2_base_guard"]` → `PASS`, `["p2_base_guard","rogue"]` → `FAIL_DUPLICATE`.
+- ROS 2 선택 읽기 전용 확인: `ros2 topic info /cmd_vel --verbose`, `ros2 topic type /cmd_vel`. 다른 노드가 있는 환경에서는 예상 이름을 직접 확인하고 조정하십시오.

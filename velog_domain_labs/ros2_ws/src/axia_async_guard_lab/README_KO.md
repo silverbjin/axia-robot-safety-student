@@ -45,3 +45,11 @@ ros2 run axia_async_guard_lab axia_async_guard_lab_demo
 
 ## 검증 해석
 Python 단위 PASS는 L0만 증명합니다. ROS2 DDS L1, Gazebo L2, WSL2 L3 인수 증거가 없다면 성공했다고 주장하지 않습니다.
+
+## 코드 블록 해설 및 분산 타이밍 경계
+- `now`와 `cm_received_at`는 **같은 monotonic clock** 기준입니다. ROS simulation header 시각을 단순 차감하지 마십시오.
+- `now-cm_received_at > 0.15s`면 `ZERO_STALE,0`을 반환합니다. NaN은 `ZERO_INVALID,0`, CM 명령 0은 `ALLOW_ZERO,0`입니다.
+- 최근 `SupervisorCommand`의 명령부호가 같고 120ms 이내이며 `|v_cm| <= 0.3|v_supervisor|+0.01`일 때만 `ALLOW_MATCHED`; 아니면 `ZERO_UNPROVEN,0`입니다.
+- 120ms는 과거 명령 대조창이지 150ms CM TTL 연장이 아닙니다. 실제 AXIA Guard의 완전한 상태 머신이 아니라 개념 재현용 순수 Python 모델입니다.
+- 입력 `now=10,cm_received_at=9.80,v=0.02` → `ZERO_STALE`; `now=10,cm_received_at=9.95,v=0.013,supervisor=(9.94,0.05)` → `ALLOW_MATCHED`.
+- ROS 2 선택 읽기 전용 확인: `ros2 topic hz /cmd_vel_pre_guard` 및 안전 상태 Topic을 이용하되, 단순 hz 출력만으로 DDS Source→RMW→Executor의 내부 지연 원인을 확정하지 마십시오.
