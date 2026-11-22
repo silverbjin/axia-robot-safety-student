@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<package format="3"><name>axia_evidence_oracle_lab</name><version>0.1.0</version><description>AXIA Velog Lab 05 PASS/FAIL/INCONCLUSIVE·SHA256·실증 증거</description><maintainer email="axia-edu@localhost">AXIA Education</maintainer><license>Apache-2.0</license><buildtool_depend>ament_python</buildtool_depend><export><build_type>ament_python</build_type></export></package>
