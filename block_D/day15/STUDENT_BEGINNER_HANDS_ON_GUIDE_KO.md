@@ -1,5 +1,7 @@
 # AXIA BLOCK_D D15 — 초심자용 단계별 실습 핸드북
 
+**몰입형 라이브 데모(신규):** [Evidence Theater 학생용 12분 따라하기](STUDENT_EVIDENCE_THEATER_LIVE_GUIDE_KO.md) — 먼저 예측하고 공개 파생 숫자를 확인하며 5개 합성 실패 게이트를 판정하는 단일 오프라인 HTML. 7장면·JSON 2개·원본 HOLD·SW Stop≠인증 E-Stop은 그대로 유지합니다.  
+
 **학생용 공개 문서 · 강의실/자가학습 · Ubuntu 24.04 및 WSL2 Ubuntu 24.04**  
 **수업:** 2026-11-27(금) 19:00–22:00, 180분. 강사 제공 38장 PPTX의 코드를 설명하는 실습서.  
 **오늘은 과거 G07 실주행의 공개 파생 집계 자료를 Python 오프라인 L0로 분석한다.** 새 ROS 2, Gazebo, Nav2 Goal, Fault Injector, 모터 제어를 실행하지 않는다. 소프트웨어 STOP은 인증된 E-Stop이 아니다.
@@ -65,7 +67,7 @@ Gazebo LiDAR -- Gazebo Transport --> ros_gz_bridge --> ROS /scan(LaserScan)
 | 시간 | 실습 및 학습 내용 | 워크시트 |
 |---|---|---|
 | 19:00–19:20 | 시스템 용어, 자료 출처, 아키텍처 | A·E |
-| 19:20–20:00 | 클론→18개 테스트→Replay→CLEAR/SLOW/STOP·Goal/odom | A·B·C |
+| 19:20–20:00 | 클론→24개 테스트→Replay→CLEAR/SLOW/STOP·Goal/odom | A·B·C |
 | 20:00–20:10 | 휴식 | |
 | 20:10–20:45 | 채널별 TTL 값과 5개 수치 반례 | D·F |
 | 20:45–21:15 | D13/D14/G10/S04/G07 세션 분리와 원본 HOLD | E·G |
@@ -133,7 +135,7 @@ ae7d594b5452d96cc8802bc53bc8ad578fe99fb7
 | `run_lab.py` | 분석 결과 7장면·HTML 생성 | 읽기 전용 |
 | `STUDENT_EVIDENCE_WORKSHEET_KO.md` | A~H 증거 분석지 | 제출용 사본 작성 |
 
-## 4. 18개 테스트가 무엇을 검증하는지 보기
+## 4. 24개 테스트가 무엇을 검증하는지 보기
 
 ~~~bash
 cd ~/axia-d15-classroom
@@ -141,7 +143,7 @@ python3 -m unittest discover -s block_D/day15/tests -p 'test_*.py' -v
 echo "UNITTEST_EXIT=$?"
 ~~~
 
-**기존 배포본에서 예상:** `Ran 18 tests`, `OK`, `UNITTEST_EXIT=0`. 실패하면 자신의 실제 원본 로그를 기록한다.
+**기존 배포본에서 예상:** `Ran 24 tests`, `OK`, `UNITTEST_EXIT=0`. 실패하면 자신의 실제 원본 로그를 기록한다.
 
 - `-m unittest`: 파이썬 표준 테스트 실행기.
 - `discover`: 폴더에서 테스트 자동 검색.
@@ -149,7 +151,7 @@ echo "UNITTEST_EXIT=$?"
 - `-p`: 테스트 파일 이름 규칙.
 - `-v`: 각각의 성공/실패 이유 표시.
 
-**18개 PASS의 뜻:** D15 공개 파생 JSON과 **분석기의 L0 계약**이 일치한다는 것이다. 새로운 ROS 2·Gazebo·인증 E-Stop을 시험한 것은 아니다. D13·D14의 초기 TODO에는 별도의 의도된 RED가 있을 수 있으나 D15는 완성된 읽기 전용 분석기여서 18개 GREEN이 정상이다.
+**18개 PASS의 뜻:** D15 공개 파생 JSON과 **분석기의 L0 계약**이 일치한다는 것이다. 새로운 ROS 2·Gazebo·인증 E-Stop을 시험한 것은 아니다. D13·D14의 초기 TODO에는 별도의 의도된 RED가 있을 수 있으나 D15는 완성된 읽기 전용 분석기여서 24개 GREEN이 정상이다.
 
 ## 5. 7개 숫자 장면을 생성하는 프로그램 실행
 
@@ -458,7 +460,7 @@ ls -lh "$HOME/axia-d15-submission/"
 - [ ] **Human-aware Safety AMR 통합 MVP 구현:** 센서→브리지→Nav2→Supervisor→Collision Monitor→Base Guard→`/cmd_vel`→odom의 역할을 설명한다.
 - [ ] 사람 위험 판단 D13 P/N/U와 D14 LIMITED_REQUEST는 **합성 교육 데이터**이며 G07 사람 검출 E2E 실증이 아님을 설명한다.
 - [ ] `load_evidence()`, `review_baseline()`, `negative_counterexamples()`, `validate_g09_g10_separation()`, `ordered_snapshots()`, `run()`의 입력·처리·출력을 설명한다.
-- [ ] **통합 안전제어 시나리오 검증 및 결과정리:** D15 18개 테스트, 7장면, Goal/odom 독립 증거, 5 TTL, 5 반례, 보고서를 본인 실행 결과로 제시한다.
+- [ ] **통합 안전제어 시나리오 검증 및 결과정리:** D15 24개 테스트, 7장면, Goal/odom 독립 증거, 5 TTL, 5 반례, 보고서를 본인 실행 결과로 제시한다.
 - [ ] 원본 `HOLD_RAW_REVIEW_AND_VISUAL_PENDING`, `first_violation_timestamp=null`, 인증 E-Stop=false, 신규 Gazebo·WSL2 `NOT_RUN`을 구별한다.
 
 **최종 정리:** 이미 구현된 안전 AMR **구조를 학습**하고, 이전 G07 실주행의 공개 **파생 수치**로 제한된 시나리오 검증을 수행했다. 실제 사람 검출 E2E·반복 안전 타이밍·정식 E-Stop 인증까지 새로 완료했다는 뜻은 아니다.
