@@ -1,6 +1,7 @@
 # AXIA D15 — 학생용 38장 연계 데모·Replay 따라하기 (초심자용)
 
 **대상:** Ubuntu 24.04 / WSL2 Ubuntu 24.04, Python 3 / ROS 2 경험이 없어도 진행 가능  
+**초심자용 더 자세한 설명:** [D15 16단계 따라하기 핸드북](STUDENT_BEGINNER_HANDS_ON_GUIDE_KO.md)에서 clone·명령 의미·예상 출력·코드 해설·TTL 수치 계산·워크시트·1페이지 보고서·오류 대체를 먼저 읽을 수 있다.  
 **공개 범위:** 학생용 공개 데모와 워크시트만 제공한다. 강사용 비공개 정답·원본 rosbag·인수 자료는 포함하지 않는다.  
 **학습주제:** ① Human-aware Safety AMR 통합 MVP 구현 *구조 이해* ② 통합 안전제어 시나리오 검증·결과정리  
 **실행 범위:** 기존 `jrCIgoGl` 공개 **파생 집계 자료를 오프라인으로 읽는 L0**. 새 ROS 2·Gazebo·Nav2 Goal·Fault Injector·모터 구동을 실행하지 않는다.
