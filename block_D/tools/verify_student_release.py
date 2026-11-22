@@ -67,7 +67,7 @@ def verify_release(root: Path=ROOT, out: Path=Path("/tmp/axia_block_d_final")) -
             "baseline_proof":"REUSED_PREVIOUS_G07_JRCIGOL_PUBLIC_DERIVED_ONLY",
             "student_solutions_completed":False,
             "scope":"STUDENT_STARTER_CONTRACT_OFFLINE_L0_NOT_HARDWARE_ESTOP"}
-    for day, total, failures, cli_rc in (("D13",10,2,2),("D14",20,11,2),("D15",18,0,0)):
+    for day, total, failures, cli_rc in (("D13",10,2,2),("D14",20,11,2),("D15",24,0,0)):
         d=day.lower()
         dayout=out/d
         dayout.mkdir(parents=True,exist_ok=True)
