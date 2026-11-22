@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<package format="3"><name>axia_command_chain_lab</name><version>0.1.0</version><description>AXIA Velog Lab 01 /cmd_vel 단일 소유권</description><maintainer email="axia-edu@localhost">AXIA Education</maintainer><license>Apache-2.0</license><buildtool_depend>ament_python</buildtool_depend><export><build_type>ament_python</build_type></export></package>
