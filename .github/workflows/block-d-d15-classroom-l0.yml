@@ -30,5 +30,10 @@ jobs:
           test -s "$RUNNER_TEMP/d15/d15_offline_replay.html"
           echo D15_PUBLIC_DERIVED_EVIDENCE_L0_PASS_NO_ROS_GAZEBO_GOAL
 
+      - name: D15 Evidence Theater browser smoke (Chrome if installed)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 block_D/day15/tests/browser_smoke_d15.py
       - name: D15 detailed student guide documentation contract
         run: python3 -m unittest discover -s block_D/tests -p 'test_d15_guides_v2.py' -v
