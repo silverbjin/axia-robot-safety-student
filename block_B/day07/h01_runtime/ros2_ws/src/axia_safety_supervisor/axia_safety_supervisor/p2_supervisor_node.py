@@ -5,7 +5,10 @@ import time
 
 import rclpy
 from rclpy.executors import ExternalShutdownException
-from .p2_shutdown_context import is_context_waitset_shutdown, is_context_publish_shutdown
+from .p2_shutdown_context import (
+    is_context_waitset_shutdown, is_context_publish_shutdown,
+    is_context_graph_shutdown,
+)
 from std_msgs.msg import String
 
 from .fsm import SafetyState, transition
@@ -130,7 +133,8 @@ def main(args=None):
         # fault still raises and blocks acceptance, even if wording matches.
         context_ok=rclpy.ok()
         if not (is_context_waitset_shutdown(exc,context_ok=context_ok)
-                or is_context_publish_shutdown(exc,context_ok=context_ok)):
+                or is_context_publish_shutdown(exc,context_ok=context_ok)
+                or is_context_graph_shutdown(exc,context_ok=context_ok)):
             raise
     finally:
         if node is not None:

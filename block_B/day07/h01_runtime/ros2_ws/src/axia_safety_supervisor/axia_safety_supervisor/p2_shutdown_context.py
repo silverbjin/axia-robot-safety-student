@@ -30,3 +30,20 @@ def is_context_publish_shutdown(exc, *, context_ok):
         and type(exc).__name__=="RCLError"
         and str(exc).startswith("Failed to publish: publisher's context is invalid")
     )
+
+
+def is_context_graph_shutdown(exc, *, context_ok):
+    """Classify only the observed already-shutdown Jazzy graph-query race.
+
+    Real Gazebo #44912769355 cycle2: during ordered SIGINT, P2 Supervisor
+    tried get_publishers_info_by_topic after ROS context was invalidated.
+    Never ignore this graph error on a still-live ROS context; such errors
+    may indicate an actual unsafe command-graph failure.
+    """
+    return (
+        context_ok is False
+        and type(exc).__name__=="RCLError"
+        and str(exc).startswith(
+            "Failed to get information by topic for publishers: "
+            "rcl node's context is invalid, at ./src/rcl/node.c:404")
+    )
