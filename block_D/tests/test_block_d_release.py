@@ -35,7 +35,7 @@ class BlockDFinalStudentAcceptance(unittest.TestCase):
             self.assertEqual(result["D13"]["expected_failures"],2)
             self.assertEqual(result["D14"]["test_count"],20)
             self.assertEqual(result["D14"]["expected_failures"],11)
-            self.assertEqual(result["D15"]["test_count"],18)
+            self.assertEqual(result["D15"]["test_count"],24)
             self.assertEqual(result["D15"]["expected_failures"],0)
             self.assertEqual(result["D15"]["negative_mutations_detected"],5)
             self.assertFalse(result["new_ros_gazebo_goal_executed"])

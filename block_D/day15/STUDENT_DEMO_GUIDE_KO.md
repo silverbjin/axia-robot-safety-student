@@ -1,5 +1,7 @@
 # AXIA D15 — 학생용 38장 연계 데모·Replay 따라하기 (초심자용)
 
+**몰입형 라이브 데모(신규):** [Evidence Theater 학생용 12분 따라하기](STUDENT_EVIDENCE_THEATER_LIVE_GUIDE_KO.md) — 먼저 예측하고 공개 파생 숫자를 확인하며 5개 합성 실패 게이트를 판정하는 단일 오프라인 HTML. 7장면·JSON 2개·원본 HOLD·SW Stop≠인증 E-Stop은 그대로 유지합니다.  
+
 **대상:** Ubuntu 24.04 / WSL2 Ubuntu 24.04, Python 3 / ROS 2 경험이 없어도 진행 가능  
 **초심자용 더 자세한 설명:** [D15 16단계 따라하기 핸드북](STUDENT_BEGINNER_HANDS_ON_GUIDE_KO.md)에서 clone·명령 의미·예상 출력·코드 해설·TTL 수치 계산·워크시트·1페이지 보고서·오류 대체를 먼저 읽을 수 있다.  
 **공개 범위:** 학생용 공개 데모와 워크시트만 제공한다. 강사용 비공개 정답·원본 rosbag·인수 자료는 포함하지 않는다.  
@@ -54,7 +56,7 @@ python3 -m unittest discover -s block_D/day15/tests -p 'test_*.py' -v
 echo "D15_UNITTEST_RC=$?"
 ~~~
 
-**기존 배포본 예상:** `Ran 18 tests`, `OK`, `D15_UNITTEST_RC=0`. 이 출력은 **학습용 파생 자료 계약**의 PASS로서 실제 로봇 테스트가 아니다. 실제 실패할 경우 최신 로그의 **첫 AssertionError/ValueError**를 기록하며 임계값을 높이지 않는다.
+**기존 배포본 예상:** `Ran 24 tests`, `OK`, `D15_UNITTEST_RC=0`. 이 출력은 **학습용 파생 자료 계약**의 PASS로서 실제 로봇 테스트가 아니다. 실제 실패할 경우 최신 로그의 **첫 AssertionError/ValueError**를 기록하며 임계값을 높이지 않는다.
 
 ## 3. 리플레이와 분석 파일 생성
 
@@ -148,7 +150,7 @@ python3 -m json.tool /tmp/axia-d15/d15_counterexamples.json | head -100
 
 ## 9. 제출 방법·채점 전 확인
 
-1. 본인이 실제 실행한 `git rev-parse HEAD`, `python3 --version`, unittest 로그(18/18 또는 실패 원본)를 기록한다.
+1. 본인이 실제 실행한 `git rev-parse HEAD`, `python3 --version`, unittest 로그(24/24 또는 실패 원본)를 기록한다.
 2. `/tmp/axia-d15/d15_evidence_review.json`과 `d15_counterexamples.json` 파일을 보존한다.
 3. `STUDENT_EVIDENCE_WORKSHEET_KO.md`의 **A~H**를 채운다. 숫자마다 출처와 **그 숫자로 주장할 수 없는 것**을 한 문장 적는다.
 4. 팀 발표 **3~5분**: CLEAR→SLOW→STOP, Goal/odom, TTL, 반례, 합성/실물 출처와 원본 HOLD 순서로 설명한다.

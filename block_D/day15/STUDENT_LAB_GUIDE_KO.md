@@ -1,5 +1,7 @@
 # AXIA Block D D15 — G07 MVP 증거 분석·최종 발표 실습
 
+**몰입형 라이브 데모(신규):** [Evidence Theater 학생용 12분 따라하기](STUDENT_EVIDENCE_THEATER_LIVE_GUIDE_KO.md) — 먼저 예측하고 공개 파생 숫자를 확인하며 5개 합성 실패 게이트를 판정하는 단일 오프라인 HTML. 7장면·JSON 2개·원본 HOLD·SW Stop≠인증 E-Stop은 그대로 유지합니다.  
+
 **수업:** 2026-11-27(금) 19:00–22:00 / 3시간. **PPTX는 별도 강의자료로 제공하며 학생 저장소에는 포함하지 않습니다.**  
 **범위:** 이미 인수된 `AXIA-G07-T04-DEMO-BASELINE-20261120-jrCIgoGl`의 공개 파생 수치 *읽기·분석·Replay·평가*. **새 Goal/ROS/Gazebo/실제 Fault/WSL2를 수행하지 않습니다.**
 
@@ -7,7 +9,7 @@
 
 **새로 시작하는 훈련생은** [D15 초심자용 단계별 실습 핸드북](STUDENT_BEGINNER_HANDS_ON_GUIDE_KO.md)부터 읽으세요. 기존 이 문서(전체 목표·시간표)와 [화면 데모 가이드](STUDENT_DEMO_GUIDE_KO.md)를 그대로 유지하면서 다음 학습 과정을 더 자세히 설명합니다.
 
-- Ubuntu 터미널 확인 → 공개 저장소 안전한 clone → Git SHA/fixture 무결성 → 기존 18개 unittest → 7장면 Replay → 파이썬 코드 입력·처리·출력 해설
+- Ubuntu 터미널 확인 → 공개 저장소 안전한 clone → Git SHA/fixture 무결성 → 기존 24개 unittest → 7장면 Replay → 파이썬 코드 입력·처리·출력 해설
 - LiDAR 거리·Supervisor/Guard 속도 계산 → Goal UUID CANCELED와 odom 정지의 차이 → Scan/CM/Guard 다섯 TTL 여유 계산 → 교육용 반례 5개
 - 워크시트 A~H 작성 예시 → 실무형 한 페이지 보고서 → 안전한 결과 제출 및 HTML/JSON 실패 대체
 
@@ -157,7 +159,7 @@ python3 block_D/day15/run_lab.py --out /tmp/axia-d15
 ls -lh /tmp/axia-d15/d15_evidence_review.json /tmp/axia-d15/d15_counterexamples.json /tmp/axia-d15/d15_offline_replay.html
 ~~~
 
-같은 이름의 클론이 이미 있으면 절대 삭제·덮어쓰지 않고 다른 새 폴더명을 사용한다. **원본 학생 Starter에서 예상:** `Ran 18 tests` / `OK` 및 `D15_SYNTHETIC_NEGATIVE_DETECTION=5/5`. 출력은 반드시 자신의 실행 결과를 제출한다. **NO_ROS_GAZEBO**: 이 명령은 새로운 로봇을 실행하거나 안전 신호를 발행하지 않는다.
+같은 이름의 클론이 이미 있으면 절대 삭제·덮어쓰지 않고 다른 새 폴더명을 사용한다. **원본 학생 Starter에서 예상:** `Ran 24 tests` / `OK` 및 `D15_SYNTHETIC_NEGATIVE_DETECTION=5/5`. 출력은 반드시 자신의 실행 결과를 제출한다. **NO_ROS_GAZEBO**: 이 명령은 새로운 로봇을 실행하거나 안전 신호를 발행하지 않는다.
 
 ### 9-4. 장면별 학생 설명 순서
 
