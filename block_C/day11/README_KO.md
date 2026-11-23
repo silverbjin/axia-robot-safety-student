@@ -30,3 +30,13 @@ python3 block_C/day11/mse_toy_practice.py
 ## D11 몰입형 라이브 Replay 참여 활동지
 
 [12분 학생 예측·공개형 Replay 활동지](STUDENT_LIVE_REPLAY_ACTIVITY_GUIDE_KO.md): 강사의 오프라인 기록 재생 화면을 보면서 IF/AE 판정을 미리 예측하고, 공개 후 오탐·미탐·품질 부족을 구분합니다. 학습 목표별 기대 효과와 자기점검 문항 포함. 강사 비공개 점수 CSV/체크포인트는 제공하지 않습니다. 학생 필수 제출물은 기존 mse_practice.log + d11_report.md 두 개로 유지합니다.
+
+
+## D11 추가 배포 — WSL2/venv 및 Google Colab 학생 TODO Notebook (2026-11-23)
+
+- [초심자용 WSL2·Colab Notebook 실습 안내](notebooks/STUDENT_NOTEBOOK_GUIDE_KO.md)
+- [WSL2 venv Notebook (학생 TODO)](notebooks/lesson11-autoencoder-student-wsl2-todo.ipynb)
+- [Google Colab Notebook (학생 TODO)](notebooks/lesson11-autoencoder-student-colab-todo.ipynb)
+- [Google Colab에서 공개 TODO 열기](https://colab.research.google.com/github/silverbjin/axia-robot-safety-student/blob/main/block_C/day11/notebooks/lesson11-autoencoder-student-colab-todo.ipynb)
+
+두 파일은 37셀/코드7셀로 S1~S3 기초 데이터·MSE 연습은 실행 가능하고 **S4~S6은 의도적 EXPECTED_RED**입니다. 완성형 강사 AE 학습·추론 코드와 checkpoint는 강사 비공개 저장소에만 유지합니다. Google Colab 호스팅과 CUDA GPU의 실제 실행은 환경별로 재검증해야 합니다. 교육용 AI WARNING은 인증된 E-Stop·실제 SW Stop이 아닙니다.

@@ -1,0 +1,8 @@
+# Google Colab native Python 런타임에 이미 설치된 패키지는 재설치하지 않습니다.
+# 첫 셀은 결핍된 패키지만 이 범위로 pip 설치하고 런타임 재시작(HOLD)을 요구합니다.
+# torch GPU wheel은 임의로 다시 설치하지 않습니다. GPU는 Colab 런타임 메뉴로 선택합니다.
+numpy>=1.26,<3
+pandas>=2.0,<3
+matplotlib>=3.7,<4
+scikit-learn>=1.3,<2
+torch>=2.2,<3

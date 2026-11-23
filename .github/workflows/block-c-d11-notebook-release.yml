@@ -1,0 +1,44 @@
+name: AXIA D11 student Notebook WSL2 & Colab release L0
+on:
+  push:
+    branches: ['feat/d11-notebook-*']
+    paths:
+      - 'block_C/day11/notebooks/**'
+      - 'block_C/tests/test_d11_notebook_release.py'
+      - '.github/workflows/block-c-d11-notebook-release.yml'
+  pull_request:
+    paths:
+      - 'block_C/day11/notebooks/**'
+      - 'block_C/tests/test_d11_notebook_release.py'
+      - '.github/workflows/block-c-d11-notebook-release.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  d11-public-student-notebook-l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Fixture and public notebook distribution L0
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/sha.txt
+          python3 block_C/fixtures/generator.py --check --fixture-dir block_C/fixtures | tee evidence/fixture.txt
+          python3 -m unittest discover -s block_C/tests -p 'test_d11_notebook_release.py' -v 2>&1 | tee evidence/notebook-tests.txt
+          python3 -m unittest discover -s block_C/tests -p 'test_d11_guides_contract.py' -v 2>&1 | tee evidence/guide-tests.txt
+          echo D11_NOTEBOOK_PUBLIC_STUDENT_L0_PASS_TODO_EXPECTED_RED_NO_TORCH_EXECUTION_ROS_GAZEBO_NOT_RUN | tee evidence/verdict.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d11-student-notebook-l0
+          path: evidence/
+          retention-days: 7
+          if-no-files-found: warn
