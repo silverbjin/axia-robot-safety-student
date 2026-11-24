@@ -39,3 +39,12 @@ bash block_C/scripts/block_c_once.sh --ros-l1
 - [기존 120분 초심자 상세 실습](STUDENT_LAB_GUIDE_KO.md)의 **S25–S29 관제 대응 단계**와 연결합니다.
 
 이 데모는 **SYNTHETIC REPLAY / EDUCATION ONLY / NO CONTROL AUTHORITY / NOT LIVE ROS DDS**입니다. 새로운 웹 ROS Bridge, E-Stop, Nav2 Goal 및 cmd_vel 발행 기능은 없으며 실제 DDS 8건 수신 여부는 기존 C05 Jazzy `--ros-l1` 실행 결과만으로 판단합니다.
+
+
+## D12 · 실행 검증된 Jupyter Notebook (2026-11-24 배포)
+
+- [이상탐지 기반 위험상태 모니터링 — Notebook 54셀 / 실행 11셀](notebooks/lesson12/lesson12-risk-state-monitoring.ipynb)
+- [실습 준비·새 커널 실행 가이드](notebooks/lesson12/README.md) · [학생용 상세 가이드](notebooks/lesson12/student_guide.md)
+- [브라우저용 HTML 강의안](notebooks/lesson12/lesson12-rendered.html) · [제작 당시 QA](notebooks/lesson12/QA_REPORT.md)
+
+**출처:** 공개 합성 샘플 12건과 EventGate 계약만 재사용합니다. 강사 비공개 AE·정답 코드는 학생 저장소에 없습니다. Python Notebook L0와 실제 Jazzy DDS L1, Gazebo 인수는 다른 검증 수준입니다.
