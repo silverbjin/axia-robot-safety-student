@@ -1,0 +1,9 @@
+# AXIA D12 standalone education Notebook (Python >= 3.10; tested with Python 3.13.5)
+# Runtime only: ROS 2/Gazebo/PyTorch/scikit-learn are not required.
+numpy>=1.26,<3
+matplotlib>=3.8,<4
+ipykernel>=6.29,<8
+# Reproducible notebook build/execution/HTML QA (optional for students in Colab)
+nbformat>=5.9,<6
+nbclient>=0.10,<0.12
+nbconvert>=7.16,<8
