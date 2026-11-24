@@ -65,6 +65,15 @@ class D12NotebookRelease(unittest.TestCase):
         ):
             self.assertIn(phrase, text, phrase)
 
+    def test_browser_runner_reports_startup_first_failure(self):
+        # Regresses CI #45391909813: Chromium had no debug port after 12s.
+        # Diagnostics must expose original Chrome stderr before blaming Notebook.
+        browser = (Path(__file__).parent / "d12_incident_browser_smoke.cjs").read_text(encoding="utf-8")
+        self.assertIn("chrome.stderr.on(", browser)
+        self.assertIn("D12_BROWSER_STARTUP_DIAGNOSTIC", browser)
+        self.assertIn("for(let i=0;i<300;i++)", browser)
+        self.assertIn("D12_BROWSER_QA_NO_DEBUG_PORT", browser)
+
     def test_public_student_privacy_and_documentation(self):
         self.assertFalse((BASE / "instructor_guide.md").exists())
         fixture = [json.loads(line) for line in
