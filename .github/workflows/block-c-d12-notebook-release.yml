@@ -1,0 +1,45 @@
+name: AXIA D12 student Notebook L0 executable release
+on:
+  push:
+    branches: ['feat/d12-notebook-*']
+    paths:
+      - 'block_C/day12/notebooks/**'
+      - 'block_C/tests/test_d12_notebook_release.py'
+      - '.github/workflows/block-c-d12-notebook-release.yml'
+  pull_request:
+    paths:
+      - 'block_C/day12/notebooks/**'
+      - 'block_C/tests/test_d12_notebook_release.py'
+      - '.github/workflows/block-c-d12-notebook-release.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  d12-notebook-l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: RED/GREEN static distribution contract
+        run: python -m unittest discover -s block_C/tests -p 'test_d12_notebook_release.py' -v
+      - name: Install notebook runtime only
+        run: python -m pip install -r block_C/day12/notebooks/lesson12/requirements.txt
+      - name: Actual fresh kernel execution - no ROS/Gazebo
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          export MPLBACKEND=Agg
+          python block_C/day12/notebooks/lesson12/assets/run_and_verify.py
+          echo D12_PUBLIC_NOTEBOOK_FRESH_KERNEL_L0_PASS_ROS_GAZEBO_NOT_RUN
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d12-notebook-public-l0
+          path: block_C/day12/notebooks/lesson12/outputs/
+          retention-days: 7
+          if-no-files-found: warn
