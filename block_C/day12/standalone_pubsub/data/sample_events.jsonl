@@ -1,0 +1,3 @@
+{"event_id":"E001","level":"OK","model":"AE","score":0.12,"cutoff":0.50}
+{"event_id":"E002","level":"WARN","model":"AE","score":0.72,"cutoff":0.50}
+{"event_id":"E003","level":"ERROR","model":"IF","score":0.91,"cutoff":0.50}
