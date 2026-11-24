@@ -23,20 +23,32 @@ function chromeBinary(){
 }
 async function main(){
   const profile=fs.mkdtempSync(path.join(os.tmpdir(),'axia-d12-chrome-'));
-  const chrome=cp.spawn(chromeBinary(),[
+  const chromePath=chromeBinary();
+  const chrome=cp.spawn(chromePath,[
     '--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu',
     '--no-first-run','--no-default-browser-check','--remote-allow-origins=*',
     '--remote-debugging-port=0','--window-size=1920,1080',
     '--user-data-dir='+profile,'about:blank'
-  ],{stdio:'ignore'});
+  ],{stdio:['ignore','pipe','pipe']});
+  let chromeStderr='',chromeSpawnError=null;
+  chrome.stderr.on('data',(buf)=>{chromeStderr=(chromeStderr+String(buf)).slice(-4000)});
+  chrome.on('error',(err)=>{chromeSpawnError=String(err)});
+  function reportChromeStartupFailure(){
+    console.error('D12_BROWSER_STARTUP_DIAGNOSTIC',JSON.stringify({
+      chromePath,exitCode:chrome.exitCode,signalCode:chrome.signalCode,
+      spawnError:chromeSpawnError,stderr:chromeStderr,
+      profileEntries:fs.existsSync(profile)?fs.readdirSync(profile).slice(0,18):[]
+    }));
+  }
   let ws;
   try{
     let port=0;
-    for(let i=0;i<120;i++){
+    for(let i=0;i<300;i++){
       await sleep(100);
-      if(chrome.exitCode!==null)throw Error('Chrome exited before debugger started: '+chrome.exitCode);
+      if(chrome.exitCode!==null||chromeSpawnError){reportChromeStartupFailure();throw Error('Chrome exited before debugger started: '+chrome.exitCode+' '+(chromeSpawnError||''));}
       try{port=Number(fs.readFileSync(path.join(profile,'DevToolsActivePort'),'utf8').split('\n')[0]);if(port)break}catch{}
     }
+    if(!port)reportChromeStartupFailure();
     assert.ok(port,'D12_BROWSER_QA_NO_DEBUG_PORT');
     const tabs=await (await fetch('http://127.0.0.1:'+port+'/json/list')).json();
     const tab=tabs.find(x=>x.type==='page');
