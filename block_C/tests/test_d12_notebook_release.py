@@ -28,6 +28,25 @@ class D12NotebookRelease(unittest.TestCase):
         self.assertEqual(git_blob_sha(BASE / "assets/event_contract.py"),
                          "a00d2230be4d14d810b84db9938d4fac30e79b12")
 
+    def test_exact_original_lecture_assets_and_offline_preview(self):
+        self.assertEqual(git_blob_sha(BASE / "lesson12-risk-state-monitoring.ipynb"),
+                         "762b2534fb8be874b3d2096008372d0c79227fbb")
+        self.assertEqual(git_blob_sha(BASE / "lesson12-rendered.html"),
+                         "e454c9bc099e78f52f8fe2c19a143ce98523ae97")
+        original_assets = {
+            "01_architecture.png": "c1792d8ba3c4a8b5208654bcd223767cb81cb80c",
+            "02_jsonl_shape.png": "da377e3895ccba3bf057b748f1a2e6e3855a7ef1",
+            "03_levels.png": "4462702df740b87a6a0073f3055b6f4316d98727",
+            "04_three_clocks.png": "c080de8ef01d6e6a6449ebba91a59dea183002b3",
+            "05_event_gate.png": "8fb092d3e6d6cf403eaec2c84bb4777076cbd131",
+            "06_feedback.png": "5b261d75bce56ba2f1445411cba87a6234f29b8d",
+        }
+        for name, sha in original_assets.items():
+            self.assertEqual(git_blob_sha(BASE / "assets" / name), sha, name)
+        html = (BASE / "lesson12-rendered.html").read_text(encoding="utf-8")
+        self.assertIn("<!DOCTYPE html>", html)
+        self.assertIn("</html>", html)
+
     def test_complete_executed_notebook_and_embedded_images(self):
         n = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
         cells = n["cells"]
