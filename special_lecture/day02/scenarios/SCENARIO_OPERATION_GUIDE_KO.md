@@ -193,3 +193,15 @@ bash "$HOME/axia_g07_owner_once.sh" --ci-check
 | 안전 인증 | `CERTIFIED_ESTOP=false` |
 
 [학생용 Evidence 기록지](../evidence_templates/STUDENT_EVIDENCE_TEMPLATE_KO.md)를 복사하여 자신의 실행 명령/exit code/화면 관측/AI 응답 QA/개인 Git SHA를 기록하십시오. **시연으로 보여준 내용과 새로 검증한 내용을 섞지 않는 것**이 이 수업의 중요한 역량입니다.
+
+## 8. 개정된 DAY 02 v4 강의 슬라이드와 연결하기
+
+| 시나리오 | 강의 슬라이드 | 워크북의 해당 주제 |
+|---|---|---|
+| S01 · 준비 | **05~09** 시스템 아키텍처·Node·Topic·Command | U01~U04 |
+| S02 CLEAR / S03 SLOW / S04 STOP | **10~12**, **28** 실제 동작 수치·주기 | U04~U08 |
+| S05 Goal 취소·odom ZERO | **10**, **29** Goal terminal/정지 확인 | U05·U09 |
+| S06 Shutdown | **12**, **29~30** Lifecycle·실제 코드 | U09·U11 |
+| 실패 F01/F02 | **38~43** 최초 위반·가설·RED/GREEN | A01~A06 |
+
+본 표는 [AXIA DAY02 듀얼 MVP 강의록 v4.0](https://github.com/silverbjin/axia-robot-safety-student/tree/release/day02-g07-accepted-20261126) 및 이 프로젝트의 43장 개정 강의 슬라이드 목차를 기반으로 합니다. **학생에게 새 ROS Moving 실증을 요구하지 않고 기존 검증 범위를 명확히 보여주는 데 사용**하십시오.
