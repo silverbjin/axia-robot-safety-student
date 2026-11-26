@@ -1,0 +1,95 @@
+{
+  "schema": "axia.day02.scenario_historic_public_snapshot.v1",
+  "source_type": "PUBLIC_REPORT_EXCERPT_NOT_RAW_BAG",
+  "created_for_class": "2026-11-26",
+  "student_source_sha": "f7edb2d126502eeeed58ae014adadc7a2096d41b",
+  "public_ci_source_sha": "64ba0161e66126b4743b4b12a859f4a5349ae58a",
+  "native_l2_run_id": 44965035965,
+  "native_l2": "2_OF_2_PASS_AT_EXACT_SHA",
+  "owner_report_ref": "https://github.com/silverbjin/axia-robot-safety-ci-public/blob/c2c4f66c532be2a41855239860b9a9f5d60c4586/docs/operations/AXIA_G07_OWNER_WSL2_L3_POSTRUN_RAW_EVIDENCE_REVIEW_20261122_KO.md",
+  "owner_report_commit": "c2c4f66c532be2a41855239860b9a9f5d60c4586",
+  "historic_owner": {
+    "result": "PASS_SCOPED",
+    "automatic_verdict": "HOLD_RAW_REVIEW_AND_VISUAL_PENDING",
+    "one_session_actual_gazebo": true,
+    "independent_gui_content_review": false,
+    "phases": {
+      "CLEAR": {
+        "front_m": 2.048107,
+        "cm_linear_mps": 0.062925,
+        "final_linear_mps": 0.037684
+      },
+      "SLOW": {
+        "front_m": 0.674758,
+        "cm_linear_mps": 0.00481,
+        "final_linear_mps": 0.003422
+      },
+      "STOP": {
+        "front_m": 0.396788,
+        "cm_linear_mps": 0,
+        "final_linear_mps": 0
+      }
+    },
+    "goal_terminal_status": 5,
+    "same_goal_uuid_cancel": true,
+    "goal_cancel_ack": true,
+    "odom_total_m": 0.129946523,
+    "odom_zero_dwell_sec": 1.026194649,
+    "contact_count": 0,
+    "nav_shutdown_ack": true,
+    "localization_shutdown_ack": true,
+    "cm_exit_code": 0,
+    "clean_processes": 21,
+    "bag_topic_count": 14,
+    "bag_messages": 54641,
+    "timing_ms": {
+      "scan_callback_max": 215.082877,
+      "clock_callback_max": 95.138822,
+      "odom_callback_max": 149.593842,
+      "cm_pre_guard_callback_max": 71.460029,
+      "guard_internal_cm_age_max": 49.279328
+    }
+  },
+  "historical_failed": {
+    "student_source_sha": "a04f9a7da8d54bbd9f944d05388792cb706adf28",
+    "public_ci_source_sha": "8e03ac0a912ca9b81bdddda70212e52e6d804389",
+    "native_l2_run_id": 44914827138,
+    "moving_l2": "0_OF_2_FAIL",
+    "owner_l3": "NOT_RUN",
+    "root_cause": "UNDETERMINED",
+    "report_ref": "https://github.com/silverbjin/axia-robot-safety-ci-public/blob/refactor/g07-mvp-closure-20261121/docs/operations/AXIA_G07_MVP_REFACTOR_VERIFICATION_KO.md",
+    "cycle1": {
+      "phase": "PRE_GOAL",
+      "first_observed_issue": "SCAN_RECEIPT_GAP",
+      "scan_callback_max_ms": 439.011892,
+      "clock_callback_max_ms": 335.393855,
+      "odom_callback_max_ms": 374.025229,
+      "goal_sent": false
+    },
+    "cycle2": {
+      "phase": "POST_GOAL_PRE_STOP",
+      "first_state_transition": "BOOT_SAFE_TO_NORMAL",
+      "first_blocking_odom_ms": 362.100229,
+      "cm_pre_guard_max_ms": 379.730024,
+      "original_cm_rmw_received_ms": 375.941379,
+      "independent_cm_rmw_received_ms": 54.116537,
+      "cm_source_interval_ms": 53.837048,
+      "goal_sent": true
+    }
+  },
+  "limits": {
+    "scan_callback_ms": 300,
+    "clock_callback_ms": 300,
+    "odom_callback_ms": 300,
+    "cm_pre_guard_callback_ms": 120,
+    "guard_internal_cm_age_ms": 150,
+    "minimum_odom_zero_dwell_sec": 1
+  },
+  "claims": {
+    "new_ros_gazebo_run": false,
+    "new_goal_sent": false,
+    "new_l2_or_l3_acceptance": false,
+    "certified_estop": false,
+    "dds_rmw_root_cause": "UNDETERMINED"
+  }
+}
