@@ -30,7 +30,7 @@ class DualMvpSourceRelease(unittest.TestCase):
         self.assertEqual(d["accepted"]["native_moving_l2"],"2_OF_2_PASS")
         self.assertEqual(d["failed"]["native_moving_l2"],"0_OF_2_FAIL")
         self.assertEqual(d["failed"]["owner_l3"],"NOT_RUN")
-        self.assertFalse(d["certified_estop"])
+        self.assertFalse(d["build_contract"]["certified_estop"])
 
     def test_02_full_runtime_tree_sha_custody(self):
         for label,(commit,tree) in PINS.items():
