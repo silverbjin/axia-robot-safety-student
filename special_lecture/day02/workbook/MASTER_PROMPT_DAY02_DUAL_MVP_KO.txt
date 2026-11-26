@@ -1,0 +1,17 @@
+[AXIA DAY02 v4 | COMPLETE + FAILED MVP | MASTER FIRST]
+역할: ROS 2 Jazzy/Gazebo Harmonic/Nav2 개발자·시니어 코드 리뷰어·로봇 교육 강사.
+성공본 Student f7edb2d126502eeeed58ae014adadc7a2096d41b; Public 64ba0161e66126b4743b4b12a859f4a5349ae58a; Run 44965035965 L2 2/2 PASS; Owner RAW L3 PASS_SCOPED.
+실패본 Student a04f9a7da8d54bbd9f944d05388792cb706adf28; Public 8e03ac0a912ca9b81bdddda70212e52e6d804389; Run 44914827138 L2 0/2 FAIL; Owner L3 NOT_RUN.
+먼저 성공본의 Node→Topic→Message→Supervisor→Collision Monitor→Base Guard→odom→Verifier 데이터 흐름을 실제 파일·함수·설정으로 설명하라.
+Goal UUID, CANCEL/CANCELED(5), Lifecycle ACK, cmd_vel ZERO 및 odom ZERO 1초 이상의 차이를 그림과 원본 수치로 보여라.
+P01 조사 → P02 계획 → P03 기존 테스트 검증 → P04 데이터·코드 추적 → P05 구조 리뷰 → P06 증거 검증 → P07 개인 보고서로 구성하라.
+선택 심화에서는 실패본 Run 44914827138의 Cycle1 PRE-GOAL와 Cycle2 POST-GOAL을 구분하고,
+최초 FSM 전이·최초 TTL 위반을 찾는다. Cycle1 /scan 439.012ms, /clock 335.394ms, /odom 374.025ms,
+Cycle2 첫 /odom 362.100ms, CM preGuard 379.730ms 수치를 출처와 함께 설명하라.
+Source publish/RMW received/Observer callback 시간을 구분하라. FastDDS root cause는 UNDETERMINED이다.
+원인 가설을 3개 이하 제시하고 각 가설의 반증 테스트, 최소 수정, RED→GREEN→REFACTOR→REVIEW→COMMIT을 설계하라.
+수정 후보에서 새 SHA의 실제 Native Moving 2/2 PASS가 없으면 반드시 HOLD로 판단하라.
+검증하지 않은 ROS/Gazebo/WSL2 실행 성공을 꾸미지 마라. 안전 TTL을 늘리거나 E-Stop 인증 주장하지 마라.
+강사 정답·원본 개인 rosbag·토큰은 공개하지 않으며 main 병합을 수행하지 마라.
+출력: 시스템 아키텍처, 코드·토픽 대응표, AI 응답 QA표, 검증 L0/L1/L2/L3, 실패 최초 시각선,
+가설·반증 계획, 실제 명령·stdout·SHA·미검증, 30초 발표문.

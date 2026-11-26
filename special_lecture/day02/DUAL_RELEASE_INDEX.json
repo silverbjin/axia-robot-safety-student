@@ -1,0 +1,42 @@
+{
+  "schema": "axia.day02.dual_mvp_workbook.v4",
+  "date_kst": "2026-11-26",
+  "student_repo": "silverbjin/axia-robot-safety-student",
+  "accepted": {
+    "source_sha": "f7edb2d126502eeeed58ae014adadc7a2096d41b",
+    "release_branch": "release/day02-g07-accepted-20261126",
+    "prior_l0_release_sha": "0a8c43d0334474608ed3825abe79c7efad37ec17",
+    "native_public_sha": "64ba0161e66126b4743b4b12a859f4a5349ae58a",
+    "native_ci_run_id": 44965035965,
+    "native_status": "2_OF_2_PASS",
+    "owner_l3": "PASS_SCOPED_RAW_REVIEW",
+    "original_auto_verdict": "HOLD_RAW_REVIEW_AND_VISUAL_PENDING"
+  },
+  "advanced_failed": {
+    "source_sha": "a04f9a7da8d54bbd9f944d05388792cb706adf28",
+    "release_branch": "release/day02-g07-failed-l2-20261126",
+    "release_commit_sha": "5f4b2a0a17ff4660083e28089ed300364c4b04a6",
+    "native_public_sha": "8e03ac0a912ca9b81bdddda70212e52e6d804389",
+    "native_ci_run_id": 44914827138,
+    "native_status": "0_OF_2_FAIL",
+    "owner_l3": "NOT_RUN",
+    "root_cause": "UNDETERMINED",
+    "owner_release_authorized": false
+  },
+  "course": {
+    "default": "SUCCESS_VERSION_FIRST_READ_ONLY",
+    "minutes": 180,
+    "advanced_optional_minutes": 90,
+    "unit_range": "U00-U13",
+    "advanced_units": "A01-A06",
+    "new_gazebo_goal_by_default": false
+  },
+  "policy": {
+    "separate_versions": true,
+    "immutable_runtime_tree": true,
+    "certified_estop": false,
+    "main_merge_requires_user_approval": true,
+    "instructor_solution_distributed": false,
+    "public_ci_required": true
+  }
+}

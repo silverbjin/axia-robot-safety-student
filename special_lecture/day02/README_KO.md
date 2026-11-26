@@ -1,5 +1,7 @@
 # AXIA DAY 02 — 완성된 G07 안전 MVP · 학생용 릴리스
 
+**DAY02 v4 듀얼 MVP:** 성공본은 이 릴리스이며, 실증 0/2 실패본은 [별도 학생 브랜치](https://github.com/silverbjin/axia-robot-safety-student/tree/release/day02-g07-failed-l2-20261126)에 있습니다. [v4 기획](workbook/DUAL_MVP_WORKBOOK_PLAN_v4_KO.md), [Master Prompt](workbook/MASTER_PROMPT_DAY02_DUAL_MVP_KO.txt)를 참조하고 `bash special_lecture/day02/scripts/prepare_dual_mvp.sh "$HOME/axia-day02-failed"`로 별도 Worktree를 만드십시오. **Goal/Gazebo 자동 실행 없음.**
+
 **실행 가능한 완성형 G07 런타임을 그대로 보존하고 학생은 구조·데이터 파이프라인·검증 증거를 탐색합니다.** 본 릴리스의 실습 검사기는 **오프라인 L0**, ROS·Gazebo·Goal을 실행하지 않습니다.
 
 ## 고정된 검증 이력
