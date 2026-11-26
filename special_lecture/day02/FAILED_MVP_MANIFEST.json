@@ -1,0 +1,49 @@
+{
+  "schema": "axia.day02.failed_g07_native_case.v1",
+  "release_name": "AXIA DAY02 Advanced Failed G07 0/2 Case",
+  "date_kst": "2026-11-26",
+  "student_repo": "silverbjin/axia-robot-safety-student",
+  "source_branch": "release/day02-g07-failed-l2-20261126",
+  "failed_student_source_sha": "a04f9a7da8d54bbd9f944d05388792cb706adf28",
+  "failed_public_workflow_sha": "8e03ac0a912ca9b81bdddda70212e52e6d804389",
+  "failed_run_id": 44914827138,
+  "failed_job_ids": [
+    136878073308,
+    136878073552
+  ],
+  "actual_moving_l2_result": "FAIL_0_OF_2",
+  "moving_l2_pass": false,
+  "owner_l3": "NOT_RUN",
+  "authorized_for_owner_release": false,
+  "first_failure_policy": "FIRST_SAFETY_TRANSITION_AND_TIMING_BOUNDARY",
+  "root_cause": "UNDETERMINED",
+  "operational_use": "CLASSROOM_READ_ONLY_OFFLINE_ANALYSIS",
+  "source_tree_prefix": "block_B/day07/h01_runtime",
+  "locked_runtime_blobs": {
+    "block_B/day07/h01_runtime/ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/p2_shutdown_context.py": "a07b332b3b85e8275f1be181b7e837dec8336be8",
+    "block_B/day07/h01_runtime/ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/p2_supervisor_node.py": "582227ccb29769d00a18794ef54825fd9abfd520",
+    "block_B/day07/h01_runtime/ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/p2_base_guard_policy.py": "13e16846282e1cfc589c19f082a0c2cc6c3b8e25",
+    "block_B/day07/h01_runtime/tools/p2_g07_ci_moving_goal.py": "9d33496476434f29fe3c1591110c5ce360dea56b",
+    "block_B/day07/h01_runtime/tools/p2_g07_ordered_shutdown.py": "7060ebf912d29b7ed6169b0ece4587732845da05",
+    "block_B/day07/h01_runtime/ros2_ws/src/axia_safety_bringup/launch/axia_tb3_p2.launch.py": "ffee2fcf63446a0fa6d33685e60f2a331166d975",
+    "block_B/day07/h01_runtime/scripts/p2_no_goal_smoke_ci.sh": "a2a76cb9c9697fab6b20bc2e949f97517e990ae4",
+    "block_B/day07/h01_runtime/tools/test_g07_context_graph_shutdown.py": "5e6e66f712cfd66162a640b7e06e0ee1db3fff6d"
+  },
+  "historical_report_path": "docs/operations/AXIA_G07_MVP_REFACTOR_VERIFICATION_KO.md",
+  "historical_report_branch": "refactor/g07-mvp-closure-20261121",
+  "sanitized_fixture": "special_lecture/day02/evidence/OBSERVED_L2_0OF2_SANITIZED.json",
+  "success_student_sha": "f7edb2d126502eeeed58ae014adadc7a2096d41b",
+  "success_native_public_sha": "64ba0161e66126b4743b4b12a859f4a5349ae58a",
+  "success_native_run_id": 44965035965,
+  "certified_estop": false,
+  "additional_constraints": {
+    "no_safety_ttl_relaxation": true,
+    "no_offline_assertion_as_native_e2e_proof": true,
+    "do_not_automatically_send_goal": true,
+    "preserve_original_failure_evidence": true,
+    "private_instructor_answers_excluded": true,
+    "comparison_does_not_prove_causality": true,
+    "formal_acceptance_requires_new_matching_native_ci": true,
+    "main_merge_requires_owner_approval": true
+  }
+}
