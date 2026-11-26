@@ -2,7 +2,7 @@
   "schema": "axia.day02.complete_mvp.classroom_release.v1",
   "release_id": "AXIA-DAY02-G07-SCOPED-20261126",
   "date_kst": "2026-11-26",
-  "publication_status": "CI_GATE_REQUIRED",
+  "publication_status": "PUBLIC_CI_L0_PASS_SCOPED",
   "student_repo": "silverbjin/axia-robot-safety-student",
   "release_branch": "release/day02-g07-accepted-20261126",
   "source_commit_sha": "f7edb2d126502eeeed58ae014adadc7a2096d41b",
@@ -62,5 +62,12 @@
     "main_merge": "REQUIRES_SEPARATE_USER_APPROVAL",
     "raw_owner_logs_publication": "FORBIDDEN",
     "release_not_a_new_l2_or_l3": "TRUE"
+  },
+  "release_ci_gate": {
+    "first_success_run_id": 45774381274,
+    "first_success_student_commit_sha": "a628df141d148fe7cfbc1a8cd7cba120bdb91568",
+    "first_success_workflow_commit_sha": "b38f9b3eb58f23f6ca839a2fc74dbf8d849f9e84",
+    "final_release_commit": "MUST_BE_CHECKED_BY_PUBLIC_CI_AFTER_THIS_MANIFEST_UPDATE",
+    "scope": "L0_SOURCE_CUSTODY_ONLY_NO_ROS_GAZEBO_NO_GOAL"
   }
 }
