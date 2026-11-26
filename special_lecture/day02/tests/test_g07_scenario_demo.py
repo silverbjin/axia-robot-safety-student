@@ -19,7 +19,7 @@ class ScenarioDemoContract(unittest.TestCase):
         self.assertEqual(data["native_l2_run_id"],44965035965)
         self.assertEqual(data["historic_owner"]["result"],"PASS_SCOPED")
         self.assertEqual(data["historic_owner"]["automatic_verdict"],"HOLD_RAW_REVIEW_AND_VISUAL_PENDING")
-        self.assertFalse(data["certified_estop"])
+        self.assertFalse(data["claims"]["certified_estop"])
 
     def test_02_true_stage_measurements_not_synthetic(self):
         data=json.loads(DATA.read_text())
@@ -37,7 +37,7 @@ class ScenarioDemoContract(unittest.TestCase):
         self.assertEqual(bad["moving_l2"],"0_OF_2_FAIL")
         self.assertEqual(bad["root_cause"],"UNDETERMINED")
         self.assertGreater(bad["cycle1"]["scan_callback_max_ms"],300)
-        self.assertGreater(bad["cycle2"]["first_odom_breach_ms"],300)
+        self.assertGreater(bad["cycle2"]["first_blocking_odom_ms"],300)
         self.assertFalse(bad["cycle1"]["goal_sent"])
 
     def test_04_cli_all_three_cases_are_no_goal(self):
