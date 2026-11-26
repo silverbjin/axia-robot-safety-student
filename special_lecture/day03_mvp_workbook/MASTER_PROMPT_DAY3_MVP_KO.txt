@@ -20,7 +20,7 @@ RED → GREEN → REFACTOR → REVIEW → COMMIT 순서로만 진행하라.
 
 [U06~U10: 통합 오류]
 /scan과 /safety/scan의 각 Publisher/Subscriber/Relay 경로를 구현 파일과 launch/config로 추적하라.
-같은 publication sequence와 한 timebase 안에서 source_gap, received_gap, observer_gap, callback 지연을 분리하라.
+같은 publication sequence와 한 timebase 안에서 source_gap, received_gap, observer_gap, Subscriber Callback 지연을 분리하라.
 첫 상태 전이 first_safety_transition과 첫 타이밍 위반 first_timing_violation을 독립 필드로 보고하라.
 RMW seq 또는 일치하는 시점이 없으면 INCONCLUSIVE/HOLD이며 DDS 근본 원인을 단정하지 말라.
 scan/CM/Guard/odom 각 TTL이 실제로 커버되는지 확인하고 한 계층의 PASS를 전체로 확대하지 말라.
