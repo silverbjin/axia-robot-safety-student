@@ -53,6 +53,35 @@ class Day03WorkbookContract(unittest.TestCase):
         self.assertIn("150ms",text)
         self.assertIn("120ms",text)
 
+    def test_rendered_release_matches_manifest_and_52_slides(self):
+        import hashlib, zipfile, re
+        pptx=LESSON/"AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pptx"
+        pdf=LESSON/"AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pdf"
+        sheet=LESSON/"AXIA_DAY3_MVP_52_ContactSheet.png"
+        manifest=json.loads((LESSON/"WORKBOOK_RENDER_MANIFEST.json").read_text())
+        self.assertEqual(manifest["pptx_slides"],52)
+        self.assertEqual(manifest["pdf_pages"],52)
+        self.assertEqual(manifest["notes"],52)
+        self.assertEqual(manifest["unit_faces"],28)
+        self.assertEqual(manifest["units"],14)
+        self.assertEqual(manifest["pdf_text_boundary_errors"],0)
+        for f,key in ((pptx,"pptx_sha256"),(pdf,"pdf_sha256"),(sheet,"contact_sheet_sha256")):
+            self.assertTrue(f.is_file(),str(f))
+            self.assertEqual(hashlib.sha256(f.read_bytes()).hexdigest(),manifest[key])
+        with zipfile.ZipFile(pptx) as z:
+            slide_count=sum(bool(re.fullmatch(r"ppt/slides/slide\\d+\\.xml",p)) for p in z.namelist())
+            notes_count=sum(bool(re.fullmatch(r"ppt/notesSlides/notesSlide\\d+\\.xml",p)) for p in z.namelist())
+            self.assertEqual(slide_count,52)
+            self.assertEqual(notes_count,52)
+        self.assertFalse((LESSON/"INSTRUCTOR_GUIDE_KO.md").exists())
+
+    def test_slide_index_has_all_52_rows(self):
+        text=(LESSON/"WORKBOOK_SLIDE_INDEX_KO.md").read_text()
+        rows=[line for line in text.splitlines() if line.startswith("| ") and line[2:4].isdigit()]
+        self.assertEqual(len(rows),52)
+        for i in range(14):
+            self.assertIn("U"+str(i).zfill(2),text)
+
     def test_readme_contains_one_shot_verifier_and_private_boundary(self):
         text=(LESSON/"README_KO.md").read_text(encoding="utf-8")
         self.assertIn("verify_dual_source.py",text)
