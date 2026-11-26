@@ -15,7 +15,7 @@
   "advanced_failed": {
     "source_sha": "a04f9a7da8d54bbd9f944d05388792cb706adf28",
     "release_branch": "release/day02-g07-failed-l2-20261126",
-    "release_commit_sha": "5f4b2a0a17ff4660083e28089ed300364c4b04a6",
+    "release_commit_sha": "d9ba3f78ae701697a5986a2bc856e4d856a73dd9",
     "native_public_sha": "8e03ac0a912ca9b81bdddda70212e52e6d804389",
     "native_ci_run_id": 44914827138,
     "native_status": "0_OF_2_FAIL",

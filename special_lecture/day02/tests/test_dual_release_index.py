@@ -9,7 +9,7 @@ class DualRelease(unittest.TestCase):
         x=json.loads((D/"DUAL_RELEASE_INDEX.json").read_text())
         self.assertEqual(x["accepted"]["source_sha"],"f7edb2d126502eeeed58ae014adadc7a2096d41b")
         self.assertEqual(x["advanced_failed"]["source_sha"],"a04f9a7da8d54bbd9f944d05388792cb706adf28")
-        self.assertEqual(x["advanced_failed"]["release_commit_sha"],"5f4b2a0a17ff4660083e28089ed300364c4b04a6")
+        self.assertEqual(x["advanced_failed"]["release_commit_sha"],"d9ba3f78ae701697a5986a2bc856e4d856a73dd9")
         self.assertEqual(x["accepted"]["native_status"],"2_OF_2_PASS")
         self.assertEqual(x["advanced_failed"]["native_status"],"0_OF_2_FAIL")
         self.assertIs(x["advanced_failed"]["owner_release_authorized"],False)
@@ -21,7 +21,7 @@ class DualRelease(unittest.TestCase):
     def test_checkout_script_is_safe(self):
         s=(D/"scripts/prepare_dual_mvp.sh").read_text()
         self.assertIn("worktree add --detach",s)
-        self.assertIn("5f4b2a0a17ff4660083e28089ed300364c4b04a6",s)
+        self.assertIn("d9ba3f78ae701697a5986a2bc856e4d856a73dd9",s)
         self.assertIn("REFUSE_OVERWRITE",s)
         self.assertNotIn("ros2 launch",s)
         self.assertNotIn("gz sim",s)

@@ -4,7 +4,7 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 GOOD_SOURCE="f7edb2d126502eeeed58ae014adadc7a2096d41b"
 BAD_SOURCE="a04f9a7da8d54bbd9f944d05388792cb706adf28"
-BAD_RELEASE="5f4b2a0a17ff4660083e28089ed300364c4b04a6"
+BAD_RELEASE="d9ba3f78ae701697a5986a2bc856e4d856a73dd9"
 BAD_BRANCH="release/day02-g07-failed-l2-20261126"
 if [[ "$#" -ge 1 ]]; then OUT="$1"; else OUT="$HOME/axia-day02-failed"; fi
 test -d "$ROOT/.git" || test -f "$ROOT/.git" || { echo "NOT_GIT_CHECKOUT" >&2; exit 3; }
