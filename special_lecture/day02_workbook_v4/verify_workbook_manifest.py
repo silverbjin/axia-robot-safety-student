@@ -11,7 +11,7 @@ def validate():
     if m.get("slides")!=40 or m.get("units")!=20 or m.get("pages_per_unit")!=2:errors.append("BAD_PAGE_COUNT")
     ids=[*("U%02d"%i for i in range(14)),*("A%02d"%i for i in range(1,7))]
     if any(re.search(r"\|\s*"+x+r"\s*\|",index) is None for x in ids):errors.append("MISSING_UNIT")
-    if len(re.findall(r"\\|\\s*U\\d{2}\\s*\\|",index))!=14 or len(re.findall(r"\\|\\s*A\\d{2}\\s*\\|",index))!=6:errors.append("BAD_UNIT_DISTRIBUTION")
+    if sum(1 for row in index.splitlines() if row.startswith("| ") and " | U" in row)!=14 or sum(1 for row in index.splitlines() if row.startswith("| ") and " | A" in row)!=6:errors.append("BAD_UNIT_DISTRIBUTION")
     if m["successful_mvp"]["runtime_source_sha"]!="f7edb2d126502eeeed58ae014adadc7a2096d41b":errors.append("GOOD_SHA_DRIFT")
     if m["failed_mvp"]["runtime_source_sha"]!="a04f9a7da8d54bbd9f944d05388792cb706adf28":errors.append("FAILED_SHA_DRIFT")
     if m["successful_mvp"]["native_run_id"]!=44965035965 or m["failed_mvp"]["native_run_id"]!=44914827138:errors.append("WRONG_L2_RUN")
