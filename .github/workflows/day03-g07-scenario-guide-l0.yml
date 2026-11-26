@@ -1,0 +1,42 @@
+name: DAY 3 G07 scenario guide L0 and pinned historical replay
+on:
+  push:
+    branches: ['feat/day03-g07-scenario-use-guide-*']
+  pull_request:
+    paths:
+      - 'special_lecture/day03_mvp_workbook/**'
+      - '.github/workflows/day03-g07-scenario-guide-l0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guide-and-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Original complete MVP source custody L0
+        run: python3 special_lecture/day02_mvp_sources/scripts/verify_dual_source.py
+      - name: DAY 3 scenario wrapper negative and documentation contracts
+        run: python3 -m unittest discover -s special_lecture/day03_mvp_workbook/tests -p 'test_day03_scenario.py' -v
+      - name: Reuse pinned DAY 2 historic public cards (no ROS, no Goal)
+        env:
+          AXIA_DAY3_SCENARIO_CACHE_DIR: ${{ runner.temp }}/day3_historic_source
+        run: |
+          bash special_lecture/day03_mvp_workbook/scripts/day03_g07_scenario_once.sh --compare \
+            --json-out "${{ runner.temp }}/day3_historic_compare.json" \
+            | tee "${{ runner.temp }}/day3_historic_compare.log"
+          python3 - "${{ runner.temp }}/day3_historic_compare.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          d=json.loads(Path(sys.argv[1]).read_text())
+          assert d['case']=='compare'
+          assert d['stage_count']==10
+          assert d['verification_level']=='HISTORIC_EVIDENCE_REPLAY_L0_ONLY'
+          assert d['new_ros_gazebo_run'] is False
+          assert d['new_l2_l3_acceptance'] is False
+          assert d['certified_estop'] is False
+          assert d['accepted_source_sha']=='f7edb2d126502eeeed58ae014adadc7a2096d41b'
+          assert d['failed_source_sha']=='a04f9a7da8d54bbd9f944d05388792cb706adf28'
+          print('DAY3_PINNED_REPLAY_L0_PASS new_l2_l3=NOT_RUN')
+          PY
