@@ -1,0 +1,20 @@
+{
+  "schema": "axia.day03.mvp_master_first_workbook.v1",
+  "pptx_slides": 52,
+  "pdf_pages": 52,
+  "notes": 52,
+  "unit_faces": 28,
+  "units": 14,
+  "generated_from": "build_workbook.js",
+  "generator_blob_sha": "d732e45e48e946741422df0245877969a014cf63",
+  "pptx_sha256": "8cbd18b3fba80671e977c0a37abdd88d22c2fdd17c5e2a81a301eb03d498f77c",
+  "pdf_sha256": "b94c69170224f0120c679977de3b3aa9e97899b3a693fb030beeeaec4ddd64e8",
+  "contact_sheet_sha256": "3b5a39fb849385e19f56dd8f21f19cc7cc32a44cad339b4f02fec8bf4210465e",
+  "pdf_text_boundary_errors": 0,
+  "actual_ros_gazebo_l2": "NOT_RUN",
+  "actual_owner_wsl2_l3": "NOT_RUN",
+  "historical_accepted_run": 44965035965,
+  "historical_failed_run": 44914827138,
+  "certified_estop": false,
+  "run_id": "45837564279"
+}
