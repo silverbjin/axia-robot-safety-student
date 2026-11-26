@@ -1,0 +1,8 @@
+# P1-T08 evidence recorder only. Do not change Nav2/controller QoS.
+# ROS 2 Action status publisher default: RELIABLE + TRANSIENT_LOCAL.
+# If actual offered QoS differs, the read-only endpoint gate blocks the Goal.
+"/navigate_to_pose/_action/status":
+  history: keep_last
+  depth: 10
+  reliability: reliable
+  durability: transient_local
