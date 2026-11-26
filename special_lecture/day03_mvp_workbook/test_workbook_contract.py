@@ -69,8 +69,8 @@ class Day03WorkbookContract(unittest.TestCase):
             self.assertTrue(f.is_file(),str(f))
             self.assertEqual(hashlib.sha256(f.read_bytes()).hexdigest(),manifest[key])
         with zipfile.ZipFile(pptx) as z:
-            slide_count=sum(bool(re.fullmatch(r"ppt/slides/slide\\d+\\.xml",p)) for p in z.namelist())
-            notes_count=sum(bool(re.fullmatch(r"ppt/notesSlides/notesSlide\\d+\\.xml",p)) for p in z.namelist())
+            slide_count=sum(bool(re.fullmatch(r"ppt/slides/slide\d+\.xml",p)) for p in z.namelist())
+            notes_count=sum(bool(re.fullmatch(r"ppt/notesSlides/notesSlide\d+\.xml",p)) for p in z.namelist())
             self.assertEqual(slide_count,52)
             self.assertEqual(notes_count,52)
         self.assertFalse((LESSON/"INSTRUCTOR_GUIDE_KO.md").exists())
