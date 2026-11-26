@@ -20,3 +20,21 @@ python3 -m unittest discover -s special_lecture/day03_mvp_workbook -p 'test_*.py
 
 **공개 범위**: 기존 공개된 실제 MVP 소스, 학습 계획, 공개 진단 테스트만. 강사 정답 및 hidden tests는 비공개. `main` 병합에는 사용자 별도 승인이 필요합니다.
 **검증 경계**: 문서·소스 SHA L0 PASS는 실제 Gazebo L2/Owner WSL2 L3의 신규 PASS가 아닙니다. 현재 신규 L2/L3는 `NOT_RUN`입니다.
+
+
+## 52장 실물 워크북 — GitHub 공개 렌더 QA 출고
+
+**생성 완료:** `build_workbook.js` (PptxGenJS v4.0.0)로 52장 전량을 생성했고, 동일 소스의 GitHub Actions Run [#45837564279](https://github.com/silverbjin/axia-robot-safety-student/actions/runs/45837564279)에서 PPTX/PDF/PNG 렌더 QA 52/52 PASS 후 바이너리를 브랜치에 커밋했습니다.
+
+- [전체 52장 편집용 PPTX](AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pptx)
+- [전체 52페이지 PDF](AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pdf)
+- [52장 Contact Sheet](AXIA_DAY3_MVP_52_ContactSheet.png)
+- [렌더링 QA 보고서](PPTX_RENDER_QA_KO.md)
+- [실제 GitHub CI 산출물 SHA·검증 범위](WORKBOOK_RENDER_MANIFEST.json)
+- [52장 목차 및 학습 활동](WORKBOOK_SLIDE_INDEX_KO.md)
+
+**교재 콘텐츠:** Master-first → G07 실제 입력/출력 데이터 구조 → U00~U13 각 A면(Result First)/B면(Complete Unit Prompt·Why·Expected·Review) → 개발·통합·인수 종합 → Incident Card.
+
+**주의:** CI의 52장 PDF 렌더 PASS는 디자인·편집 구조 검증이지 새로운 Gazebo L2/Owner WSL2 L3 인수가 아닙니다. 과거 공개 Native L2 성공 Run 44965035965, 실패 Run 44914827138은 서로 다른 실행입니다. 원본 안전 TTL(Scan300/CM120/Guard150)은 변경하지 않았고 인증 E-Stop을 주장하지 않습니다. 학생용 저장소에 강사용 정답·비공개 증거는 포함하지 않습니다.
+
+교육용 전체 소스는 같은 저장소 `special_lecture/day02_mvp_sources/accepted/runtime` 및 `failed/runtime` 경로로 재사용하며 중복 복사하지 않습니다.
