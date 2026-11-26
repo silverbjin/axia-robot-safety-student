@@ -1,0 +1,53 @@
+{
+  "schema": "axia.day02.dual_g07_full_source_build.v1",
+  "date": "2026-11-26",
+  "student_repository": "silverbjin/axia-robot-safety-student",
+  "snapshot_mode": "DIRECT_GIT_TREE_COPY_NOT_SUBMODULE_OR_SYMLINK",
+  "accepted": {
+    "runtime_source_sha": "f7edb2d126502eeeed58ae014adadc7a2096d41b",
+    "runtime_tree_sha": "1ad1d424358345420b8bfc67a6a7ca44d634a974",
+    "ros2_src_tree_sha": "767c3d10187280303f5226a90ede205eb0059033",
+    "runtime_file_count": 186,
+    "native_public_source_sha": "64ba0161e66126b4743b4b12a859f4a5349ae58a",
+    "native_run_id": 44965035965,
+    "native_moving_l2": "2_OF_2_PASS",
+    "owner_l3": "PASS_SCOPED",
+    "original_auto_verdict": "HOLD_RAW_REVIEW_AND_VISUAL_PENDING"
+  },
+  "failed": {
+    "runtime_source_sha": "a04f9a7da8d54bbd9f944d05388792cb706adf28",
+    "runtime_tree_sha": "0d44f39c8f5927d21411c33e7a793ca1a3f6f368",
+    "ros2_src_tree_sha": "767c3d10187280303f5226a90ede205eb0059033",
+    "runtime_file_count": 187,
+    "native_public_source_sha": "8e03ac0a912ca9b81bdddda70212e52e6d804389",
+    "native_run_id": 44914827138,
+    "native_moving_l2": "0_OF_2_FAIL",
+    "owner_l3": "NOT_RUN",
+    "root_cause": "UNDETERMINED"
+  },
+  "packages": [
+    "axia_fault_injector",
+    "axia_safety_bringup",
+    "axia_safety_supervisor",
+    "axia_scenario_verifier"
+  ],
+  "build_contract": {
+    "platform": "Ubuntu 24.04 WSL2",
+    "ros_distro": "jazzy",
+    "gazebo_distro": "harmonic",
+    "build_system": "ament_python_colcon",
+    "build_isolated": true,
+    "no_ros_goal": true,
+    "no_gazebo_run": true,
+    "safety_thresholds_unchanged": true,
+    "certified_estop": false,
+    "new_l2_l3_evidence": "NOT_RUN",
+    "instructor_private_answers_included": false,
+    "student_main_merge_requires_separate_approval": true
+  },
+  "history": {
+    "actual_native_accepted_run_url": "https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44965035965",
+    "actual_native_failed_run_url": "https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44914827138",
+    "owner_scope_report_url": "https://github.com/silverbjin/axia-robot-safety-ci-public/blob/c2c4f66c532be2a41855239860b9a9f5d60c4586/docs/operations/AXIA_G07_OWNER_WSL2_L3_POSTRUN_RAW_EVIDENCE_REVIEW_20261122_KO.md"
+  }
+}
