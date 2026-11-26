@@ -1,0 +1,73 @@
+{
+  "schema": "axia.day02.complete_mvp.classroom_release.v1",
+  "release_id": "AXIA-DAY02-G07-SCOPED-20261126",
+  "date_kst": "2026-11-26",
+  "publication_status": "PUBLIC_CI_L0_PASS_SCOPED",
+  "student_repo": "silverbjin/axia-robot-safety-student",
+  "release_branch": "release/day02-g07-accepted-20261126",
+  "source_commit_sha": "f7edb2d126502eeeed58ae014adadc7a2096d41b",
+  "runtime_prefix": "block_B/day07/h01_runtime",
+  "locked_runtime_blobs": {
+    "block_B/day07/h01_runtime/ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/p2_shutdown_context.py": "a07b332b3b85e8275f1be181b7e837dec8336be8",
+    "block_B/day07/h01_runtime/ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/p2_supervisor_node.py": "582227ccb29769d00a18794ef54825fd9abfd520",
+    "block_B/day07/h01_runtime/ros2_ws/src/axia_safety_supervisor/axia_safety_supervisor/p2_base_guard_policy.py": "13e16846282e1cfc589c19f082a0c2cc6c3b8e25",
+    "block_B/day07/h01_runtime/tools/p2_g07_ci_moving_goal.py": "9d33496476434f29fe3c1591110c5ce360dea56b",
+    "block_B/day07/h01_runtime/tools/p2_g07_ordered_shutdown.py": "5dcc69f0b42ed2a50b3b98c89549a7ff12df8720",
+    "block_B/day07/h01_runtime/ros2_ws/src/axia_safety_bringup/launch/axia_tb3_p2.launch.py": "ffee2fcf63446a0fa6d33685e60f2a331166d975",
+    "block_B/day07/h01_runtime/scripts/p2_no_goal_smoke_ci.sh": "a2a76cb9c9697fab6b20bc2e949f97517e990ae4",
+    "block_B/day07/h01_runtime/tools/test_g07_context_graph_shutdown.py": "5e6e66f712cfd66162a640b7e06e0ee1db3fff6d"
+  },
+  "proven_ci": {
+    "repository": "silverbjin/axia-robot-safety-ci-public",
+    "workflow_sha": "64ba0161e66126b4743b4b12a859f4a5349ae58a",
+    "run_id": 44965035965,
+    "job_ids": [
+      137032019268,
+      137032019011
+    ],
+    "result": "PUBLIC_NATIVE_MOVING_L2_2_OF_2_PASS",
+    "url": "https://github.com/silverbjin/axia-robot-safety-ci-public/actions/runs/44965035965"
+  },
+  "owner_raw_review": {
+    "report_commit_sha": "c2c4f66c532be2a41855239860b9a9f5d60c4586",
+    "report_path": "docs/operations/AXIA_G07_OWNER_WSL2_L3_POSTRUN_RAW_EVIDENCE_REVIEW_20261122_KO.md",
+    "scope": "L3_OWNER_NUMERIC_AND_LIFECYCLE_RAW_REVIEW_PASS_SCOPED",
+    "source_run_id": "u88ZXW8W",
+    "original_auto_verdict": "HOLD_RAW_REVIEW_AND_VISUAL_PENDING",
+    "actual_ros_gazebo": "YES",
+    "independent_gui_content_review": "NOT_PROVIDED",
+    "odom_zero_dwell_sec": 1.026194649,
+    "raw_archives": "NOT_PUBLICLY_DISTRIBUTED"
+  },
+  "scope_limits": {
+    "formal_safety_timing_certification": "NOT_CLAIMED",
+    "certified_estop": false,
+    "dds_rmw_root_cause": "UNDETERMINED",
+    "long_term_all_hardware_stability": "NOT_VERIFIED",
+    "ros_gazebo_in_this_release_verifier": "NOT_RUN",
+    "student_git_main_merged": false,
+    "safety_ttl_changes": false,
+    "nav2_upstream_changes": false,
+    "student_workbook_default": "READ_ONLY_OFFLINE_NO_GOAL",
+    "existing_l2_l3_evidence_reused": true
+  },
+  "publication_gates": {
+    "required": [
+      "immutable_runtime_blob_equality",
+      "no_private_answers",
+      "student_release_l0",
+      "public_ci_green",
+      "scope_disclaimer_review"
+    ],
+    "main_merge": "REQUIRES_SEPARATE_USER_APPROVAL",
+    "raw_owner_logs_publication": "FORBIDDEN",
+    "release_not_a_new_l2_or_l3": "TRUE"
+  },
+  "release_ci_gate": {
+    "first_success_run_id": 45774381274,
+    "first_success_student_commit_sha": "a628df141d148fe7cfbc1a8cd7cba120bdb91568",
+    "first_success_workflow_commit_sha": "b38f9b3eb58f23f6ca839a2fc74dbf8d849f9e84",
+    "final_release_commit": "MUST_BE_CHECKED_BY_PUBLIC_CI_AFTER_THIS_MANIFEST_UPDATE",
+    "scope": "L0_SOURCE_CUSTODY_ONLY_NO_ROS_GAZEBO_NO_GOAL"
+  }
+}
