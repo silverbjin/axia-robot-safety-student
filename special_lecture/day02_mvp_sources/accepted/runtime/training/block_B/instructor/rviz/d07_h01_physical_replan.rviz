@@ -1,0 +1,108 @@
+# D07-H01 PRIVATE instructor: actual physical Gazebo + official Nav2 Path.
+# Read-only RViz2: NO GOAL / NO INITIALPOSE / NO cmd_vel tools.
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+# RViz2 built-in TF visualization subscribes /tf and /tf_static automatically.
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Ground
+      Enabled: true
+      Alpha: 0.4
+      Cell Size: 0.5
+      Plane: XY
+      Plane Cell Count: 16
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Show Axes: true
+      Show Names: false
+      Marker Scale: 0.4
+      Value: true
+    - Class: rviz_default_plugins/LaserScan
+      Name: Real Waffle LaserScan
+      Enabled: true
+      Style: Points
+      Color Transformer: FlatColor
+      Color: 255; 80; 45
+      Size (Pixels): 3
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /scan
+      Value: true
+    - Class: rviz_default_plugins/Odometry
+      Name: Waffle Odometry
+      Enabled: true
+      Color: 47; 180; 240
+      Keep: 10
+      Shape: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /odom
+      Value: true
+    - Class: rviz_default_plugins/Map
+      Name: Official Global Costmap
+      Enabled: true
+      Alpha: 0.72
+      Color Scheme: costmap
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /global_costmap/costmap
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Name: Official ComputePathToPose (read-only)
+      Enabled: true
+      Alpha: 1
+      Color: 20; 255; 154
+      Line Style: Lines
+      Line Width: 0.065
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /axia/d07/h01/path_visual
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 30; 33; 39
+    Fixed Frame: map
+    Frame Rate: 15
+  Name: D07-H01 ACTUAL Physical Nav2 Map + Path NO GOAL
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 5
+      Pitch: 0.7
+      Target Frame: map
+      Yaw: 0.5
+    Saved: ~
+Window Geometry:
+  Height: 900
+  Width: 1450
+  X: 50
+  Y: 40

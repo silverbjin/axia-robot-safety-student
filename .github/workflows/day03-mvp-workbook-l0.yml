@@ -1,0 +1,28 @@
+name: DAY03 MVP workbook source and prompt design L0
+on:
+  push:
+    branches:
+      - 'feat/day03-mvp-native-debug-workbook-plan-*'
+  pull_request:
+    paths:
+      - 'special_lecture/day03_mvp_workbook/**'
+      - '.github/workflows/day03-mvp-workbook-l0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  workbook-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin existing published dual source provenance
+        run: python3 special_lecture/day02_mvp_sources/scripts/verify_dual_source.py
+      - name: DAY03 workbook source/prompt contract
+        run: python3 -m unittest discover -s special_lecture/day03_mvp_workbook -p 'test_*.py' -v
+      - name: Explicit scope boundary
+        run: |
+          echo "DAY03_DOCS_AND_SOURCE_CUSTODY_L0_ONLY"
+          echo "NEW_GAZEBO_L2=NOT_RUN"
+          echo "NEW_OWNER_WSL2_L3=NOT_RUN"
+          echo "CERTIFIED_ESTOP=false"

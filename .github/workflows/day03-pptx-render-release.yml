@@ -1,0 +1,132 @@
+name: DAY03 MVP workbook PPTX 52 slides — build render QA release
+on:
+  push:
+    branches:
+      - 'feat/day03-mvp-native-debug-workbook-plan-20261126'
+    paths:
+      - 'special_lecture/day03_mvp_workbook/build_workbook.js'
+      - '.github/workflows/day03-pptx-render-release.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: day03-pptx-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  render-pptx:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install exact authoring and rendering tools
+        run: |
+          npm install --no-save --no-package-lock pptxgenjs@4.0.0
+          python -m pip install --disable-pip-version-check pillow==11.3.0 pymupdf==1.26.5
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libreoffice-impress fonts-noto-cjk poppler-utils
+      - name: Build 52-slide editable PPTX
+        run: |
+          set -euo pipefail
+          OUT=special_lecture/day03_mvp_workbook
+          node "$OUT/build_workbook.js" "$OUT/AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pptx"
+      - name: Export all 52 slides to PDF
+        run: |
+          set -euo pipefail
+          OUT=special_lecture/day03_mvp_workbook
+          timeout 120s libreoffice -env:UserInstallation=file:///tmp/lo_axia_day3_ci_${{ github.run_id }} \
+            --headless --convert-to pdf --outdir "$OUT" "$OUT/AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pptx"
+      - name: Whole-deck PDF rendered layout QA, contact sheet and evidence
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          import fitz,hashlib,json,zipfile,re,os
+          d=Path("special_lecture/day03_mvp_workbook")
+          ppt=d/"AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pptx"
+          pdf=d/"AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pdf"
+          with zipfile.ZipFile(ppt) as z:
+              paths=z.namelist()
+              slides=[x for x in paths if re.fullmatch(r"ppt/slides/slide\d+\.xml",x)]
+              notes=[x for x in paths if re.fullmatch(r"ppt/notesSlides/notesSlide\d+\.xml",x)]
+          assert len(slides)==52,("PPTX_SLIDE_COUNT",len(slides))
+          assert len(notes)==52,("PPTX_NOTES_COUNT",len(notes))
+          doc=fitz.open(pdf)
+          assert len(doc)==52,("PDF_PAGE_COUNT",len(doc))
+          issues=[]
+          paper=Image.new("RGB",(4*324+5*14,13*200+14*14),"#EAF0F5")
+          pen=ImageDraw.Draw(paper)
+          for i,p in enumerate(doc):
+              if len(p.get_text().strip())<100:issues.append((i+1,"EMPTY_TEXT"))
+              for b in p.get_text("dict")["blocks"]:
+                  for ln in b.get("lines",[]):
+                      for s in ln.get("spans",[]):
+                          if not s["text"].strip():continue
+                          x0,y0,x1,y1=s["bbox"]
+                          if x0<-1 or y0<-1 or x1>p.rect.width+1 or y1>p.rect.height+1:
+                              issues.append((i+1,"TEXT_BOUNDARY",s["text"][:40]))
+              pix=p.get_pixmap(matrix=fitz.Matrix(.30,.30),alpha=False)
+              image=Image.frombytes("RGB",(pix.width,pix.height),pix.samples)
+              image.thumbnail((324,183))
+              x=14+(i%4)*338;y=14+(i//4)*200
+              paper.paste(image,(x,y));pen.text((x,y+184),f"SLIDE {i+1:02d}",fill="#193550")
+          assert not issues,issues
+          sheet=d/"AXIA_DAY3_MVP_52_ContactSheet.png"
+          paper.save(sheet)
+          digest=lambda file: hashlib.sha256(file.read_bytes()).hexdigest()
+          manifest={
+              "schema":"axia.day03.mvp_master_first_workbook.v1",
+              "pptx_slides":52,"pdf_pages":52,"notes":52,
+              "unit_faces":28,"units":14,
+              "generated_from":"build_workbook.js",
+              "generator_blob_sha":"d732e45e48e946741422df0245877969a014cf63",
+              "pptx_sha256":digest(ppt),"pdf_sha256":digest(pdf),
+              "contact_sheet_sha256":digest(sheet),
+              "pdf_text_boundary_errors":len(issues),
+              "actual_ros_gazebo_l2":"NOT_RUN","actual_owner_wsl2_l3":"NOT_RUN",
+              "historical_accepted_run":44965035965,"historical_failed_run":44914827138,
+              "certified_estop":False,
+              "run_id":os.getenv("GITHUB_RUN_ID")
+          }
+          (d/"WORKBOOK_RENDER_MANIFEST.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n")
+          (d/"PPTX_RENDER_QA_KO.md").write_text(
+              "# AXIA DAY 3 — 전체 워크북 렌더링 QA (CI 자동 생성)\n\n"
+              f"- PPTX 슬라이드: {len(slides)}/52\n- PDF 페이지: {len(doc)}/52\n"
+              f"- 발표 노트: {len(notes)}/52\n- PDF 텍스트 영역 위반: 0\n"
+              f"- 52장 contact sheet 생성: PASS\n"
+              f"- PPTX SHA256: \`{digest(ppt)}\`\n- PDF SHA256: \`{digest(pdf)}\`\n"
+              "- 검증: 교육 자료 렌더링 QA. 새 Gazebo L2/Owner WSL2 L3는 NOT_RUN.\n"
+              "- 과거 성공 2/2 및 실패 0/2의 Run ID를 혼합하지 않음.\n"
+              "- Simulation SW STOP은 인증 E-Stop이 아님.\n",encoding="utf-8")
+          print("DAY03_PPTX_RENDER_QA_PASS slides=52 pdf=52 notes=52 bounds=0")
+          print("DAY03_PPTX_SHA256="+manifest["pptx_sha256"])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AXIA-DAY03-MVP-52-slide-workbook-and-QA
+          path: |
+            special_lecture/day03_mvp_workbook/AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pptx
+            special_lecture/day03_mvp_workbook/AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pdf
+            special_lecture/day03_mvp_workbook/AXIA_DAY3_MVP_52_ContactSheet.png
+            special_lecture/day03_mvp_workbook/WORKBOOK_RENDER_MANIFEST.json
+            special_lecture/day03_mvp_workbook/PPTX_RENDER_QA_KO.md
+          if-no-files-found: error
+      - name: Publish only after all rendering QA gates pass
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feat/day03-mvp-native-debug-workbook-plan-20261126'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add special_lecture/day03_mvp_workbook/AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pptx \
+                  special_lecture/day03_mvp_workbook/AXIA_DAY3_MVP_MASTER_FIRST_WORKBOOK_52_KO.pdf \
+                  special_lecture/day03_mvp_workbook/AXIA_DAY3_MVP_52_ContactSheet.png \
+                  special_lecture/day03_mvp_workbook/WORKBOOK_RENDER_MANIFEST.json \
+                  special_lecture/day03_mvp_workbook/PPTX_RENDER_QA_KO.md
+          if git diff --cached --quiet; then echo "NO_NEW_WORKBOOK_BINARY"; exit 0; fi
+          git commit -m "release(day03): render-verified complete 52-slide workbook PPTX PDF"
+          git push origin HEAD:feat/day03-mvp-native-debug-workbook-plan-20261126

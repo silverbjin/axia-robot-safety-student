@@ -1,0 +1,36 @@
+# CI-only actual Nav2 Collision Monitor + actual AXIA Guard integration.
+# No Gazebo or Goal. Synthetic scan is in the robot base frame and has no
+# obstacle points within the frozen P2 stop/slow zones. This is NOT L3 acceptance.
+collision_monitor:
+  ros__parameters:
+    use_sim_time: false
+    base_frame_id: base_footprint
+    odom_frame_id: odom
+    cmd_vel_in_topic: cmd_vel_supervised
+    cmd_vel_out_topic: cmd_vel_pre_guard
+    state_topic: collision_monitor_state
+    transform_tolerance: 0.5
+    source_timeout: 0.5
+    stop_pub_timeout: 2.0
+    base_shift_correction: false
+    polygons: [AXIA_StopFront, AXIA_SlowFront]
+    AXIA_StopFront:
+      type: polygon
+      points: "[[0.40, 0.32], [0.40, -0.32], [-0.10, -0.32], [-0.10, 0.32]]"
+      action_type: stop
+      min_points: 4
+      enabled: true
+      visualize: false
+    AXIA_SlowFront:
+      type: polygon
+      points: "[[0.75, 0.40], [0.75, -0.40], [-0.10, -0.40], [-0.10, 0.40]]"
+      action_type: slowdown
+      slowdown_ratio: 0.30
+      min_points: 4
+      enabled: true
+      visualize: false
+    observation_sources: [scan]
+    scan:
+      type: scan
+      topic: scan
+      enabled: true
