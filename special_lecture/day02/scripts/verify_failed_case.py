@@ -52,6 +52,20 @@ def validate(root=ROOT, manifest=MANIFEST, fixture=FIXTURE):
             errs.append("FIRST_TIMING_BREACH_NOT_REPRODUCED_FROM_RECORD")
     except (KeyError, TypeError):
         errs.append("MALFORMED_FIRST_TIMING_RECORD")
+    # Numerical historical records must match the reviewed original report, not only exceed thresholds.
+    fixed = (
+        (c1 if "c1" in locals() else {}, "scan_callback_max_ms", 439.011892),
+        (c1 if "c1" in locals() else {}, "clock_callback_max_ms", 335.393855),
+        (c1 if "c1" in locals() else {}, "odom_callback_max_ms", 374.025229),
+        (c1 if "c1" in locals() else {}, "original_subscriber_rmw_received_interval_ms", 436.808763),
+        (c2 if "c2" in locals() else {}, "first_blocking_odom_ms", 362.100229),
+        (c2 if "c2" in locals() else {}, "cmd_vel_pre_guard_max_ms", 379.730024),
+        (c2 if "c2" in locals() else {}, "original_cm_rmw_received_interval_ms", 375.941379),
+        (c2 if "c2" in locals() else {}, "independent_cm_rmw_received_interval_ms", 54.116537),
+    )
+    for record, key, expected in fixed:
+        if not isinstance(record.get(key), (float, int)) or abs(record[key]-expected)>1e-7:
+            errs.append("HISTORIC_MEASUREMENT_DRIFT:"+key)
     locked=m.get("locked_runtime_blobs")
     if not isinstance(locked,dict) or len(locked)!=8:
         errs.append("INVALID_BLOB_COUNT")
