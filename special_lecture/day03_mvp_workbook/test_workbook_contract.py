@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import unittest
 
-ROOT=Path(__file__).resolve().parents[3]
+ROOT=Path(__file__).resolve().parents[2]
 LESSON=ROOT/"special_lecture/day03_mvp_workbook"
 SRC=ROOT/"special_lecture/day02_mvp_sources"
 PACKAGES=("axia_fault_injector","axia_safety_bringup","axia_safety_supervisor","axia_scenario_verifier")
