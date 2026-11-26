@@ -38,3 +38,16 @@ python3 -m unittest discover -s special_lecture/day03_mvp_workbook -p 'test_*.py
 **주의:** CI의 52장 PDF 렌더 PASS는 디자인·편집 구조 검증이지 새로운 Gazebo L2/Owner WSL2 L3 인수가 아닙니다. 과거 공개 Native L2 성공 Run 44965035965, 실패 Run 44914827138은 서로 다른 실행입니다. 원본 안전 TTL(Scan300/CM120/Guard150)은 변경하지 않았고 인증 E-Stop을 주장하지 않습니다. 학생용 저장소에 강사용 정답·비공개 증거는 포함하지 않습니다.
 
 교육용 전체 소스는 같은 저장소 `special_lecture/day02_mvp_sources/accepted/runtime` 및 `failed/runtime` 경로로 재사용하며 중복 복사하지 않습니다.
+
+## DAY 3 실제 G07 시나리오 활용 가이드 (S01~S06 / F01~F04)
+
+- [완성 MVP의 시나리오 운영·학생 관측·강사 시연 상세 가이드](DAY3_G07_MVP_SCENARIO_USE_GUIDE_KO.md)
+- [SHA 고정 읽기 전용 시나리오 원샷 스크립트](scripts/day03_g07_scenario_once.sh)
+- [시나리오 L0 검증과 원본 실행 범위](DAY3_G07_SCENARIO_QA_KO.md)
+
+```bash
+bash special_lecture/day03_mvp_workbook/scripts/day03_g07_scenario_once.sh --doctor
+bash special_lecture/day03_mvp_workbook/scripts/day03_g07_scenario_once.sh --compare
+```
+
+본 데모는 이미 공개된 DAY 2 **과거 실측 보고서의 정적 증거 리플레이**만 수행합니다. 새 ROS/Gazebo/Goal 실행은 없으며 신규 L2/L3 인수도 하지 않습니다. `main` 병합은 별도 승인 전 보류합니다.
