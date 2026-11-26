@@ -30,7 +30,7 @@ preflight() {
   [[ "$osversion" == 24.04 ]] || {
     echo "AXIA_DAY02_BUILD_HOLD=UBUNTU_24_04_REQUIRED actual=$osversion" >&2;return 2;
   }
-  for exe in git python3 colcon ros2;do
+  for exe in git python3 colcon;do
     command -v "$exe" >/dev/null || {
       echo "AXIA_DAY02_BUILD_HOLD=MISSING_$exe" >&2;return 2;
     }
@@ -38,6 +38,7 @@ preflight() {
   set +u
   source /opt/ros/jazzy/setup.bash
   set -u
+  command -v ros2 >/dev/null || { echo "AXIA_DAY02_BUILD_HOLD=MISSING_ros2_AFTER_SOURCE" >&2;return 2; }
   [[ "$ROS_DISTRO" == jazzy ]] || {
     echo "AXIA_DAY02_BUILD_HOLD=ROS_DISTRO_NOT_JAZZY" >&2;return 2;
   }
