@@ -64,7 +64,7 @@ EXECUTION_ENV=[python-only | ROS Jazzy | native Gazebo | Owner WSL2 | UNKNOWN]
    ROS/Gazebo 실행, 안전 토픽 발행, 프로세스 전체 종료를 하지 마십시오.
 2. accepted/runtime은 불변입니다. 개발 실습의 RED/GREEN은
    별도로 복사한 진단용 Python 모듈과 공개 테스트에서만 진행하십시오.
-3. Scan/Clock/Odom 300ms, CM 전달 120ms, Guard 내부 CM age 150ms
+3. Scan 300ms, Clock 300ms, Odom 300ms, CM 120ms, Guard 150ms
    등 기존 안전 기준을 완화하지 마십시오. 정확한 경계의 부등호와 측정 위치는
    실제 계약/코드에서 확인하십시오.
 4. SW STOP != 인증된 물리 E-Stop. CERTIFIED_ESTOP=false입니다.
