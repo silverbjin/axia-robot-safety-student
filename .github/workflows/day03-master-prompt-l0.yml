@@ -1,0 +1,29 @@
+name: DAY03 G07 Master Prompt Education L0
+on:
+  push:
+    branches:
+      - 'feat/day03-master-prompt-execution-review-*'
+  pull_request:
+    paths:
+      - 'special_lecture/day03_mvp_workbook/**'
+      - '.github/workflows/day03-master-prompt-l0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prompt-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify pre-existing complete MVP source custody
+        run: python3 special_lecture/day02_mvp_sources/scripts/verify_dual_source.py
+      - name: Validate prompt documentation contract
+        run: python3 -m unittest discover -s special_lecture/day03_mvp_workbook -p 'test_master_prompt_material.py' -v
+      - name: Record scope
+        run: |
+          echo "DAY3_MASTER_PROMPT_DOCS_L0=PASS_IF_PRIOR_STEPS_SUCCESS"
+          echo "NEW_COLCON_BUILD=NOT_RUN"
+          echo "NEW_GAZEBO_L2=NOT_RUN"
+          echo "NEW_OWNER_WSL2_L3=NOT_RUN"
+          echo "CERTIFIED_ESTOP=false"

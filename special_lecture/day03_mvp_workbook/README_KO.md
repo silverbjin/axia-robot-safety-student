@@ -1,6 +1,6 @@
 # DAY 3 — 실제 G07 완성 MVP 기반 AI Native 디버깅 워크북 (기획 후보)
 
-본 디렉터리는 **완성 워크북이 아니라 제작 기획·프롬프트 초안**입니다.
+이 디렉터리에는 **52장 완성 워크북과 제작 기획·실행형 마스터 프롬프트·학생 검수 자료**가 함께 있습니다.
 DAY 2에서 이미 공개된 완성 MVP 코드 전체를 그대로 활용하고, 개발 → 통합 → 인수 오류를 해결하는 프롬프트 방법을 학습합니다.
 
 - [실제 공개 MVP 소스 및 빌드](../day02_mvp_sources/README_KO.md)
@@ -38,3 +38,12 @@ python3 -m unittest discover -s special_lecture/day03_mvp_workbook -p 'test_*.py
 **주의:** CI의 52장 PDF 렌더 PASS는 디자인·편집 구조 검증이지 새로운 Gazebo L2/Owner WSL2 L3 인수가 아닙니다. 과거 공개 Native L2 성공 Run 44965035965, 실패 Run 44914827138은 서로 다른 실행입니다. 원본 안전 TTL(Scan300/CM120/Guard150)은 변경하지 않았고 인증 E-Stop을 주장하지 않습니다. 학생용 저장소에 강사용 정답·비공개 증거는 포함하지 않습니다.
 
 교육용 전체 소스는 같은 저장소 `special_lecture/day02_mvp_sources/accepted/runtime` 및 `failed/runtime` 경로로 재사용하며 중복 복사하지 않습니다.
+
+
+## DAY3 실행형 프롬프트와 AI 응답 QA (신규)
+
+- [완성형 마스터 프롬프트 · 구성요소별 설계 이유 · AI 응답 Q01~Q16 검수표](DAY3_G07_MASTER_PROMPT_EXECUTION_AND_REVIEW_KO.md)
+- [U00~U13 완전한 단위 프롬프트 · 작성 이유 · 오답 교정 재질문](DAY3_G07_U00_U13_UNIT_PROMPTS_KO.md)
+- [프롬프트 L0 교육 계약 테스트](test_master_prompt_material.py)
+
+기존 계획본 `MASTER_PROMPT_DAY3_MVP_KO.txt`는 기준 초안으로 보존합니다. 신규 문서를 복사하여 사용할 때에는 고정 소스 SHA·실제 Run ID·검증 범위를 확인하고, 새 L2/L3는 실행 전 `NOT_RUN`으로 유지하십시오.
